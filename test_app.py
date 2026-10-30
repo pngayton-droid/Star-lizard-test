@@ -328,9 +328,12 @@ else:
         st.session_state.historical_rows = {}
         st.session_state.historical_page = 1
         st.session_state.historical_context = context
-    restore = st.file_uploader('Restore a previously downloaded historical CSV (optional)', type=['csv'], key='hist_restore')
+    restore = st.file_uploader('Restore historical CSV (Android-compatible: choose any file type)', type=None, key='hist_restore')
+    st.caption('Android may grey out CSV files when the picker filters by type. This upload accepts any file; the app checks its CSV columns before restoring.')
     if restore is not None and st.button('Load CSV into analyser', key='hist_restore_button'):
         try:
+            if not restore.name.lower().endswith('.csv'):
+                raise ValueError('Please choose a .csv file, not a Python or PDF file.')
             restored = pd.read_csv(restore)
             needed = {'match_id', 'HT_home', 'HT_away', 'FT_home', 'FT_away'}
             if not needed.issubset(restored.columns):
