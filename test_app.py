@@ -382,7 +382,7 @@ else:
     hist_comp = st.text_input('Historical competition ID', 'comp_3039', key='hist_comp')
     hist_season = st.text_input('Historical season ID (2025/26 Premier League)', 'sn_6125938', key='hist_season')
     batch_size = st.select_slider('Matches per import batch', options=[2, 5, 10], value=5, key='hist_batch')
-    st.caption('Each match can require up to 3 detail requests. Requests are spaced out and temporary HTTP 429 errors retried. Import only when needed; the API may count retries against quota.')
+    st.caption('Each new match can require up to 3 detail requests. The importer skips saved matches, scans up to 8 listing pages per click, and retries temporary HTTP 429 errors. Save new matches to GitHub after each batch.')
     if 'historical_rows' not in st.session_state:
         st.session_state.historical_rows = {}
     if 'historical_page' not in st.session_state:
@@ -450,41 +450,75 @@ else:
         if not all(context):
             st.error('Please enter both the competition and season IDs.')
         else:
+            # Fixed page size keeps pagination stable if the batch-size slider changes.
+            # Scan past already-saved IDs without re-fetching their detail/stats/odds.
+            # Bound listing requests per click to protect the API quota.
+            LIST_PAGE_SIZE = 20
+            MAX_LIST_PAGES = 8
+            added = 0
+            skipped = 0
+            pages_checked = 0
+            errors = []
+            exhausted = False
             try:
-                # Pages of 10 allow gradual import and avoid accidental large downloads.
-                page = st.session_state.historical_page
-                listing = historical_api_get('/football/matches', {
-                    'competition_id': context[0], 'season_id': context[1],
-                    'status': 'finished', 'per_page': batch_size, 'page': page
-                }, api_key)
-                summaries = listing.get('data', [])
-                if not isinstance(summaries, list):
-                    raise ValueError('Unexpected match listing format')
-                added = 0
-                errors = []
-                for summary in summaries:
-                    mid = str(summary.get('id', ''))
-                    if not mid.startswith('mt_') or mid in st.session_state.historical_rows:
-                        continue
-                    try:
-                        detail = historical_api_get('/football/matches/' + mid, {}, api_key)
-                        stats = historical_api_get('/football/matches/' + mid + '/stats', {}, api_key)
-                        odds = historical_api_get('/football/matches/' + mid + '/odds', {}, api_key)
-                        row = parse_historical_match(summary, detail, stats, odds)
-                        st.session_state.historical_rows[mid] = row
-                        added += 1
-                    except Exception as ex:
-                        errors.append(mid + ': ' + str(ex))
-                # Advance only if every returned match was processed, to permit retry.
-                if not errors:
+                while added < batch_size and pages_checked < MAX_LIST_PAGES:
+                    page = st.session_state.historical_page
+                    listing = historical_api_get('/football/matches', {
+                        'competition_id': context[0], 'season_id': context[1],
+                        'status': 'finished', 'per_page': LIST_PAGE_SIZE, 'page': page
+                    }, api_key)
+                    summaries = listing.get('data', [])
+                    if not isinstance(summaries, list):
+                        raise ValueError('Unexpected match listing format')
+                    pages_checked += 1
+                    if not summaries:
+                        exhausted = True
+                        break
+                    for summary in summaries:
+                        if not isinstance(summary, dict):
+                            continue
+                        mid = str(summary.get('id', ''))
+                        if not mid.startswith('mt_'):
+                            continue
+                        if mid in st.session_state.historical_rows:
+                            skipped += 1
+                            continue
+                        if added >= batch_size:
+                            break
+                        try:
+                            detail = historical_api_get('/football/matches/' + mid, {}, api_key)
+                            stats = historical_api_get('/football/matches/' + mid + '/stats', {}, api_key)
+                            odds = historical_api_get('/football/matches/' + mid + '/odds', {}, api_key)
+                            st.session_state.historical_rows[mid] = parse_historical_match(summary, detail, stats, odds)
+                            added += 1
+                        except Exception as ex:
+                            errors.append(mid + ': ' + str(ex))
+                            # Do not keep requesting data after a rate limit or other
+                            # failed match. Retry this page on the next click.
+                            break
+                    if errors:
+                        break
+                    # If batch filled mid-page, revisit this page next time;
+                    # saved IDs will be skipped, so no match is lost.
+                    if added >= batch_size:
+                        break
                     st.session_state.historical_page += 1
-                st.success(f'Imported {added} matches. Total saved in this browser session: {len(st.session_state.historical_rows)}.')
+                    if len(summaries) < LIST_PAGE_SIZE:
+                        exhausted = True
+                        break
+                st.success(f'Imported {added} new matches; skipped {skipped} already saved. '
+                           f'Total in session: {len(st.session_state.historical_rows)}. '
+                           f'Listing pages checked: {pages_checked}.')
                 if errors:
-                    st.warning('Some matches could not be imported. The page will be retried. ' + ' | '.join(errors[:2]))
+                    st.warning('Stopped on a failed match; current page will be retried. ' + errors[0])
                     if any('429' in e for e in errors):
-                        st.error('Rate limit reached: stop importing for now. Download your CSV to preserve the successful records.')
-                if not summaries:
-                    st.info('No matches returned on this page. This season may be exhausted or not covered.')
+                        st.error('Rate limit reached: stop importing for now. Save the successful records to GitHub.')
+                elif exhausted:
+                    st.info('No more finished matches were returned for this season.')
+                elif added == 0:
+                    st.info('No new matches in the pages checked. You can try the next batch later.')
+                if added:
+                    st.info('New matches are in this session. Press Save / merge database permanently to Starlizard GitHub to keep them.')
             except Exception as ex:
                 st.error('Historical import failed: ' + str(ex))
     # Diagnose one saved historical match without re-fetching its scores or stats.
