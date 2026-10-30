@@ -386,6 +386,58 @@ else:
                     st.info('No matches returned on this page. This season may be exhausted or not covered.')
             except Exception as ex:
                 st.error('Historical import failed: ' + str(ex))
+    # Diagnose one saved historical match without re-fetching its scores or stats.
+    # This deliberately makes at most one odds endpoint call per button press.
+    if st.session_state.historical_rows:
+        st.markdown('**Historical bookmaker odds — inspect and repair**')
+        st.caption('Use a saved match to inspect its bookmaker response and attempt an odds-only repair. No match-score or xG requests are made.')
+        saved_ids = sorted(st.session_state.historical_rows)
+        odds_match_id = st.selectbox('Saved match to check', saved_ids, format_func=lambda mid: (
+            f"{st.session_state.historical_rows[mid].get('home', '?')} v {st.session_state.historical_rows[mid].get('away', '?')} — {mid}"
+        ), key='hist_odds_inspect_match')
+        if st.button('Inspect and repair odds for this one match', key='hist_odds_inspect'):
+            try:
+                odds_response = historical_api_get('/football/matches/' + odds_match_id + '/odds', {}, api_key)
+                payload = odds_response.get('data', odds_response) if isinstance(odds_response, dict) else odds_response
+                st.session_state['hist_odds_inspection'] = {'id': odds_match_id, 'payload': payload}
+                if isinstance(payload, dict):
+                    bks = payload.get('bookmakers', [])
+                    if not isinstance(bks, list):
+                        bks = []
+                    found = False
+                    for bk in sorted((b for b in bks if isinstance(b, dict)), key=lambda b: 0 if 'bet365' in str(b.get('bookmaker','')).lower() else 1):
+                        market_data = nested(bk, 'markets', 'match_odds') or {}
+                        vals = [numeric(nested(market_data, side, 'opening')) for side in ('home', 'draw', 'away')]
+                        if all(v is not None and v > 1 for v in vals):
+                            row = st.session_state.historical_rows[odds_match_id]
+                            row.update(dict(zip(('opening_home','opening_draw','opening_away'), vals)))
+                            row['bookmaker'] = str(bk.get('bookmaker', 'Unknown'))
+                            row['odds_status'] = 'Opening 1X2 found'
+                            found = True
+                            st.success('Found and saved opening 1X2 odds. Download a fresh CSV backup below.')
+                            break
+                    if not found:
+                        st.warning('No complete opening 1X2 odds found in the current parser. Inspect the response structure below.')
+                else:
+                    st.warning('Unexpected odds response format. Inspect the response below.')
+            except Exception as exc:
+                st.error('Odds inspection failed: ' + str(exc))
+        inspected = st.session_state.get('hist_odds_inspection')
+        if inspected:
+            st.caption('Odds response structure for ' + inspected['id'] + '. Avoid sharing anything containing credentials; this view should contain only bookmaker odds.')
+            payload = inspected['payload']
+            if isinstance(payload, dict):
+                st.write('Top-level fields:', ', '.join(map(str, payload.keys())))
+                bookmakers = payload.get('bookmakers', [])
+                st.write('Bookmakers:', len(bookmakers) if isinstance(bookmakers, list) else 'Not a list')
+                if isinstance(bookmakers, list) and bookmakers:
+                    sample = next((b for b in bookmakers if isinstance(b, dict)), None)
+                    if sample:
+                        st.json(sample, expanded=False)
+                else:
+                    st.json(payload, expanded=False)
+            else:
+                st.json(payload, expanded=False)
     if st.session_state.historical_rows:
         hist_df = pd.DataFrame(st.session_state.historical_rows.values())
         st.download_button('Download imported historical matches (CSV)', hist_df.to_csv(index=False).encode('utf-8'), 'starlizard_historical_matches.csv', 'text/csv', key='hist_download')
