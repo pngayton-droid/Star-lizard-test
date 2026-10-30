@@ -381,8 +381,8 @@ else:
     st.markdown('**Step 1 — Import historical matches**')
     hist_comp = st.text_input('Historical competition ID', 'comp_3039', key='hist_comp')
     hist_season = st.text_input('Historical season ID (2025/26 Premier League)', 'sn_6125938', key='hist_season')
-    batch_size = st.select_slider('Matches per import batch', options=[2, 5, 10], value=5, key='hist_batch')
-    st.caption('Each new match can require up to 3 detail requests. The importer skips saved matches, scans up to 8 listing pages per click, and retries temporary HTTP 429 errors. Save new matches to GitHub after each batch.')
+    batch_size = st.select_slider('Matches per import batch', options=[2, 5, 10, 20, 25, 50], value=10, key='hist_batch')
+    st.caption('Up to 3 detail requests per new match. Imports checkpoint to GitHub every 10 matches (when configured), and skip saved IDs. Start with 10 to verify the upgrade; larger batches can take several minutes.')
     if 'historical_rows' not in st.session_state:
         st.session_state.historical_rows = {}
     if 'historical_page' not in st.session_state:
@@ -450,17 +450,35 @@ else:
         if not all(context):
             st.error('Please enter both the competition and season IDs.')
         else:
-            # Fixed page size keeps pagination stable if the batch-size slider changes.
-            # Scan past already-saved IDs without re-fetching their detail/stats/odds.
-            # Bound listing requests per click to protect the API quota.
             LIST_PAGE_SIZE = 20
-            MAX_LIST_PAGES = 8
+            MAX_LIST_PAGES = 30
             added = 0
             skipped = 0
             pages_checked = 0
             errors = []
             exhausted = False
+            saved_count = None
+            progress = st.progress(0, text='Preparing import…')
+            status = st.empty()
             try:
+                # Reload durable data before importing, so a restarted session
+                # never needlessly requests details for already-saved matches.
+                if github_token:
+                    try:
+                        remote = github_history_read()
+                        if 'match_id' in remote.columns:
+                            for rec in remote.to_dict('records'):
+                                mid = str(rec.get('match_id', ''))
+                                if mid.startswith('mt_') and mid not in st.session_state.historical_rows:
+                                    st.session_state.historical_rows[mid] = {
+                                        k: (None if pd.isna(v) else v) for k, v in rec.items()
+                                    }
+                    except HTTPError as exc:
+                        if exc.code != 404:
+                            raise RuntimeError(f'Could not check saved database (HTTP {exc.code}); import stopped to protect quota.') from None
+                    except Exception as exc:
+                        raise RuntimeError(f'Could not check saved database: {exc}; import stopped to protect quota.') from None
+
                 while added < batch_size and pages_checked < MAX_LIST_PAGES:
                     page = st.session_state.historical_page
                     listing = historical_api_get('/football/matches', {
@@ -485,40 +503,52 @@ else:
                             continue
                         if added >= batch_size:
                             break
+                        status.info(f'Importing match {added + 1} of {batch_size} — {mid}')
                         try:
                             detail = historical_api_get('/football/matches/' + mid, {}, api_key)
                             stats = historical_api_get('/football/matches/' + mid + '/stats', {}, api_key)
                             odds = historical_api_get('/football/matches/' + mid + '/odds', {}, api_key)
                             st.session_state.historical_rows[mid] = parse_historical_match(summary, detail, stats, odds)
                             added += 1
+                            progress.progress(added / batch_size, text=f'{added} of {batch_size} imported')
+                            # Checkpoint every 10 matches. If a checkpoint fails,
+                            # stop rather than accumulating an unsafe unsaved batch.
+                            if github_token and added % 10 == 0:
+                                status.info(f'Saving checkpoint after {added} new matches…')
+                                saved_count = github_history_save(st.session_state.historical_rows, github_token)
                         except Exception as ex:
                             errors.append(mid + ': ' + str(ex))
-                            # Do not keep requesting data after a rate limit or other
-                            # failed match. Retry this page on the next click.
                             break
-                    if errors:
-                        break
-                    # If batch filled mid-page, revisit this page next time;
-                    # saved IDs will be skipped, so no match is lost.
-                    if added >= batch_size:
+                    if errors or added >= batch_size:
                         break
                     st.session_state.historical_page += 1
                     if len(summaries) < LIST_PAGE_SIZE:
                         exhausted = True
                         break
+
+                # Save remainder, including partial batches after a request error.
+                if github_token and added and added % 10 != 0:
+                    try:
+                        saved_count = github_history_save(st.session_state.historical_rows, github_token)
+                    except Exception as exc:
+                        errors.append('Final GitHub checkpoint: ' + str(exc))
+
+                status.empty()
                 st.success(f'Imported {added} new matches; skipped {skipped} already saved. '
                            f'Total in session: {len(st.session_state.historical_rows)}. '
                            f'Listing pages checked: {pages_checked}.')
+                if saved_count is not None:
+                    st.success(f'Automatic GitHub checkpoint saved: {saved_count} unique matches.')
+                elif added:
+                    st.warning('New matches are in session only. Save to GitHub manually or download the CSV.')
                 if errors:
-                    st.warning('Stopped on a failed match; current page will be retried. ' + errors[0])
+                    st.warning('Stopped on an error; the current page will be retried. ' + errors[0])
                     if any('429' in e for e in errors):
-                        st.error('Rate limit reached: stop importing for now. Save the successful records to GitHub.')
+                        st.error('Rate limit reached. Stop importing for now.')
                 elif exhausted:
                     st.info('No more finished matches were returned for this season.')
                 elif added == 0:
-                    st.info('No new matches in the pages checked. You can try the next batch later.')
-                if added:
-                    st.info('New matches are in this session. Press Save / merge database permanently to Starlizard GitHub to keep them.')
+                    st.info('No new matches in the pages checked.')
             except Exception as ex:
                 st.error('Historical import failed: ' + str(ex))
     # Diagnose one saved historical match without re-fetching its scores or stats.
