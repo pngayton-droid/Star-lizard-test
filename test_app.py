@@ -213,3 +213,175 @@ if st.session_state.get('api_odds') and st.session_state.get('api_odds_match'):
                         st.caption('Unvalidated theoretical expected values, not betting recommendations. Bookmaker prices may be stale. Historical data may not include current-season form.')
     else:
         st.info('No valid 1X2 prices found in this odds response.')
+
+# Historical Situation Analyser — incremental, quota-conscious importer.
+st.divider()
+st.header('Historical Situation Analyser — first version')
+st.caption('Import completed matches in small batches, then filter historical outcomes. Descriptive historical frequencies are not validated predictive probabilities.')
+
+import io
+import math
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def historical_api_get(endpoint, parameters, secret):
+    return api_get(endpoint, parameters, secret)
+
+def nested(obj, *keys):
+    for key in keys:
+        if not isinstance(obj, dict):
+            return None
+        obj = obj.get(key)
+    return obj
+
+def numeric(value):
+    try:
+        value = float(value)
+        return value if math.isfinite(value) else None
+    except (TypeError, ValueError):
+        return None
+
+def parse_historical_match(summary, detail, stats, odds):
+    match = detail.get('data', detail)
+    match_id = str(summary.get('id', ''))
+    score = match.get('score') or {}
+    hth = numeric(score.get('half_time_home'))
+    hta = numeric(score.get('half_time_away'))
+    fth = numeric(score.get('home'))
+    fta = numeric(score.get('away'))
+    stats_data = stats.get('data', stats)
+    xgh = numeric(nested(stats_data, 'overview', 'expected_goals', 'first_half', 'home'))
+    xga = numeric(nested(stats_data, 'overview', 'expected_goals', 'first_half', 'away'))
+    odds_data = odds.get('data', odds)
+    bookmaker = None
+    oh = od = oa = None
+    # Prefer Bet365 for a consistent source; otherwise use first bookmaker with complete opening 1X2.
+    bookmakers = odds_data.get('bookmakers', []) if isinstance(odds_data, dict) else []
+    bookmakers = sorted([b for b in bookmakers if isinstance(b, dict)], key=lambda b: 0 if 'bet365' in str(b.get('bookmaker', '')).lower() else 1)
+    for bk in bookmakers:
+        selections = nested(bk, 'markets', 'match_odds') or {}
+        quotes = [numeric(nested(selections, k, 'opening')) for k in ('home', 'draw', 'away')]
+        if all(v is not None and v > 1 for v in quotes):
+            bookmaker = str(bk.get('bookmaker', 'Unknown'))
+            oh, od, oa = quotes
+            break
+    home_team = match.get('home_team') or summary.get('home_team') or {}
+    away_team = match.get('away_team') or summary.get('away_team') or {}
+    return {
+        'match_id': match_id,
+        'date': match.get('utc_date') or summary.get('utc_date'),
+        'home': home_team.get('name', '?') if isinstance(home_team, dict) else str(home_team),
+        'away': away_team.get('name', '?') if isinstance(away_team, dict) else str(away_team),
+        'HT_home': hth, 'HT_away': hta, 'FT_home': fth, 'FT_away': fta,
+        'HT_xG_home': xgh, 'HT_xG_away': xga,
+        'opening_home': oh, 'opening_draw': od, 'opening_away': oa,
+        'bookmaker': bookmaker,
+    }
+
+if not api_key:
+    st.info('The Historical Situation Analyser uses the STATS_API_KEY already configured in Streamlit Secrets.')
+else:
+    st.markdown('**Step 1 — Import historical matches**')
+    hist_comp = st.text_input('Historical competition ID', 'comp_3039', key='hist_comp')
+    hist_season = st.text_input('Historical season ID (2025/26 Premier League)', 'sn_6125938', key='hist_season')
+    batch_size = st.select_slider('Matches per import batch', options=[2, 5, 10], value=5, key='hist_batch')
+    st.caption('Each imported match can require up to three detail requests (score, first-half stats, odds). Only press Import when you want to use API allowance. Importing 5 matches uses up to 16 requests, including the listing.')
+    if 'historical_rows' not in st.session_state:
+        st.session_state.historical_rows = {}
+    if 'historical_page' not in st.session_state:
+        st.session_state.historical_page = 1
+    if 'historical_context' not in st.session_state:
+        st.session_state.historical_context = None
+    context = (hist_comp.strip(), hist_season.strip())
+    if st.session_state.historical_context != context:
+        st.session_state.historical_rows = {}
+        st.session_state.historical_page = 1
+        st.session_state.historical_context = context
+    if st.button('Import next batch of finished matches', key='hist_import'):
+        if not all(context):
+            st.error('Please enter both the competition and season IDs.')
+        else:
+            try:
+                # Pages of 10 allow gradual import and avoid accidental large downloads.
+                page = st.session_state.historical_page
+                listing = historical_api_get('/football/matches', {
+                    'competition_id': context[0], 'season_id': context[1],
+                    'status': 'finished', 'per_page': batch_size, 'page': page
+                }, api_key)
+                summaries = listing.get('data', [])
+                if not isinstance(summaries, list):
+                    raise ValueError('Unexpected match listing format')
+                added = 0
+                errors = []
+                for summary in summaries:
+                    mid = str(summary.get('id', ''))
+                    if not mid.startswith('mt_') or mid in st.session_state.historical_rows:
+                        continue
+                    try:
+                        detail = historical_api_get('/football/matches/' + mid, {}, api_key)
+                        stats = historical_api_get('/football/matches/' + mid + '/stats', {}, api_key)
+                        odds = historical_api_get('/football/matches/' + mid + '/odds', {}, api_key)
+                        row = parse_historical_match(summary, detail, stats, odds)
+                        st.session_state.historical_rows[mid] = row
+                        added += 1
+                    except Exception as ex:
+                        errors.append(mid + ': ' + str(ex))
+                # Advance only if every returned match was processed, to permit retry.
+                if not errors:
+                    st.session_state.historical_page += 1
+                st.success(f'Imported {added} matches. Total saved in this browser session: {len(st.session_state.historical_rows)}.')
+                if errors:
+                    st.warning('Some matches could not be imported. The page will be retried. ' + ' | '.join(errors[:2]))
+                if not summaries:
+                    st.info('No matches returned on this page. This season may be exhausted or not covered.')
+            except Exception as ex:
+                st.error('Historical import failed: ' + str(ex))
+    if st.session_state.historical_rows:
+        hist_df = pd.DataFrame(st.session_state.historical_rows.values())
+        st.download_button('Download imported historical matches (CSV)', hist_df.to_csv(index=False).encode('utf-8'), 'starlizard_historical_matches.csv', 'text/csv', key='hist_download')
+        st.caption('Imported matches are stored in this Streamlit session, not permanently on the server. Download the CSV to keep them.')
+        st.markdown('**Step 2 — Explore historical situations**')
+        total = len(hist_df)
+        complete_scores = hist_df[['HT_home', 'HT_away', 'FT_home', 'FT_away']].notna().all(axis=1).sum()
+        complete_xg = hist_df[['HT_xG_home', 'HT_xG_away']].notna().all(axis=1).sum()
+        complete_odds = hist_df[['opening_home', 'opening_draw', 'opening_away']].notna().all(axis=1).sum()
+        st.write(f'Imported **{total}** | Complete HT/FT scores **{complete_scores}** | Both HT xG values **{complete_xg}** | Complete opening 1X2 odds **{complete_odds}**')
+        ht_score = st.selectbox('Halftime score (home–away)', ['Any', '0–0', '1–0', '0–1', '1–1', '2–0', '0–2', '2–1', '1–2'], key='hist_score')
+        side = st.selectbox('Pre-match team to filter by odds', ['Any', 'Home', 'Away', 'Favourite'], key='hist_side')
+        min_odds, max_odds = st.slider('Opening decimal odds range', 1.01, 15.0, (1.50, 5.00), 0.01, key='hist_odds')
+        xg_filter = st.selectbox('First-half xG filter', ['No xG filter', 'Home xG at least', 'Away xG at least', 'Trailing team xG at least'], key='hist_xg_filter')
+        min_xg = st.number_input('Minimum first-half xG', 0.0, 10.0, 0.20, 0.05, key='hist_min_xg') if xg_filter != 'No xG filter' else None
+        filtered = hist_df.dropna(subset=['HT_home', 'HT_away', 'FT_home', 'FT_away']).copy()
+        if ht_score != 'Any':
+            h, a = [int(x) for x in ht_score.split('–')]
+            filtered = filtered[(filtered.HT_home == h) & (filtered.HT_away == a)]
+        if side != 'Any':
+            filtered = filtered.dropna(subset=['opening_home', 'opening_away'])
+            if side == 'Home':
+                selected_odds = filtered.opening_home
+            elif side == 'Away':
+                selected_odds = filtered.opening_away
+            else:
+                selected_odds = filtered[['opening_home', 'opening_away']].min(axis=1)
+            filtered = filtered[selected_odds.between(min_odds, max_odds)]
+        if xg_filter != 'No xG filter':
+            if xg_filter == 'Home xG at least':
+                filtered = filtered[filtered.HT_xG_home >= min_xg]
+            elif xg_filter == 'Away xG at least':
+                filtered = filtered[filtered.HT_xG_away >= min_xg]
+            else:
+                trailing_home = filtered.HT_home < filtered.HT_away
+                trailing_away = filtered.HT_away < filtered.HT_home
+                filtered = filtered[(trailing_home & (filtered.HT_xG_home >= min_xg)) | (trailing_away & (filtered.HT_xG_away >= min_xg))]
+        st.metric('Matching historical matches', len(filtered))
+        if len(filtered):
+            outcomes = {
+                'Home win': int((filtered.FT_home > filtered.FT_away).sum()),
+                'Draw': int((filtered.FT_home == filtered.FT_away).sum()),
+                'Away win': int((filtered.FT_home < filtered.FT_away).sum()),
+            }
+            result_rows = [{'Outcome': label, 'Matches': count, 'Historical rate': f'{count / len(filtered):.1%}', 'Reciprocal odds': round(len(filtered) / count, 2) if count else None} for label, count in outcomes.items()]
+            st.dataframe(pd.DataFrame(result_rows), hide_index=True, use_container_width=True)
+            st.caption('Reciprocal odds are 1 / historical frequency, not model-validated fair odds. Small samples can be highly misleading.')
+            st.dataframe(filtered[['date', 'home', 'away', 'HT_home', 'HT_away', 'FT_home', 'FT_away', 'HT_xG_home', 'HT_xG_away', 'opening_home', 'opening_away']], hide_index=True, use_container_width=True)
+        else:
+            st.info('No imported matches meet these filters. Try broader filters or import more matches.')
