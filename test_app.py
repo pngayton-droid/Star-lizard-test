@@ -216,15 +216,43 @@ if st.session_state.get('api_odds') and st.session_state.get('api_odds_match'):
 
 # Historical Situation Analyser — incremental, quota-conscious importer.
 st.divider()
-st.header('Historical Situation Analyser — first version')
+st.header('Historical Situation Analyser — improved importer')
 st.caption('Import completed matches in small batches, then filter historical outcomes. Descriptive historical frequencies are not validated predictive probabilities.')
 
 import io
 import math
+import time
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+import json
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def historical_api_get(endpoint, parameters, secret):
-    return api_get(endpoint, parameters, secret)
+    """Cache successful responses, pause between calls and retry short-term 429s."""
+    url = 'https://api.thestatsapi.com/api' + endpoint
+    if parameters:
+        url += '?' + urlencode(parameters)
+    request = Request(url, headers={'Authorization': 'Bearer ' + secret, 'Accept': 'application/json'})
+    for attempt in range(3):
+        time.sleep(1.2)
+        try:
+            with urlopen(request, timeout=25) as response:
+                return json.load(response)
+        except HTTPError as exc:
+            if exc.code == 429:
+                if attempt == 2:
+                    raise RuntimeError('HTTP 429 after retries. Stop importing and check rate limits or account restrictions.') from None
+                retry_after = exc.headers.get('Retry-After', '')
+                try:
+                    wait = min(30, max(2, float(retry_after)))
+                except (ValueError, TypeError):
+                    wait = [5, 12][attempt]
+                time.sleep(wait)
+                continue
+            raise RuntimeError(f'TheStatsAPI returned HTTP {exc.code} on {endpoint}.') from None
+        except URLError:
+            raise RuntimeError('Could not connect to TheStatsAPI.') from None
 
 def nested(obj, *keys):
     for key in keys:
@@ -254,15 +282,19 @@ def parse_historical_match(summary, detail, stats, odds):
     odds_data = odds.get('data', odds)
     bookmaker = None
     oh = od = oa = None
+    odds_status = 'No bookmaker data'
     # Prefer Bet365 for a consistent source; otherwise use first bookmaker with complete opening 1X2.
     bookmakers = odds_data.get('bookmakers', []) if isinstance(odds_data, dict) else []
     bookmakers = sorted([b for b in bookmakers if isinstance(b, dict)], key=lambda b: 0 if 'bet365' in str(b.get('bookmaker', '')).lower() else 1)
+    if bookmakers:
+        odds_status = 'Bookmakers returned, but no complete opening 1X2 prices'
     for bk in bookmakers:
         selections = nested(bk, 'markets', 'match_odds') or {}
         quotes = [numeric(nested(selections, k, 'opening')) for k in ('home', 'draw', 'away')]
         if all(v is not None and v > 1 for v in quotes):
             bookmaker = str(bk.get('bookmaker', 'Unknown'))
             oh, od, oa = quotes
+            odds_status = 'Opening 1X2 found'
             break
     home_team = match.get('home_team') or summary.get('home_team') or {}
     away_team = match.get('away_team') or summary.get('away_team') or {}
@@ -274,7 +306,7 @@ def parse_historical_match(summary, detail, stats, odds):
         'HT_home': hth, 'HT_away': hta, 'FT_home': fth, 'FT_away': fta,
         'HT_xG_home': xgh, 'HT_xG_away': xga,
         'opening_home': oh, 'opening_draw': od, 'opening_away': oa,
-        'bookmaker': bookmaker,
+        'bookmaker': bookmaker, 'odds_status': odds_status,
     }
 
 if not api_key:
@@ -284,7 +316,7 @@ else:
     hist_comp = st.text_input('Historical competition ID', 'comp_3039', key='hist_comp')
     hist_season = st.text_input('Historical season ID (2025/26 Premier League)', 'sn_6125938', key='hist_season')
     batch_size = st.select_slider('Matches per import batch', options=[2, 5, 10], value=5, key='hist_batch')
-    st.caption('Each imported match can require up to three detail requests (score, first-half stats, odds). Only press Import when you want to use API allowance. Importing 5 matches uses up to 16 requests, including the listing.')
+    st.caption('Each match can require up to 3 detail requests. Requests are spaced out and temporary HTTP 429 errors retried. Import only when needed; the API may count retries against quota.')
     if 'historical_rows' not in st.session_state:
         st.session_state.historical_rows = {}
     if 'historical_page' not in st.session_state:
@@ -296,6 +328,20 @@ else:
         st.session_state.historical_rows = {}
         st.session_state.historical_page = 1
         st.session_state.historical_context = context
+    restore = st.file_uploader('Restore a previously downloaded historical CSV (optional)', type=['csv'], key='hist_restore')
+    if restore is not None and st.button('Load CSV into analyser', key='hist_restore_button'):
+        try:
+            restored = pd.read_csv(restore)
+            needed = {'match_id', 'HT_home', 'HT_away', 'FT_home', 'FT_away'}
+            if not needed.issubset(restored.columns):
+                raise ValueError('This CSV is missing required match columns.')
+            for _, record in restored.iterrows():
+                mid = str(record['match_id'])
+                if mid.startswith('mt_'):
+                    st.session_state.historical_rows[mid] = {k: (None if pd.isna(v) else v) for k, v in record.to_dict().items()}
+            st.success(f'Restored {len(st.session_state.historical_rows)} unique matches. No API calls used.')
+        except Exception as ex:
+            st.error('Could not restore CSV: ' + str(ex))
     if st.button('Import next batch of finished matches', key='hist_import'):
         if not all(context):
             st.error('Please enter both the competition and season IDs.')
@@ -331,6 +377,8 @@ else:
                 st.success(f'Imported {added} matches. Total saved in this browser session: {len(st.session_state.historical_rows)}.')
                 if errors:
                     st.warning('Some matches could not be imported. The page will be retried. ' + ' | '.join(errors[:2]))
+                    if any('429' in e for e in errors):
+                        st.error('Rate limit reached: stop importing for now. Download your CSV to preserve the successful records.')
                 if not summaries:
                     st.info('No matches returned on this page. This season may be exhausted or not covered.')
             except Exception as ex:
@@ -345,6 +393,9 @@ else:
         complete_xg = hist_df[['HT_xG_home', 'HT_xG_away']].notna().all(axis=1).sum()
         complete_odds = hist_df[['opening_home', 'opening_draw', 'opening_away']].notna().all(axis=1).sum()
         st.write(f'Imported **{total}** | Complete HT/FT scores **{complete_scores}** | Both HT xG values **{complete_xg}** | Complete opening 1X2 odds **{complete_odds}**')
+        if 'odds_status' in hist_df.columns:
+            st.caption('Historical odds diagnostics (missing odds may reflect coverage or unavailable opening quotes):')
+            st.dataframe(hist_df['odds_status'].fillna('Previously imported / unknown').value_counts().rename_axis('Status').reset_index(name='Matches'), hide_index=True, use_container_width=True)
         ht_score = st.selectbox('Halftime score (home–away)', ['Any', '0–0', '1–0', '0–1', '1–1', '2–0', '0–2', '2–1', '1–2'], key='hist_score')
         side = st.selectbox('Pre-match team to filter by odds', ['Any', 'Home', 'Away', 'Favourite'], key='hist_side')
         min_odds, max_odds = st.slider('Opening decimal odds range', 1.01, 15.0, (1.50, 5.00), 0.01, key='hist_odds')
