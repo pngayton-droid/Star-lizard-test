@@ -143,3 +143,73 @@ else:
         st.subheader('Provider odds response')
         st.caption('Inspect bookmaker market structure here. Automatic odds comparisons will be enabled only after confirming the returned format and mapping teams correctly.')
         st.json(st.session_state['api_odds'], expanded=False)
+
+
+# Automatic parsing of the confirmed provider match_odds schema.
+# Team-to-model mapping remains explicit: no silent guesses.
+if st.session_state.get('api_odds') and st.session_state.get('api_odds_match'):
+    st.subheader('Bookmaker 1X2 prices')
+    st.caption('Odds for match ID: ' + str(st.session_state['api_odds_match']))
+    odds_payload = st.session_state['api_odds']
+    bookmaker_rows = []
+    for bk in odds_payload.get('bookmakers', []):
+        if not isinstance(bk, dict):
+            continue
+        market_prices = bk.get('markets', {}).get('match_odds', {})
+        row = {'Bookmaker': bk.get('bookmaker', 'Unknown')}
+        valid = True
+        for outcome in ('home', 'draw', 'away'):
+            selection = market_prices.get(outcome, {})
+            if not isinstance(selection, dict):
+                valid = False
+                break
+            for quote_type in ('opening', 'last_seen'):
+                try:
+                    quote = float(selection.get(quote_type))
+                    if not (1.0 < quote < 10000.0):
+                        raise ValueError('Invalid quote')
+                    row[f'{outcome}_{quote_type}'] = quote
+                except (TypeError, ValueError):
+                    row[f'{outcome}_{quote_type}'] = None
+        if valid:
+            prices = [row.get(f'{x}_last_seen') for x in ('home', 'draw', 'away')]
+            row['Overround %'] = round(100 * (sum(1 / x for x in prices) - 1), 2) if all(prices) else None
+            bookmaker_rows.append(row)
+    if bookmaker_rows:
+        st.dataframe(pd.DataFrame(bookmaker_rows), hide_index=True, use_container_width=True)
+        st.caption('Last seen means last recorded by the provider, not guaranteed live or currently available.')
+        st.subheader('Compare 1X2 prices to the model (manual fixture matching)')
+        st.warning('Confirm the selected league and both teams are the SAME fixture as the API match. Do not compare prices from different matches.')
+        compare_league = st.selectbox('Model league for API fixture', leagues, key='api_compare_league')
+        compare_teams = sorted({team for div, team in m.team if div == compare_league})
+        if len(compare_teams) >= 2:
+            model_home = st.selectbox('API home team in historical database', compare_teams, key='api_compare_home')
+            model_away = st.selectbox('API away team in historical database', compare_teams, index=1, key='api_compare_away')
+            selected_bk = st.selectbox('Bookmaker to compare', [row['Bookmaker'] for row in bookmaker_rows], key='api_compare_bookmaker')
+            quote_kind = st.radio('Which prices?', ['last_seen', 'opening'], horizontal=True, key='api_quote_kind')
+            confirmed = st.checkbox('I have verified the home and away teams match the selected API fixture', key='api_teams_confirmed')
+            if confirmed:
+                if model_home == model_away:
+                    st.error('Home and away cannot be the same team.')
+                else:
+                    match_pred = m.predict(compare_league, model_home, model_away)
+                    if match_pred is None:
+                        st.error('Not enough historical matches for these teams.')
+                    else:
+                        match_prices = price(match_pred[0], match_pred[1])
+                        selected_row = next(row for row in bookmaker_rows if row['Bookmaker'] == selected_bk)
+                        comparison = []
+                        for outcome, name in [('home', 'Home win'), ('draw', 'Draw'), ('away', 'Away win')]:
+                            offered = selected_row.get(f'{outcome}_{quote_kind}')
+                            probability = match_prices['probabilities'][outcome]
+                            comparison.append({
+                                'Outcome': name,
+                                'Model probability': f'{probability:.1%}',
+                                'Model fair odds': round(1 / probability, 2),
+                                'Bookmaker odds': offered,
+                                'Model EV %': round(100 * (probability * offered - 1), 2) if offered else None,
+                            })
+                        st.dataframe(pd.DataFrame(comparison), hide_index=True, use_container_width=True)
+                        st.caption('Unvalidated theoretical expected values, not betting recommendations. Bookmaker prices may be stale. Historical data may not include current-season form.')
+    else:
+        st.info('No valid 1X2 prices found in this odds response.')
