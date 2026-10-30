@@ -268,6 +268,39 @@ def numeric(value):
     except (TypeError, ValueError):
         return None
 
+def extract_1x2(odds):
+    """Keep opening and last-seen snapshots distinct; never treat latter as closing."""
+    payload = odds.get('data', odds) if isinstance(odds, dict) else {}
+    bookmakers = payload.get('bookmakers', []) if isinstance(payload, dict) else []
+    if not isinstance(bookmakers, list):
+        bookmakers = []
+    bookmakers = sorted((b for b in bookmakers if isinstance(b, dict)),
+                         key=lambda b: 0 if 'bet365' in str(b.get('bookmaker', '')).lower() else 1)
+    result = {'opening_home': None, 'opening_draw': None, 'opening_away': None,
+              'last_seen_home': None, 'last_seen_draw': None, 'last_seen_away': None,
+              'opening_bookmaker': None, 'last_seen_bookmaker': None,
+              'bookmaker': None, 'odds_status': 'No bookmaker data'}
+    if bookmakers:
+        result['odds_status'] = 'Bookmakers returned; no complete 1X2 snapshot'
+    for kind in ('opening', 'last_seen'):
+        for bk in bookmakers:
+            selections = nested(bk, 'markets', 'match_odds') or {}
+            values = [numeric(nested(selections, k, kind)) for k in ('home', 'draw', 'away')]
+            if all(v is not None and v > 1 for v in values):
+                result.update(dict(zip((kind + '_home', kind + '_draw', kind + '_away'), values)))
+                result[kind + '_bookmaker'] = str(bk.get('bookmaker', 'Unknown'))
+                break
+    result['bookmaker'] = result['opening_bookmaker'] or result['last_seen_bookmaker']
+    has_open = result['opening_bookmaker'] is not None
+    has_last = result['last_seen_bookmaker'] is not None
+    if has_open and has_last:
+        result['odds_status'] = 'Opening and last_seen 1X2 found'
+    elif has_open:
+        result['odds_status'] = 'Opening 1X2 only'
+    elif has_last:
+        result['odds_status'] = 'Last_seen 1X2 only (timing unverified)'
+    return result
+
 def parse_historical_match(summary, detail, stats, odds):
     match = detail.get('data', detail)
     match_id = str(summary.get('id', ''))
@@ -279,23 +312,6 @@ def parse_historical_match(summary, detail, stats, odds):
     stats_data = stats.get('data', stats)
     xgh = numeric(nested(stats_data, 'overview', 'expected_goals', 'first_half', 'home'))
     xga = numeric(nested(stats_data, 'overview', 'expected_goals', 'first_half', 'away'))
-    odds_data = odds.get('data', odds)
-    bookmaker = None
-    oh = od = oa = None
-    odds_status = 'No bookmaker data'
-    # Prefer Bet365 for a consistent source; otherwise use first bookmaker with complete opening 1X2.
-    bookmakers = odds_data.get('bookmakers', []) if isinstance(odds_data, dict) else []
-    bookmakers = sorted([b for b in bookmakers if isinstance(b, dict)], key=lambda b: 0 if 'bet365' in str(b.get('bookmaker', '')).lower() else 1)
-    if bookmakers:
-        odds_status = 'Bookmakers returned, but no complete opening 1X2 prices'
-    for bk in bookmakers:
-        selections = nested(bk, 'markets', 'match_odds') or {}
-        quotes = [numeric(nested(selections, k, 'opening')) for k in ('home', 'draw', 'away')]
-        if all(v is not None and v > 1 for v in quotes):
-            bookmaker = str(bk.get('bookmaker', 'Unknown'))
-            oh, od, oa = quotes
-            odds_status = 'Opening 1X2 found'
-            break
     home_team = match.get('home_team') or summary.get('home_team') or {}
     away_team = match.get('away_team') or summary.get('away_team') or {}
     return {
@@ -305,8 +321,7 @@ def parse_historical_match(summary, detail, stats, odds):
         'away': away_team.get('name', '?') if isinstance(away_team, dict) else str(away_team),
         'HT_home': hth, 'HT_away': hta, 'FT_home': fth, 'FT_away': fta,
         'HT_xG_home': xgh, 'HT_xG_away': xga,
-        'opening_home': oh, 'opening_draw': od, 'opening_away': oa,
-        'bookmaker': bookmaker, 'odds_status': odds_status,
+        **extract_1x2(odds),
     }
 
 if not api_key:
@@ -404,20 +419,13 @@ else:
                     bks = payload.get('bookmakers', [])
                     if not isinstance(bks, list):
                         bks = []
-                    found = False
-                    for bk in sorted((b for b in bks if isinstance(b, dict)), key=lambda b: 0 if 'bet365' in str(b.get('bookmaker','')).lower() else 1):
-                        market_data = nested(bk, 'markets', 'match_odds') or {}
-                        vals = [numeric(nested(market_data, side, 'opening')) for side in ('home', 'draw', 'away')]
-                        if all(v is not None and v > 1 for v in vals):
-                            row = st.session_state.historical_rows[odds_match_id]
-                            row.update(dict(zip(('opening_home','opening_draw','opening_away'), vals)))
-                            row['bookmaker'] = str(bk.get('bookmaker', 'Unknown'))
-                            row['odds_status'] = 'Opening 1X2 found'
-                            found = True
-                            st.success('Found and saved opening 1X2 odds. Download a fresh CSV backup below.')
-                            break
-                    if not found:
-                        st.warning('No complete opening 1X2 odds found in the current parser. Inspect the response structure below.')
+                    updated = extract_1x2(payload)
+                    row = st.session_state.historical_rows[odds_match_id]
+                    row.update(updated)
+                    if updated['opening_bookmaker'] or updated['last_seen_bookmaker']:
+                        st.success('Saved available 1X2 snapshots. Download a fresh CSV backup below.')
+                    else:
+                        st.warning('No complete 1X2 snapshot found. Inspect the response below.')
                 else:
                     st.warning('Unexpected odds response format. Inspect the response below.')
             except Exception as exc:
@@ -446,14 +454,22 @@ else:
         total = len(hist_df)
         complete_scores = hist_df[['HT_home', 'HT_away', 'FT_home', 'FT_away']].notna().all(axis=1).sum()
         complete_xg = hist_df[['HT_xG_home', 'HT_xG_away']].notna().all(axis=1).sum()
-        complete_odds = hist_df[['opening_home', 'opening_draw', 'opening_away']].notna().all(axis=1).sum()
-        st.write(f'Imported **{total}** | Complete HT/FT scores **{complete_scores}** | Both HT xG values **{complete_xg}** | Complete opening 1X2 odds **{complete_odds}**')
+        for field in ('opening_home','opening_draw','opening_away','last_seen_home','last_seen_draw','last_seen_away'):
+            if field not in hist_df.columns:
+                hist_df[field] = float('nan')
+            hist_df[field] = pd.to_numeric(hist_df[field], errors='coerce')
+        complete_opening = int(hist_df[['opening_home', 'opening_draw', 'opening_away']].notna().all(axis=1).sum())
+        complete_last = int(hist_df[['last_seen_home', 'last_seen_draw', 'last_seen_away']].notna().all(axis=1).sum())
+        st.write(f'Imported **{total}** | Complete HT/FT scores **{complete_scores}** | Both HT xG values **{complete_xg}** | Complete opening 1X2 **{complete_opening}** | Complete last_seen 1X2 **{complete_last}**')
+        st.caption('Last_seen is the last price recorded by the provider, NOT verified pre-match or closing odds. Do not use it as a pre-match backtest price until its timestamp is verified.')
         if 'odds_status' in hist_df.columns:
-            st.caption('Historical odds diagnostics (missing odds may reflect coverage or unavailable opening quotes):')
             st.dataframe(hist_df['odds_status'].fillna('Previously imported / unknown').value_counts().rename_axis('Status').reset_index(name='Matches'), hide_index=True, use_container_width=True)
         ht_score = st.selectbox('Halftime score (home–away)', ['Any', '0–0', '1–0', '0–1', '1–1', '2–0', '0–2', '2–1', '1–2'], key='hist_score')
         side = st.selectbox('Pre-match team to filter by odds', ['Any', 'Home', 'Away', 'Favourite'], key='hist_side')
-        min_odds, max_odds = st.slider('Opening decimal odds range', 1.01, 15.0, (1.50, 5.00), 0.01, key='hist_odds')
+        odds_kind = st.selectbox('Odds snapshot for historical filter', ['opening', 'last_seen'], key='hist_odds_kind')
+        if odds_kind == 'last_seen':
+            st.warning('Research-only: last_seen timing is unverified; results must not be treated as a pre-match odds backtest.')
+        min_odds, max_odds = st.slider('Selected decimal odds range', 1.01, 15.0, (1.50, 5.00), 0.01, key='hist_odds')
         xg_filter = st.selectbox('First-half xG filter', ['No xG filter', 'Home xG at least', 'Away xG at least', 'Trailing team xG at least'], key='hist_xg_filter')
         min_xg = st.number_input('Minimum first-half xG', 0.0, 10.0, 0.20, 0.05, key='hist_min_xg') if xg_filter != 'No xG filter' else None
         filtered = hist_df.dropna(subset=['HT_home', 'HT_away', 'FT_home', 'FT_away']).copy()
@@ -461,13 +477,13 @@ else:
             h, a = [int(x) for x in ht_score.split('–')]
             filtered = filtered[(filtered.HT_home == h) & (filtered.HT_away == a)]
         if side != 'Any':
-            filtered = filtered.dropna(subset=['opening_home', 'opening_away'])
+            filtered = filtered.dropna(subset=[odds_kind + '_home', odds_kind + '_away'])
             if side == 'Home':
-                selected_odds = filtered.opening_home
+                selected_odds = filtered[odds_kind + '_home']
             elif side == 'Away':
-                selected_odds = filtered.opening_away
+                selected_odds = filtered[odds_kind + '_away']
             else:
-                selected_odds = filtered[['opening_home', 'opening_away']].min(axis=1)
+                selected_odds = filtered[[odds_kind + '_home', odds_kind + '_away']].min(axis=1)
             filtered = filtered[selected_odds.between(min_odds, max_odds)]
         if xg_filter != 'No xG filter':
             if xg_filter == 'Home xG at least':
@@ -488,6 +504,6 @@ else:
             result_rows = [{'Outcome': label, 'Matches': count, 'Historical rate': f'{count / len(filtered):.1%}', 'Reciprocal odds': round(len(filtered) / count, 2) if count else None} for label, count in outcomes.items()]
             st.dataframe(pd.DataFrame(result_rows), hide_index=True, use_container_width=True)
             st.caption('Reciprocal odds are 1 / historical frequency, not model-validated fair odds. Small samples can be highly misleading.')
-            st.dataframe(filtered[['date', 'home', 'away', 'HT_home', 'HT_away', 'FT_home', 'FT_away', 'HT_xG_home', 'HT_xG_away', 'opening_home', 'opening_away']], hide_index=True, use_container_width=True)
+            st.dataframe(filtered[['date', 'home', 'away', 'HT_home', 'HT_away', 'FT_home', 'FT_away', 'HT_xG_home', 'HT_xG_away', 'opening_home', 'opening_away', 'last_seen_home', 'last_seen_away']], hide_index=True, use_container_width=True)
         else:
             st.info('No imported matches meet these filters. Try broader filters or import more matches.')
