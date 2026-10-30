@@ -24,7 +24,7 @@ def fit(path, asof):
     return m, int(len(data))
 
 st.caption('Data available only through the selected as-of date. Historical score results are never used to price matches on or before that date.')
-path=st.text_input('Historical CSV path', 'football_merged_32653.csv')
+path=st.text_input('Historical CSV path', 'https://raw.githubusercontent.com/pngayton-droid/football-value-scanner/main/football_merged_32653.csv')
 asof=st.date_input('Price matches as of (training strictly before this date)',value=datetime.date(2026,10,30))
 try:
     m, n=fit(path,asof.isoformat())
