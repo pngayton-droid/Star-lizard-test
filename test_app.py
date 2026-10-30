@@ -226,6 +226,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 import json
+import base64
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def historical_api_get(endpoint, parameters, secret):
@@ -324,6 +325,56 @@ def parse_historical_match(summary, detail, stats, odds):
         **extract_1x2(odds),
     }
 
+# Optional durable storage: a separate file committed to the Starlizard repo.
+# A Streamlit session/local file is NOT durable storage on Community Cloud.
+HIST_REPO = 'pngayton-droid/Star-lizard-test'
+HIST_REPO_PATH = 'data/historical_matches.csv'
+
+def github_history_read():
+    url = f'https://raw.githubusercontent.com/{HIST_REPO}/main/{HIST_REPO_PATH}'
+    with urlopen(Request(url, headers={'Accept': 'text/csv'}), timeout=20) as resp:
+        return pd.read_csv(io.BytesIO(resp.read()))
+
+def github_history_save(rows, token):
+    """Merge remote and session by match ID, then commit with optimistic SHA lock."""
+    endpoint = f'https://api.github.com/repos/{HIST_REPO}/contents/{HIST_REPO_PATH}'
+    headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json',
+               'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'Starlizard-History'}
+    sha = None
+    merged = {}
+    try:
+        with urlopen(Request(endpoint, headers=headers), timeout=20) as resp:
+            existing = json.load(resp)
+        sha = existing['sha']
+        raw = base64.b64decode(existing['content'])
+        for record in pd.read_csv(io.BytesIO(raw)).to_dict('records'):
+            mid = str(record.get('match_id', ''))
+            if mid.startswith('mt_'):
+                merged[mid] = record
+    except HTTPError as exc:
+        if exc.code != 404:
+            raise RuntimeError(f'GitHub read failed (HTTP {exc.code})') from None
+    # Preserve existing nonempty fields when new session has missing values.
+    for mid, row in rows.items():
+        old = merged.get(mid, {})
+        new = dict(old)
+        for k, v in row.items():
+            if v is not None and not (isinstance(v, float) and pd.isna(v)) and str(v).strip() != '':
+                new[k] = v
+        merged[mid] = new
+    csv_bytes = pd.DataFrame(merged.values()).to_csv(index=False).encode('utf-8')
+    payload = {'message': 'Update Starlizard historical research dataset',
+               'content': base64.b64encode(csv_bytes).decode('ascii'), 'branch': 'main'}
+    if sha:
+        payload['sha'] = sha
+    req = Request(endpoint, data=json.dumps(payload).encode(), headers={**headers, 'Content-Type': 'application/json'}, method='PUT')
+    try:
+        with urlopen(req, timeout=30) as resp:
+            json.load(resp)
+    except HTTPError as exc:
+        raise RuntimeError(f'GitHub save failed (HTTP {exc.code}). Existing data was not overwritten; check permissions or concurrent changes.') from None
+    return len(merged)
+
 if not api_key:
     st.info('The Historical Situation Analyser uses the STATS_API_KEY already configured in Streamlit Secrets.')
 else:
@@ -343,6 +394,41 @@ else:
         st.session_state.historical_rows = {}
         st.session_state.historical_page = 1
         st.session_state.historical_context = context
+    st.markdown('**Durable database — Starlizard GitHub repository**')
+    st.caption('Optional: save the historical CSV to data/historical_matches.csv in Star-lizard-test. This does not change the original football-value-scanner. Streamlit session data alone is temporary.')
+    if st.button('Load saved database from Starlizard GitHub', key='hist_github_load'):
+        try:
+            remote = github_history_read()
+            if 'match_id' not in remote.columns or not {'HT_home','HT_away','FT_home','FT_away'}.issubset(remote.columns):
+                raise ValueError('Saved database is missing required columns.')
+            for rec in remote.to_dict('records'):
+                mid = str(rec.get('match_id', ''))
+                if mid.startswith('mt_'):
+                    st.session_state.historical_rows[mid] = {k: (None if pd.isna(v) else v) for k,v in rec.items()}
+            st.success(f'Loaded {len(st.session_state.historical_rows)} matches; no StatsAPI requests used.')
+        except HTTPError as exc:
+            if exc.code == 404:
+                st.info('No database has been saved to this repository yet. Restore your CSV below first.')
+            else:
+                st.error(f'GitHub read returned HTTP {exc.code}.')
+        except Exception as exc:
+            st.error('Could not load GitHub database: ' + str(exc))
+    try:
+        github_token = st.secrets.get('STARLIZARD_GITHUB_TOKEN', '')
+    except Exception:
+        github_token = ''
+    if github_token:
+        if st.button('Save / merge database permanently to Starlizard GitHub', key='hist_github_save'):
+            if not st.session_state.historical_rows:
+                st.warning('Load or import some matches first.')
+            else:
+                try:
+                    count = github_history_save(st.session_state.historical_rows, github_token)
+                    st.success(f'Saved {count} unique matches to Starlizard GitHub. Your CSV backup is still recommended.')
+                except Exception as exc:
+                    st.error(str(exc))
+    else:
+        st.info('Permanent GitHub saving is not yet enabled. To enable it later, add STARLIZARD_GITHUB_TOKEN to Streamlit Secrets with access only to the Starlizard repository. Until then, use CSV backups.')
     restore = st.file_uploader('Restore historical CSV (Android-compatible: choose any file type)', type=None, key='hist_restore')
     st.caption('Android may grey out CSV files when the picker filters by type. This upload accepts any file; the app checks its CSV columns before restoring.')
     if restore is not None and st.button('Load CSV into analyser', key='hist_restore_button'):
@@ -449,7 +535,7 @@ else:
     if st.session_state.historical_rows:
         hist_df = pd.DataFrame(st.session_state.historical_rows.values())
         st.download_button('Download imported historical matches (CSV)', hist_df.to_csv(index=False).encode('utf-8'), 'starlizard_historical_matches.csv', 'text/csv', key='hist_download')
-        st.caption('Imported matches are stored in this Streamlit session, not permanently on the server. Download the CSV to keep them.')
+        st.caption('Download a CSV backup after each import. Streamlit sessions are temporary; permanent GitHub saving is available only when its separate token is configured.')
         st.markdown('**Step 2 — Explore historical situations**')
         total = len(hist_df)
         complete_scores = hist_df[['HT_home', 'HT_away', 'FT_home', 'FT_away']].notna().all(axis=1).sum()
