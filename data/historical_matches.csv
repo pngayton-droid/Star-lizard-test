@@ -1,0 +1,11 @@
+match_id,date,home,away,HT_home,HT_away,FT_home,FT_away,HT_xG_home,HT_xG_away,bookmaker,odds_status,last_seen_home,last_seen_draw,last_seen_away,last_seen_bookmaker
+mt_838955396,2026-05-24T15:00:00.000Z,West Ham United,Leeds United,0.0,0.0,3.0,0.0,1.11,1.06,,,,,,
+mt_363788671,2026-05-24T15:00:00.000Z,Tottenham Hotspur,Everton,1.0,0.0,1.0,0.0,0.97,0.16,Bet365,Last_seen 1X2 only (timing unverified),1.91,3.5,4.1,Bet365
+mt_626433243,2026-05-24T15:00:00.000Z,Sunderland,Chelsea,1.0,0.0,2.0,1.0,0.45,0.78,,,,,,
+mt_404677066,2026-05-24T15:00:00.000Z,Fulham,Newcastle United,1.0,0.0,2.0,0.0,1.12,0.13,,"Bookmakers returned, but no complete opening 1X2 prices",,,,
+mt_010244121,2026-05-24T15:00:00.000Z,Nottingham Forest,Bournemouth,1.0,0.0,1.0,1.0,1.04,0.38,,"Bookmakers returned, but no complete opening 1X2 prices",,,,
+mt_585122817,2026-05-24T15:00:00.000Z,Crystal Palace,Arsenal,0.0,1.0,1.0,2.0,0.05,1.17,,"Bookmakers returned, but no complete opening 1X2 prices",,,,
+mt_979811780,2026-05-24T15:00:00.000Z,Liverpool,Brentford,0.0,0.0,1.0,1.0,0.83,0.68,,"Bookmakers returned, but no complete opening 1X2 prices",,,,
+mt_252066552,2026-05-24T15:00:00.000Z,Manchester City,Aston Villa,1.0,0.0,1.0,2.0,1.19,0.0,,"Bookmakers returned, but no complete opening 1X2 prices",,,,
+mt_191500998,2026-05-24T15:00:00.000Z,Burnley,Wolverhampton,0.0,1.0,1.0,1.0,0.32,1.45,,"Bookmakers returned, but no complete opening 1X2 prices",,,,
+mt_747399440,2026-05-24T15:00:00.000Z,Brighton & Hove Albion,Manchester United,0.0,2.0,0.0,3.0,0.21,1.19,,"Bookmakers returned, but no complete opening 1X2 prices",,,,
