@@ -1022,7 +1022,7 @@ else:
 # Step 6: export actual historical corners/cards prices without modifying saved data.
 st.divider()
 st.header('Step 6 — Historical corners and cards odds extractor')
-st.caption('Odds and final match stats; GitHub checkpoints after each 10 matches. Last-seen odds timestamps remain unverified.')
+st.caption('Odds-only requests; no GitHub writes. Captures actual bookmaker, line, selection and price. Last-seen timestamps are not provided in the observed response.')
 
 def extract_totals_quotes(response, match_id):
     payload = response.get('data', response) if isinstance(response, dict) else {}
@@ -1134,69 +1134,6 @@ def totals_checkpoint_save(token, session_quotes, session_checked):
         raise RuntimeError(f'GitHub checkpoint save failed (HTTP {exc.code}); download CSV backup.') from None
     return len(checked), len(merged)
 
-# Results are stored separately so the original odds checkpoint is never overwritten.
-RESULTS_REPO_PATH = 'data/corners_cards_results.csv'
-RESULTS_FIELDS = ['match_id', 'corners_home', 'corners_away', 'corners_total',
-                  'yellow_home', 'yellow_away', 'yellow_total',
-                  'red_home', 'red_away', 'red_total', 'stats_status']
-
-def results_checkpoint_read(token=''):
-    endpoint = f'https://api.github.com/repos/{HIST_REPO}/contents/{RESULTS_REPO_PATH}'
-    headers = {'Accept': 'application/vnd.github+json', 'User-Agent': 'Starlizard-Results'}
-    if token:
-        headers['Authorization'] = 'Bearer ' + token
-    try:
-        with urlopen(Request(endpoint, headers=headers), timeout=20) as response:
-            document = json.load(response)
-    except HTTPError as exc:
-        if exc.code == 404:
-            return {}, None
-        raise RuntimeError(f'Cannot load results checkpoint (GitHub HTTP {exc.code})') from None
-    frame = pd.read_csv(io.BytesIO(base64.b64decode(document['content'])),
-                        dtype={'match_id': str}, keep_default_na=False)
-    if not {'match_id', 'stats_status'}.issubset(frame.columns):
-        raise ValueError('Unexpected results checkpoint format.')
-    return {str(r['match_id']): r for r in frame.to_dict('records')}, document['sha']
-
-def results_checkpoint_save(token, rows):
-    if not token:
-        raise ValueError('Missing GitHub token for results checkpoint.')
-    remote, sha = results_checkpoint_read(token)
-    remote.update(rows)
-    content = pd.DataFrame(list(remote.values()), columns=RESULTS_FIELDS).to_csv(index=False).encode('utf-8')
-    payload = {'message': 'Checkpoint Starlizard corners/cards match results',
-               'content': base64.b64encode(content).decode('ascii'), 'branch': 'main'}
-    if sha:
-        payload['sha'] = sha
-    headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json',
-               'Content-Type': 'application/json', 'User-Agent': 'Starlizard-Results'}
-    endpoint = f'https://api.github.com/repos/{HIST_REPO}/contents/{RESULTS_REPO_PATH}'
-    try:
-        with urlopen(Request(endpoint, data=json.dumps(payload).encode('utf-8'),
-                             headers=headers, method='PUT'), timeout=30) as response:
-            json.load(response)
-    except HTTPError as exc:
-        raise RuntimeError(f'Results checkpoint failed (GitHub HTTP {exc.code}).') from None
-    return len(remote)
-
-def extract_final_stats(response, mid):
-    data = response.get('data', response) if isinstance(response, dict) else {}
-    overview = data.get('overview', {}) if isinstance(data, dict) else {}
-    def pair(field):
-        item = overview.get(field, {}) if isinstance(overview, dict) else {}
-        whole = item.get('all') if isinstance(item, dict) else None
-        if not isinstance(whole, dict):
-            return None, None, None
-        home, away = numeric(whole.get('home')), numeric(whole.get('away'))
-        if home is None or away is None:
-            return None, None, None
-        return home, away, home + away
-    c = pair('corner_kicks')
-    y = pair('yellow_cards')
-    r = pair('red_cards')
-    return dict(zip(RESULTS_FIELDS, [mid, *c, *y, *r,
-                'available' if c[2] is not None or y[2] is not None or r[2] is not None else 'missing']))
-
 if not api_key:
     st.info('Configure STATS_API_KEY to enable historical odds extraction.')
 else:
@@ -1205,22 +1142,13 @@ else:
                               ['Saved Starlizard GitHub database', 'Matches already loaded in this session'],
                               key='extract_source')
     extract_batch = st.select_slider('Odds requests in this batch',
-                                     options=[2, 5, 10, 20, 50, 100], value=20, key='extract_batch')
+                                     options=[2, 5, 10, 20, 50], value=5, key='extract_batch')
     if 'totals_odds_rows' not in st.session_state:
         st.session_state['totals_odds_rows'] = {}
     if 'totals_odds_checked' not in st.session_state:
         st.session_state['totals_odds_checked'] = set()
     if 'totals_checkpoint_loaded' not in st.session_state:
         st.session_state['totals_checkpoint_loaded'] = False
-    if 'totals_results_rows' not in st.session_state:
-        st.session_state['totals_results_rows'] = {}
-    if st.button('Load saved match results from GitHub (no API credits)', key='results_load'):
-        try:
-            stored, _ = results_checkpoint_read(github_token)
-            st.session_state['totals_results_rows'].update(stored)
-            st.success(f'Loaded {len(stored)} match results.')
-        except Exception as exc:
-            st.error(str(exc))
     if github_token:
         st.success('Permanent GitHub checkpointing is enabled for Step 6.')
     else:
@@ -1265,43 +1193,6 @@ else:
             st.caption('An old prices-only CSV cannot identify checked matches that had no quotes.')
         except Exception as exc:
             st.error('Could not restore odds CSV: ' + str(exc))
-    if st.button('Collect final corners/cards results for saved odds matches (up to 100)', key='results_run'):
-        try:
-            if not github_token:
-                raise ValueError('GitHub token required: refusing to spend API requests without durable saving.')
-            stored, _ = results_checkpoint_read(github_token)
-            st.session_state['totals_results_rows'].update(stored)
-            quotes, checked, _ = totals_checkpoint_read(github_token)
-            mids = sorted(mid for mid in checked if mid not in st.session_state['totals_results_rows'])[:100]
-            if not mids:
-                st.info('No saved odds matches remain without a results check.')
-            else:
-                done = 0
-                progress = st.progress(0, text='Collecting match results...')
-                for i, mid in enumerate(mids):
-                    try:
-                        response = historical_api_get('/football/matches/' + mid + '/stats', {}, api_key)
-                        row = extract_final_stats(response, mid)
-                        st.session_state['totals_results_rows'][mid] = row
-                        done += 1
-                        if done % 10 == 0:
-                            results_checkpoint_save(github_token, st.session_state['totals_results_rows'])
-                    except Exception as exc:
-                        st.error(f'Stopped at {mid}: {exc}')
-                        break
-                    progress.progress((i + 1) / len(mids), text=f'{i+1} of {len(mids)} results checked')
-                if done % 10:
-                    results_checkpoint_save(github_token, st.session_state['totals_results_rows'])
-                st.success(f'Checked {done} match results; saved {len(st.session_state["totals_results_rows"])} result records.')
-        except Exception as exc:
-            st.error('Results extraction could not start: ' + str(exc))
-    if st.session_state['totals_results_rows']:
-        results_df = pd.DataFrame(list(st.session_state['totals_results_rows'].values()))
-        st.write(f'**Results checked:** {len(results_df)} | **With stats:** {(results_df.stats_status == "available").sum()}')
-        st.dataframe(results_df.tail(100), hide_index=True, use_container_width=True)
-        st.download_button('Download corners/cards results CSV', results_df.to_csv(index=False).encode(),
-                           'starlizard_corners_cards_results.csv', 'text/csv', key='results_download')
-    st.caption('Card totals are raw yellow/red counts, not verified bookmaker card-point settlement. No ROI is inferred.')
     if st.button('Extract next batch of historical corners and cards odds', key='extract_run'):
         try:
             # Fail closed if durable progress cannot be read: protects paid API quota.
