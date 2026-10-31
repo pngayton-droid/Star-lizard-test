@@ -1064,22 +1064,143 @@ def extract_totals_quotes(response, match_id):
                                        'capture_time_verified': False})
     return output
 
+# A single checkpoint CSV holds BOTH successful checks (including matches with no
+# quotes) and extracted quotes. It is separate from the historical match database.
+TOTALS_REPO_PATH = 'data/corners_cards_extraction.csv'
+TOTALS_FIELDS = ['record_type', 'match_id', 'bookmaker', 'market', 'market_key',
+                 'line', 'selection', 'opening', 'last_seen', 'capture_time_verified']
+
+def totals_checkpoint_read(token=''):
+    endpoint = f'https://api.github.com/repos/{HIST_REPO}/contents/{TOTALS_REPO_PATH}'
+    headers = {'Accept': 'application/vnd.github+json', 'User-Agent': 'Starlizard-Totals'}
+    if token:
+        headers['Authorization'] = 'Bearer ' + token
+    try:
+        with urlopen(Request(endpoint, headers=headers), timeout=20) as resp:
+            document = json.load(resp)
+    except HTTPError as exc:
+        if exc.code == 404:
+            return {}, set(), None
+        raise RuntimeError(f'Cannot read odds checkpoint (GitHub HTTP {exc.code})') from None
+    content = base64.b64decode(document['content'])
+    frame = pd.read_csv(io.BytesIO(content), dtype={'match_id': str}, keep_default_na=False)
+    if not {'record_type', 'match_id'}.issubset(frame.columns):
+        raise ValueError('Saved odds checkpoint has unexpected columns; no API requests made.')
+    quotes, checked = {}, set()
+    for row in frame.to_dict('records'):
+        mid = str(row['match_id'])
+        if not mid.startswith('mt_'):
+            continue
+        if row['record_type'] == 'checked':
+            checked.add(mid)
+        elif row['record_type'] == 'quote':
+            quote = {key: row.get(key, '') for key in TOTALS_FIELDS if key != 'record_type'}
+            for field in ('line', 'opening', 'last_seen'):
+                quote[field] = numeric(quote[field])
+            quote['capture_time_verified'] = False
+            quotes.setdefault(mid, []).append(quote)
+            checked.add(mid)
+    return quotes, checked, document['sha']
+
+def totals_checkpoint_save(token, session_quotes, session_checked):
+    if not token:
+        raise ValueError('STARLIZARD_GITHUB_TOKEN is not configured.')
+    # Re-read current remote state before every write and merge by quote identity.
+    remote_quotes, remote_checked, sha = totals_checkpoint_read(token)
+    checked = remote_checked | set(session_checked)
+    merged = {}
+    for source in (remote_quotes, session_quotes):
+        for mid, rows in source.items():
+            for row in rows:
+                identity = (mid, str(row.get('bookmaker')), str(row.get('market_key')),
+                            str(row.get('line')), str(row.get('selection')))
+                merged[identity] = row
+    records = [{'record_type': 'checked', 'match_id': mid} for mid in sorted(checked)]
+    records += [{'record_type': 'quote', **row} for row in merged.values()]
+    csv_bytes = pd.DataFrame(records, columns=TOTALS_FIELDS).to_csv(index=False).encode('utf-8')
+    endpoint = f'https://api.github.com/repos/{HIST_REPO}/contents/{TOTALS_REPO_PATH}'
+    headers = {'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json',
+               'Content-Type': 'application/json', 'User-Agent': 'Starlizard-Totals',
+               'X-GitHub-Api-Version': '2022-11-28'}
+    payload = {'message': 'Checkpoint Starlizard corners/cards odds extraction',
+               'content': base64.b64encode(csv_bytes).decode('ascii'), 'branch': 'main'}
+    if sha:
+        payload['sha'] = sha
+    try:
+        with urlopen(Request(endpoint, data=json.dumps(payload).encode('utf-8'),
+                             headers=headers, method='PUT'), timeout=30) as resp:
+            json.load(resp)
+    except HTTPError as exc:
+        raise RuntimeError(f'GitHub checkpoint save failed (HTTP {exc.code}); download CSV backup.') from None
+    return len(checked), len(merged)
+
 if not api_key:
     st.info('Configure STATS_API_KEY to enable historical odds extraction.')
 else:
-    st.warning('Research only: the observed odds response has no capture timestamp. Do not treat last_seen as independently verified pre-kickoff odds or as executable prices.')
+    st.warning('Research only: odds capture times are unverified. Do not treat last_seen as confirmed pre-kickoff or executable odds.')
     extract_source = st.radio('Historical match ID source',
                               ['Saved Starlizard GitHub database', 'Matches already loaded in this session'],
                               key='extract_source')
     extract_batch = st.select_slider('Odds requests in this batch',
                                      options=[2, 5, 10, 20, 50], value=5, key='extract_batch')
-    st.caption('Each uncached match uses one odds endpoint request. Repeat to continue; already collected match IDs are skipped. Stop if rate-limited.')
     if 'totals_odds_rows' not in st.session_state:
         st.session_state['totals_odds_rows'] = {}
     if 'totals_odds_checked' not in st.session_state:
         st.session_state['totals_odds_checked'] = set()
+    if 'totals_checkpoint_loaded' not in st.session_state:
+        st.session_state['totals_checkpoint_loaded'] = False
+    if github_token:
+        st.success('Permanent GitHub checkpointing is enabled for Step 6.')
+    else:
+        st.warning('Permanent saving is OFF: STARLIZARD_GITHUB_TOKEN is missing. Download backups; a restart loses session progress.')
+    if st.button('Load saved corners/cards progress from GitHub (no API credits)', key='totals_load'):
+        try:
+            saved_rows, saved_checked, _ = totals_checkpoint_read(github_token)
+            st.session_state['totals_odds_rows'].update(saved_rows)
+            st.session_state['totals_odds_checked'].update(saved_checked)
+            st.session_state['totals_checkpoint_loaded'] = True
+            st.success(f'Loaded {len(saved_checked)} checked matches from GitHub; no StatsAPI requests used.')
+        except Exception as exc:
+            st.error('Could not load checkpoint: ' + str(exc))
+    old_export = st.file_uploader('Restore previously downloaded Step 6 odds CSV (optional)',
+                                  type=None, key='totals_restore')
+    if old_export is not None and st.button('Import odds CSV into Step 6 progress', key='totals_restore_run'):
+        try:
+            old_df = pd.read_csv(old_export)
+            required = {'match_id', 'bookmaker', 'market', 'market_key', 'line', 'selection'}
+            if not required.issubset(old_df.columns):
+                raise ValueError('This is not a Step 6 odds export (required columns missing).')
+            imported = 0
+            for record in old_df.to_dict('records'):
+                mid = str(record.get('match_id', ''))
+                if not mid.startswith('mt_'):
+                    continue
+                row = {field: record.get(field) for field in TOTALS_FIELDS if field != 'record_type'}
+                row['capture_time_verified'] = False
+                existing = st.session_state['totals_odds_rows'].setdefault(mid, [])
+                identity = (str(row['bookmaker']), str(row['market_key']), str(row['line']), str(row['selection']))
+                if not any((str(r.get('bookmaker')), str(r.get('market_key')), str(r.get('line')),
+                            str(r.get('selection'))) == identity for r in existing):
+                    existing.append(row)
+                    imported += 1
+                st.session_state['totals_odds_checked'].add(mid)
+            if github_token and imported:
+                totals_checkpoint_save(github_token, st.session_state['totals_odds_rows'],
+                                       st.session_state['totals_odds_checked'])
+                st.success(f'Imported {imported} price records and saved progress to GitHub.')
+            else:
+                st.success(f'Imported {imported} price records into this session. Download a backup below.')
+            st.caption('An old prices-only CSV cannot identify checked matches that had no quotes.')
+        except Exception as exc:
+            st.error('Could not restore odds CSV: ' + str(exc))
     if st.button('Extract next batch of historical corners and cards odds', key='extract_run'):
         try:
+            # Fail closed if durable progress cannot be read: protects paid API quota.
+            if github_token:
+                saved_rows, saved_checked, _ = totals_checkpoint_read(github_token)
+                for mid, rows in saved_rows.items():
+                    st.session_state['totals_odds_rows'].setdefault(mid, rows)
+                st.session_state['totals_odds_checked'].update(saved_checked)
             if extract_source == 'Saved Starlizard GitHub database':
                 ids_df = github_history_read()
                 if 'match_id' not in ids_df.columns:
@@ -1101,18 +1222,28 @@ else:
                         st.session_state['totals_odds_rows'][mid] = extract_totals_quotes(response, mid)
                         st.session_state['totals_odds_checked'].add(mid)
                         completed += 1
+                        # Checkpoint every 10 matches to limit loss on interruptions.
+                        if github_token and completed % 10 == 0:
+                            totals_checkpoint_save(github_token, st.session_state['totals_odds_rows'],
+                                                   st.session_state['totals_odds_checked'])
                     except Exception as exc:
-                        st.error(f'Stopped at {mid}: {exc}. Already extracted rows remain available for download.')
+                        st.error(f'Stopped at {mid}: {exc}. Download a CSV backup below.')
                         break
                     bar.progress((i + 1) / len(chosen), text=f'{i+1} of {len(chosen)} checked')
-                st.success(f'Checked {completed} new matches. Total checked this session: {len(st.session_state["totals_odds_checked"])}.')
+                if github_token and completed % 10:
+                    try:
+                        totals_checkpoint_save(github_token, st.session_state['totals_odds_rows'],
+                                               st.session_state['totals_odds_checked'])
+                    except Exception as exc:
+                        st.error('Final checkpoint failed: ' + str(exc))
+                st.success(f'Checked {completed} new matches. Total checked in this session: {len(st.session_state["totals_odds_checked"])}.')
         except Exception as exc:
             st.error('Odds extraction could not start: ' + str(exc))
     extracted = [row for rows in st.session_state['totals_odds_rows'].values() for row in rows]
+    st.write(f'**Matches checked in session:** {len(st.session_state["totals_odds_checked"])}')
     if extracted:
         quotes_df = pd.DataFrame(extracted)
-        st.write(f'**Matches checked:** {len(st.session_state["totals_odds_checked"])} | '
-                 f'**Matches with quotes:** {quotes_df.match_id.nunique()} | '
+        st.write(f'**Matches with quotes:** {quotes_df.match_id.nunique()} | '
                  f'**Selection price records:** {len(quotes_df)}')
         st.dataframe(quotes_df.groupby(['market', 'bookmaker', 'line'], as_index=False).agg(
             matches=('match_id', 'nunique'), prices=('match_id', 'size')),
@@ -1121,6 +1252,10 @@ else:
         st.download_button('Download all extracted corners and cards prices (CSV)',
                            quotes_df.to_csv(index=False).encode('utf-8'),
                            'starlizard_corners_cards_odds.csv', 'text/csv', key='extract_download')
-        st.caption('The download contains prices only. It does not infer corner/card results, invent timestamps, or calculate ROI. Session results are temporary; download before leaving the app.')
-    elif st.session_state['totals_odds_checked']:
-        st.info('Matches were checked but no valid corners/cards price records were found.')
+    if st.session_state['totals_odds_checked']:
+        backup = ([{'record_type': 'checked', 'match_id': mid} for mid in sorted(st.session_state['totals_odds_checked'])]
+                  + [{'record_type': 'quote', **row} for row in extracted])
+        st.download_button('Download complete progress backup (includes checked IDs)',
+                           pd.DataFrame(backup, columns=TOTALS_FIELDS).to_csv(index=False).encode('utf-8'),
+                           'starlizard_corners_cards_progress.csv', 'text/csv', key='totals_progress_download')
+    st.caption('Progress is saved to a separate GitHub file only when the token is configured and a checkpoint succeeds. Keep CSV backups. No verified capture times, outcomes or ROI are inferred.')
