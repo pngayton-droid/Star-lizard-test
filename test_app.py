@@ -1018,3 +1018,109 @@ else:
                            audit_df.to_csv(index=False).encode('utf-8'),
                            'starlizard_odds_coverage_audit.csv', 'text/csv', key='audit_download')
         st.warning('Opening and last_seen labels do not establish when prices were captured. This is a coverage check, not a betting backtest or proof of available betting prices.')
+
+# Step 6: export actual historical corners/cards prices without modifying saved data.
+st.divider()
+st.header('Step 6 — Historical corners and cards odds extractor')
+st.caption('Odds-only requests; no GitHub writes. Captures actual bookmaker, line, selection and price. Last-seen timestamps are not provided in the observed response.')
+
+def extract_totals_quotes(response, match_id):
+    payload = response.get('data', response) if isinstance(response, dict) else {}
+    bks = payload.get('bookmakers', []) if isinstance(payload, dict) else []
+    output = []
+    if not isinstance(bks, list):
+        return output
+    for bk in bks:
+        if not isinstance(bk, dict):
+            continue
+        bookmaker = str(bk.get('bookmaker', 'Unknown'))
+        markets = bk.get('markets', {})
+        if not isinstance(markets, dict):
+            continue
+        for label, aliases in [('Corners', ('match_corners', 'total_corners')),
+                               ('Cards', ('total_cards', 'match_cards'))]:
+            for market_key in aliases:
+                lines = markets.get(market_key)
+                if not isinstance(lines, dict):
+                    continue
+                for line, selections in lines.items():
+                    line_value = numeric(line)
+                    if line_value is None or line_value < 0 or not isinstance(selections, dict):
+                        continue
+                    for selection in ('over', 'under'):
+                        quote = selections.get(selection)
+                        if not isinstance(quote, dict):
+                            continue
+                        opening = numeric(quote.get('opening'))
+                        last_seen = numeric(quote.get('last_seen'))
+                        opening = opening if opening is not None and 1 < opening < 10000 else None
+                        last_seen = last_seen if last_seen is not None and 1 < last_seen < 10000 else None
+                        if opening is None and last_seen is None:
+                            continue
+                        output.append({'match_id': match_id, 'bookmaker': bookmaker,
+                                       'market': label, 'market_key': market_key,
+                                       'line': line_value, 'selection': selection,
+                                       'opening': opening, 'last_seen': last_seen,
+                                       'capture_time_verified': False})
+    return output
+
+if not api_key:
+    st.info('Configure STATS_API_KEY to enable historical odds extraction.')
+else:
+    st.warning('Research only: the observed odds response has no capture timestamp. Do not treat last_seen as independently verified pre-kickoff odds or as executable prices.')
+    extract_source = st.radio('Historical match ID source',
+                              ['Saved Starlizard GitHub database', 'Matches already loaded in this session'],
+                              key='extract_source')
+    extract_batch = st.select_slider('Odds requests in this batch',
+                                     options=[2, 5, 10, 20, 50], value=5, key='extract_batch')
+    st.caption('Each uncached match uses one odds endpoint request. Repeat to continue; already collected match IDs are skipped. Stop if rate-limited.')
+    if 'totals_odds_rows' not in st.session_state:
+        st.session_state['totals_odds_rows'] = {}
+    if 'totals_odds_checked' not in st.session_state:
+        st.session_state['totals_odds_checked'] = set()
+    if st.button('Extract next batch of historical corners and cards odds', key='extract_run'):
+        try:
+            if extract_source == 'Saved Starlizard GitHub database':
+                ids_df = github_history_read()
+                if 'match_id' not in ids_df.columns:
+                    raise ValueError('Saved database has no match_id column.')
+                source_ids = ids_df['match_id'].dropna().astype(str).tolist()
+            else:
+                source_ids = list(st.session_state.get('historical_rows', {}).keys())
+            source_ids = sorted(set(mid for mid in source_ids if mid.startswith('mt_')))
+            pending = [mid for mid in source_ids if mid not in st.session_state['totals_odds_checked']]
+            if not pending:
+                st.info('No unprocessed match IDs in this source.')
+            else:
+                chosen = pending[:extract_batch]
+                bar = st.progress(0, text='Extracting bookmaker prices…')
+                completed = 0
+                for i, mid in enumerate(chosen):
+                    try:
+                        response = historical_api_get('/football/matches/' + mid + '/odds', {}, api_key)
+                        st.session_state['totals_odds_rows'][mid] = extract_totals_quotes(response, mid)
+                        st.session_state['totals_odds_checked'].add(mid)
+                        completed += 1
+                    except Exception as exc:
+                        st.error(f'Stopped at {mid}: {exc}. Already extracted rows remain available for download.')
+                        break
+                    bar.progress((i + 1) / len(chosen), text=f'{i+1} of {len(chosen)} checked')
+                st.success(f'Checked {completed} new matches. Total checked this session: {len(st.session_state["totals_odds_checked"])}.')
+        except Exception as exc:
+            st.error('Odds extraction could not start: ' + str(exc))
+    extracted = [row for rows in st.session_state['totals_odds_rows'].values() for row in rows]
+    if extracted:
+        quotes_df = pd.DataFrame(extracted)
+        st.write(f'**Matches checked:** {len(st.session_state["totals_odds_checked"])} | '
+                 f'**Matches with quotes:** {quotes_df.match_id.nunique()} | '
+                 f'**Selection price records:** {len(quotes_df)}')
+        st.dataframe(quotes_df.groupby(['market', 'bookmaker', 'line'], as_index=False).agg(
+            matches=('match_id', 'nunique'), prices=('match_id', 'size')),
+            hide_index=True, use_container_width=True)
+        st.dataframe(quotes_df.tail(100), hide_index=True, use_container_width=True)
+        st.download_button('Download all extracted corners and cards prices (CSV)',
+                           quotes_df.to_csv(index=False).encode('utf-8'),
+                           'starlizard_corners_cards_odds.csv', 'text/csv', key='extract_download')
+        st.caption('The download contains prices only. It does not infer corner/card results, invent timestamps, or calculate ROI. Session results are temporary; download before leaving the app.')
+    elif st.session_state['totals_odds_checked']:
+        st.info('Matches were checked but no valid corners/cards price records were found.')
