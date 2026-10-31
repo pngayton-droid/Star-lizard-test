@@ -886,3 +886,135 @@ if 'bt_result' in st.session_state:
                     'starlizard_poisson_bet_diagnostics.csv',
                     'text/csv', key='bt_diagnostic_download'
                 )
+
+
+# Step 5: read-only, quota-conscious historical odds market coverage audit.
+st.divider()
+st.header('Step 5 — TheStatsAPI historical odds coverage audit')
+st.caption('Read-only research: checks saved historical match IDs, makes odds-only API requests, and never modifies your GitHub database or existing app results.')
+
+AUDIT_MARKETS = {
+    '1X2': ('match_odds', '1x2', 'h2h'),
+    'Goal totals': ('total_goals', 'over_under', 'goals_over_under'),
+    'BTTS': ('btts', 'both_teams_to_score'),
+    'Asian handicap': ('asian_handicap', 'asian_handicaps'),
+    'Corners': ('match_corners', 'total_corners', 'corners'),
+    'Cards': ('match_cards', 'total_cards', 'cards', 'booking_points'),
+}
+
+def audit_market_quotes(value):
+    """Count valid opening/last_seen decimal quotes in nested market structures.
+
+    Do not count unrelated numerical values (line, handicap, timestamps, IDs).
+    A market key existing without quotes is reported separately.
+    """
+    counts = {'opening': 0, 'last_seen': 0}
+    def visit(node):
+        if isinstance(node, dict):
+            for kind in counts:
+                if kind in node:
+                    v = numeric(node[kind])
+                    if v is not None and 1 < v < 10000:
+                        counts[kind] += 1
+            for key, child in node.items():
+                if key not in counts and isinstance(child, (dict, list)):
+                    visit(child)
+        elif isinstance(node, list):
+            for child in node:
+                visit(child)
+    visit(value)
+    return counts
+
+def audit_odds_response(response):
+    payload = response.get('data', response) if isinstance(response, dict) else {}
+    bookmakers = payload.get('bookmakers', []) if isinstance(payload, dict) else []
+    if not isinstance(bookmakers, list):
+        bookmakers = []
+    summary = {'bookmakers': len(bookmakers), 'market_keys': set()}
+    for label in AUDIT_MARKETS:
+        summary[label + '_present'] = False
+        summary[label + '_opening'] = False
+        summary[label + '_last_seen'] = False
+    for bookmaker in bookmakers:
+        markets = bookmaker.get('markets', {}) if isinstance(bookmaker, dict) else {}
+        if not isinstance(markets, dict):
+            continue
+        summary['market_keys'].update(str(k) for k in markets)
+        for label, aliases in AUDIT_MARKETS.items():
+            for alias in aliases:
+                if alias not in markets or markets[alias] is None:
+                    continue
+                summary[label + '_present'] = True
+                quotes = audit_market_quotes(markets[alias])
+                if quotes['opening']:
+                    summary[label + '_opening'] = True
+                if quotes['last_seen']:
+                    summary[label + '_last_seen'] = True
+    summary['market_keys'] = ', '.join(sorted(summary['market_keys']))
+    return summary
+
+if not api_key:
+    st.info('TheStatsAPI key is not configured; audit unavailable.')
+else:
+    st.caption('First use a small sample. Each uncached match costs one odds endpoint request; cached responses may use no additional quota.')
+    audit_source = st.radio('Choose historical match IDs',
+                            ['Saved Starlizard GitHub database', 'Matches already loaded in this session'],
+                            key='audit_source')
+    audit_size = st.select_slider('Maximum matches to check', options=[2, 5, 10, 20], value=5, key='audit_size')
+    st.caption('No scores, stats or fixture-detail requests are made. No GitHub writes. Market names not recognised by this audit are listed for review.')
+    if st.button('Run read-only odds coverage audit', key='audit_run'):
+        try:
+            if audit_source == 'Saved Starlizard GitHub database':
+                source_df = github_history_read()
+                if 'match_id' not in source_df.columns:
+                    raise ValueError('Saved database does not contain match_id.')
+                candidate_ids = source_df['match_id'].dropna().astype(str).tolist()
+            else:
+                candidate_ids = list(st.session_state.get('historical_rows', {}).keys())
+            candidate_ids = sorted(set(mid for mid in candidate_ids if mid.startswith('mt_')))
+            if not candidate_ids:
+                st.warning('No saved match IDs found. Load your GitHub historical database or import matches first.')
+            else:
+                ids = candidate_ids[:audit_size]
+                rows = []
+                bar = st.progress(0, text='Checking historical odds…')
+                for i, mid in enumerate(ids):
+                    try:
+                        response = historical_api_get('/football/matches/' + mid + '/odds', {}, api_key)
+                        summary = audit_odds_response(response)
+                        rows.append({'match_id': mid, 'status': 'OK', **summary})
+                    except Exception as exc:
+                        rows.append({'match_id': mid, 'status': str(exc)})
+                        if '429' in str(exc):
+                            st.error('Rate limit reached. Audit stopped to protect your quota.')
+                            break
+                    bar.progress((i + 1) / len(ids), text=f'Checked {i+1} of {len(ids)}')
+                st.session_state['odds_audit_rows'] = rows
+                st.session_state['odds_audit_requested'] = len(ids)
+        except Exception as exc:
+            st.error('Audit could not start: ' + str(exc))
+    if st.session_state.get('odds_audit_rows'):
+        audit_df = pd.DataFrame(st.session_state['odds_audit_rows'])
+        valid = audit_df[audit_df['status'] == 'OK']
+        st.write(f"**Responses checked:** {len(audit_df)} | **Successful:** {len(valid)} | **Errors:** {len(audit_df) - len(valid)}")
+        if len(valid):
+            summary_rows = []
+            for label in AUDIT_MARKETS:
+                summary_rows.append({
+                    'Market': label,
+                    'Market key found': int(valid[label + '_present'].fillna(False).sum()),
+                    'Opening quotes found': int(valid[label + '_opening'].fillna(False).sum()),
+                    'Last-seen quotes found': int(valid[label + '_last_seen'].fillna(False).sum()),
+                })
+            st.dataframe(pd.DataFrame(summary_rows), hide_index=True, use_container_width=True)
+            st.caption('Counts are matches with at least one matching bookmaker market or quote, not numbers of bookmakers or selections. A missing recognised key is not proof that the provider lacks the market.')
+            st.write('**All market keys returned by the provider:**')
+            keys = sorted({key.strip() for entry in valid['market_keys'].dropna()
+                           for key in str(entry).split(',') if key.strip()})
+            st.code(', '.join(keys) if keys else '(none)')
+        st.dataframe(audit_df.drop(columns=[c for c in audit_df.columns if c.endswith('_present') or c.endswith('_opening') or c.endswith('_last_seen')], errors='ignore'),
+                     hide_index=True, use_container_width=True)
+        st.download_button('Download odds audit results (CSV)',
+                           audit_df.to_csv(index=False).encode('utf-8'),
+                           'starlizard_odds_coverage_audit.csv', 'text/csv', key='audit_download')
+        st.warning('Opening and last_seen labels do not establish when prices were captured. This is a coverage check, not a betting backtest or proof of available betting prices.')
