@@ -657,3 +657,64 @@ else:
             st.dataframe(filtered[['date', 'home', 'away', 'HT_home', 'HT_away', 'FT_home', 'FT_away', 'HT_xG_home', 'HT_xG_away', 'opening_home', 'opening_away', 'last_seen_home', 'last_seen_away']], hide_index=True, use_container_width=True)
         else:
             st.info('No imported matches meet these filters. Try broader filters or import more matches.')
+
+        # Historical odds testing: keep pre-kickoff selection separate from
+        # retrospective halftime-conditioned analysis to prevent look-ahead bias.
+        st.divider()
+        st.subheader('Step 3 — Historical Odds Value Tester (research)')
+        st.caption('Uses the saved database only. No additional TheStatsAPI requests.')
+        st.warning('The provider last_seen prices have no independently verified capture timestamps. Returns shown here are hypothetical, not evidence of executable profits or a validated betting edge.')
+        tester_kind = st.selectbox('Price snapshot to investigate', ['last_seen', 'opening'], key='value_snapshot')
+        tester_pick = st.selectbox('Selection to back', ['Home win', 'Draw', 'Away win'], key='value_selection')
+        pick_col = {'Home win': 'home', 'Draw': 'draw', 'Away win': 'away'}[tester_pick]
+        quote_col = tester_kind + '_' + pick_col
+        min_test, max_test = st.slider('Selection odds range for testing', 1.01, 15.0, (1.01, 15.0), 0.01, key='value_odds_range')
+        test_mode = st.radio('Which matches should qualify?',
+                             ['Pre-match odds only', 'Current halftime situation (retrospective)'],
+                             key='value_test_mode')
+        if test_mode == 'Pre-match odds only':
+            test_matches = hist_df.copy()
+            st.caption('This selection rule uses only the chosen bookmaker odds range; it does not use halftime scores or xG.')
+        else:
+            test_matches = filtered.copy()
+            st.warning('Look-ahead warning: halftime score and xG are unknown before kickoff. These are retrospective price/outcome comparisons, NOT a backtest of a bet that could have been selected pre-match.')
+            st.caption('Uses the halftime score, xG and other filters currently selected in Step 2, plus the odds range above.')
+        test_matches[quote_col] = pd.to_numeric(test_matches[quote_col], errors='coerce')
+        test_matches = test_matches.dropna(subset=['FT_home', 'FT_away', quote_col])
+        test_matches = test_matches[test_matches[quote_col].between(min_test, max_test) & (test_matches[quote_col] > 1)]
+        if len(test_matches) == 0:
+            st.info('No matches have a valid price for this selection and these filters. Try last_seen or a wider odds range.')
+        else:
+            if pick_col == 'home':
+                wins = test_matches.FT_home > test_matches.FT_away
+            elif pick_col == 'draw':
+                wins = test_matches.FT_home == test_matches.FT_away
+            else:
+                wins = test_matches.FT_home < test_matches.FT_away
+            n_test = len(test_matches)
+            win_count = int(wins.sum())
+            rate = win_count / n_test
+            test_matches = test_matches.copy()
+            test_matches['Won'] = wins
+            test_matches['Profit (£1 stake)'] = test_matches[quote_col].where(wins, 0.0) - 1.0
+            total_profit = float(test_matches['Profit (£1 stake)'].sum())
+            roi = 100.0 * total_profit / n_test
+            mean_odds = float(test_matches[quote_col].mean())
+            implied = float((1.0 / test_matches[quote_col]).mean())
+            st.dataframe(pd.DataFrame([
+                {'Measure': 'Matches with usable odds', 'Result': str(n_test)},
+                {'Measure': 'Winning selections', 'Result': str(win_count)},
+                {'Measure': 'Historical strike rate', 'Result': f'{rate:.1%}'},
+                {'Measure': 'Historical reciprocal odds', 'Result': f'{1 / rate:.2f}' if win_count else 'N/A'},
+                {'Measure': 'Average recorded selection odds', 'Result': f'{mean_odds:.2f}'},
+                {'Measure': 'Average raw implied probability', 'Result': f'{implied:.1%}'},
+                {'Measure': 'Hypothetical £1-level-stake profit', 'Result': f'£{total_profit:+.2f}'},
+                {'Measure': 'Hypothetical ROI', 'Result': f'{roi:+.1f}%'},
+            ]), hide_index=True, use_container_width=True)
+            st.caption('Profit assumes a £1 stake on every qualifying match at its recorded decimal odds, with no commission, limits or slippage. Average implied probability is the mean of 1/odds, before removing bookmaker margin. Reciprocal historical odds are descriptive, not validated fair prices.')
+            if n_test < 100:
+                st.info(f'Small sample: only {n_test} selections. A positive ROI here would be highly unreliable.')
+            detail_cols = ['date', 'home', 'away', 'HT_home', 'HT_away', 'FT_home', 'FT_away', quote_col, 'Won', 'Profit (£1 stake)']
+            st.dataframe(test_matches[detail_cols].sort_values('date'), hide_index=True, use_container_width=True)
+            st.download_button('Download this test (CSV)', test_matches[detail_cols].to_csv(index=False).encode('utf-8'),
+                               'starlizard_odds_test.csv', 'text/csv', key='value_download')
