@@ -29,7 +29,7 @@ END_DATE = date.today().isoformat()
 
 session = requests.Session()
 session.headers.update({
-    "X-API-Key": API_KEY,
+    "Authorization": f"Bearer {API_KEY}",
     "Accept": "application/json",
 })
 
