@@ -34,14 +34,49 @@ session.headers.update({
 })
 
 
+
+
+_last_api_request = 0.0
+
 def api_get(path, params=None):
-    response = session.get(
-        BASE_URL + path,
-        params=params,
-        timeout=30,
-    )
-    response.raise_for_status()
-    return response.json()
+    global _last_api_request
+
+    for attempt in range(5):
+        elapsed = time.monotonic() - _last_api_request
+        if elapsed < 3:
+            time.sleep(3 - elapsed)
+
+        _last_api_request = time.monotonic()
+
+        try:
+            response = session.get(
+                BASE_URL + path,
+                params=params,
+                timeout=30,
+            )
+
+            if response.status_code == 429:
+                retry_after = response.headers.get("Retry-After", "60")
+                try:
+                    wait = max(60, float(retry_after))
+                except ValueError:
+                    wait = 60
+
+                wait = min(wait, 180)
+                print(f"Rate limited. Waiting {wait:.0f} seconds.")
+                time.sleep(wait)
+                continue
+
+            response.raise_for_status()
+            return response.json()
+
+        except requests.RequestException as exc:
+            if attempt == 4:
+                raise
+            print(f"API error: {exc}. Retrying in 15 seconds.")
+            time.sleep(15)
+
+    raise RuntimeError("API rate limit retries exhausted")
 
 
 def existing_ids():
