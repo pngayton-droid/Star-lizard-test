@@ -39,8 +39,10 @@ LEAGUES = {
 # HISTORICAL TEST SETTINGS
 # ==========================================
 
+
+
 START_DATE = "2016-08-01"
-END_DATE = "2026-07-31"
+END_DATE = "2017-07-31"
 
 # Maximum detailed match requests.
 MAX_DETAIL_REQUESTS = 500
