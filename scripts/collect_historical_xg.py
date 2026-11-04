@@ -2,121 +2,110 @@
 import os
 import time
 import requests
-from datetime import date
+
 from supabase import create_client
+
+# ==========================================
+# PRO STAR LIZARD
+# HISTORICAL xG COLLECTOR
+# STARTER PLAN EDITION
+# ==========================================
 
 API_KEY = os.environ["STATS_API_KEY"]
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_KEY = os.environ["SUPABASE_SECRET_KEY"]
 
 BASE_URL = "https://api.thestatsapi.com/api"
-db = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Seven working leagues plus confirmed Italian Serie A.
-# Spain and Portugal are discovered safely.
+db = create_client(
+    SUPABASE_URL,
+    SUPABASE_KEY,
+)
+
 LEAGUES = {
-    "Premier League": {
-        "id": "comp_3039",
-        "country": "England",
-    },
-    "Championship": {
-        "id": "comp_8321",
-        "country": "England",
-    },
-    "La Liga": {
-        "id": None,
-        "country": "Spain",
-    },
-    "Serie A": {
-        "id": "comp_5840",
-        "country": "Italy",
-    },
-    "Bundesliga": {
-        "id": "comp_4643",
-        "country": "Germany",
-    },
-    "Ligue 1": {
-        "id": "comp_0256",
-        "country": "France",
-    },
-    "Eredivisie": {
-        "id": "comp_3809",
-        "country": "Netherlands",
-    },
-    "Primeira Liga": {
-        "id": None,
-        "country": "Portugal",
-    },
-    "Belgian Pro League": {
-        "id": "comp_8531",
-        "country": "Belgium",
-    },
-    "Scottish Premiership": {
-        "id": "comp_6387",
-        "country": "Scotland",
-    },
+    "Premier League": "comp_3039",
+    "Championship": "comp_8321",
+    "La Liga": "comp_8814",
+    "Serie A": "comp_5840",
+    "Bundesliga": "comp_4643",
+    "Ligue 1": "comp_0256",
+    "Eredivisie": "comp_3809",
+    "Primeira Liga": "comp_8385",
+    "Belgian Pro League": "comp_8531",
+    "Scottish Premiership": "comp_6387",
 }
 
-SEARCH_TERMS = {
-    "La Liga": [
-        "LaLiga",
-        "La Liga",
-        "Primera",
-    ],
-    "Primeira Liga": [
-        "Liga Portugal",
-        "Primeira",
-        "Portugal",
-    ],
-}
+# ==========================================
+# HISTORICAL TEST SETTINGS
+# ==========================================
 
-ACCEPTED_NAMES = {
-    "La Liga": {
-        "laliga",
-        "laligaeasports",
-        "primeradivision",
-        "spanishprimera",
-    },
-    "Primeira Liga": {
-        "primeiraliga",
-        "ligaportugal",
-        "ligaportugalbetclic",
-        "ligaportugalbwin",
-    },
-}
+# Test one older completed season first.
+START_DATE = "2024-08-01"
+END_DATE = "2025-07-31"
 
-COUNTRY_CODES = {
-    "Spain": {"spain", "es"},
-    "Portugal": {"portugal", "pt"},
-}
+# Maximum detailed match requests.
+MAX_DETAIL_REQUESTS = 100
 
-MAX_MATCHES_PER_LEAGUE = 5
-MAX_DETAIL_REQUESTS = 50
-MAX_PAGES_PER_LEAGUE = 30
+# Spread the test across ten leagues.
+MAX_REQUESTS_PER_LEAGUE = 10
+
 PAGE_SIZE = 20
+MAX_PAGES_PER_LEAGUE = 40
 
-START_DATE = "2025-08-01"
-END_DATE = date.today().isoformat()
+# Conservative paid-plan pacing:
+# approximately 60 requests per minute.
+MIN_REQUEST_INTERVAL = 1.0
+
+# Includes fixture searches and retries.
+MAX_TOTAL_API_REQUESTS = 1000
 
 session = requests.Session()
+
 session.headers.update({
     "Authorization": f"Bearer {API_KEY}",
     "Accept": "application/json",
 })
 
 last_request = 0.0
+api_requests = 0
+detail_requests = 0
+
+rate_limit = None
+monthly_remaining = None
+
+printed_xg_schema = False
+
+
+# ==========================================
+# API
+# ==========================================
+
+class StopCollection(Exception):
+    pass
 
 
 def api_get(path, params=None):
     global last_request
+    global api_requests
+    global rate_limit
+    global monthly_remaining
 
-    for attempt in range(5):
+    for attempt in range(4):
+
+        if api_requests >= MAX_TOTAL_API_REQUESTS:
+            raise StopCollection(
+                "Run API request budget reached"
+            )
+
         elapsed = time.monotonic() - last_request
 
-        if elapsed < 3:
-            time.sleep(3 - elapsed)
+        if elapsed < MIN_REQUEST_INTERVAL:
+            time.sleep(
+                MIN_REQUEST_INTERVAL - elapsed
+            )
 
         last_request = time.monotonic()
+        api_requests += 1
 
         try:
             response = session.get(
@@ -125,52 +114,99 @@ def api_get(path, params=None):
                 timeout=30,
             )
 
-            if response.status_code == 429:
-                try:
-                    code = (
-                        response.json()
-                        .get("error", {})
-                        .get("code")
-                    )
-                except ValueError:
-                    code = None
-
-                if code == "USAGE_LIMIT_EXCEEDED":
-                    raise RuntimeError(
-                        "Monthly API quota exhausted"
-                    )
-
-                try:
-                    wait = max(
-                        60,
-                        float(
-                            response.headers.get(
-                                "Retry-After", "60"
-                            )
-                        ),
-                    )
-                except ValueError:
-                    wait = 60
-
-                wait = min(wait, 180)
-                print(f"Rate limited: waiting {wait}s")
-                time.sleep(wait)
-                continue
-
-            response.raise_for_status()
-            return response.json()
-
         except requests.RequestException as exc:
-            if attempt == 4:
-                raise
+            print(
+                f"Network error: {exc}",
+                flush=True,
+            )
 
-            print(f"API error: {exc}")
-            time.sleep(15)
+            if attempt == 3:
+                raise StopCollection(
+                    "Repeated network failures"
+                )
 
-    raise RuntimeError("API retries exhausted")
+            time.sleep(10)
+            continue
 
+        headers = response.headers
+
+        rate_limit = headers.get(
+            "X-RateLimit-Limit",
+            rate_limit,
+        )
+
+        monthly_remaining = headers.get(
+            "X-Monthly-Quota-Remaining",
+            monthly_remaining,
+        )
+
+        if response.status_code == 429:
+
+            try:
+                error = response.json().get(
+                    "error", {}
+                )
+                code = error.get("code")
+            except ValueError:
+                code = None
+
+            if code == "USAGE_LIMIT_EXCEEDED":
+                raise StopCollection(
+                    "Monthly API quota exhausted"
+                )
+
+            try:
+                wait = float(
+                    headers.get(
+                        "Retry-After", "60"
+                    )
+                )
+            except ValueError:
+                wait = 60
+
+            wait = min(
+                max(wait, 5),
+                180,
+            )
+
+            print(
+                f"Rate limit reached. "
+                f"Waiting {wait}s",
+                flush=True,
+            )
+
+            time.sleep(wait)
+            continue
+
+        if response.status_code in (401, 403):
+            raise StopCollection(
+                f"API access denied: "
+                f"HTTP {response.status_code}"
+            )
+
+        if response.status_code >= 500:
+            if attempt == 3:
+                raise StopCollection(
+                    "Repeated API server errors"
+                )
+
+            time.sleep(10)
+            continue
+
+        response.raise_for_status()
+        return response.json()
+
+    raise StopCollection(
+        "API retries exhausted"
+    )
+
+
+# ==========================================
+# RESPONSE HELPERS
+# ==========================================
 
 def unwrap_list(payload):
+
     if isinstance(payload, list):
         return payload
 
@@ -181,144 +217,111 @@ def unwrap_list(payload):
         "data",
         "results",
         "matches",
-        "competitions",
     ):
+
         value = payload.get(key)
 
         if isinstance(value, list):
             return value
 
         if isinstance(value, dict):
+
             for nested in (
                 "data",
                 "results",
                 "matches",
-                "competitions",
             ):
-                if isinstance(value.get(nested), list):
-                    return value[nested]
+
+                result = value.get(nested)
+
+                if isinstance(result, list):
+                    return result
 
     return []
 
 
-def normalise(value):
-    return "".join(
-        char for char in str(value or "").casefold()
-        if char.isalnum()
-    )
+def team_name(value):
 
-
-def country_matches(item, country):
-    value = item.get("country")
+    if isinstance(value, str):
+        return value
 
     if isinstance(value, dict):
-        value = (
+        return (
             value.get("name")
-            or value.get("code")
+            or value.get("short_name")
+            or value.get("display_name")
         )
 
-    candidates = {
-        normalise(value),
-        normalise(item.get("country_code")),
-    }
-
-    return bool(
-        candidates & COUNTRY_CODES[country]
-    )
+    return None
 
 
-def discover_competition(league, country):
-    found = {}
+def read_pair(value):
 
-    for term in SEARCH_TERMS[league]:
-        print(f"Searching {league}: {term}")
-
-        payload = api_get(
-            "/football/competitions",
-            {
-                "search": term,
-                "per_page": 100,
-            },
-        )
-
-        items = unwrap_list(payload)
-
-        print(
-            f"Search returned {len(items)} candidates"
-        )
-
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-
-            competition_id = item.get("id")
-            name = item.get("name")
-
-            if not competition_id:
-                continue
-
-            print(
-                f"Candidate: {competition_id} | "
-                f"{name} | {item.get('country')}"
-            )
-
-            if not country_matches(item, country):
-                continue
-
-            if (
-                normalise(name)
-                not in ACCEPTED_NAMES[league]
-            ):
-                continue
-
-            found[str(competition_id)] = item
-
-    if len(found) != 1:
-        print(
-            f"WARNING: {league} unresolved. "
-            f"Valid candidates: {len(found)}"
-        )
-        print(
-            "No competition ID will be guessed."
-        )
+    if not isinstance(value, dict):
         return None
 
-    competition_id = next(iter(found))
+    home = value.get("home")
+    away = value.get("away")
 
-    print(
-        f"Resolved {league}: {competition_id}"
-    )
+    if home is None or away is None:
+        return None
 
-    return competition_id
+    try:
+        return (
+            float(home),
+            float(away),
+        )
+
+    except (ValueError, TypeError):
+        return None
 
 
-def existing_ids():
-    ids = set()
+# ==========================================
+# EXISTING DATABASE
+# ==========================================
+
+def load_existing():
+
+    records = {}
     offset = 0
 
     while True:
-        result = (
+
+        response = (
             db.table("historical_xg")
-            .select("match_id")
-            .range(offset, offset + 999)
+            .select(
+                "match_id,home_ht_xg,away_ht_xg"
+            )
+            .range(
+                offset,
+                offset + 999,
+            )
             .execute()
         )
 
-        rows = result.data or []
+        rows = response.data or []
 
         for row in rows:
-            if row.get("match_id"):
-                ids.add(str(row["match_id"]))
+
+            match_id = row.get("match_id")
+
+            if match_id is not None:
+                records[str(match_id)] = row
 
         if len(rows) < 1000:
             break
 
         offset += 1000
 
-    return ids
+    return records
 
 
-def fixture_list(competition_id, page):
+# ==========================================
+# FIXTURE SEARCH
+# ==========================================
+
+def get_fixtures(competition_id, page):
+
     payload = api_get(
         "/football/matches",
         {
@@ -335,7 +338,14 @@ def fixture_list(competition_id, page):
     return unwrap_list(payload)
 
 
-def get_xg(match_id):
+# ==========================================
+# MATCH xG
+# ==========================================
+
+def get_match_xg(match_id):
+
+    global printed_xg_schema
+
     payload = api_get(
         f"/football/matches/{match_id}/stats"
     )
@@ -345,205 +355,429 @@ def get_xg(match_id):
 
     data = payload.get("data") or {}
     overview = data.get("overview") or {}
+
     expected = (
         overview.get("expected_goals") or {}
     )
-    values = expected.get("all") or {}
 
-    home = values.get("home")
-    away = values.get("away")
-
-    if home is None or away is None:
+    if not isinstance(expected, dict):
         return None
 
-    return float(home), float(away)
-
-
-def team_name(value):
-    if isinstance(value, str):
-        return value
-
-    if isinstance(value, dict):
-        return (
-            value.get("name")
-            or value.get("short_name")
-            or value.get("display_name")
-        )
-
-    return None
-
-
-def main():
-    known = existing_ids()
-
-    print(f"Existing database IDs: {len(known)}")
-
-    total_saved = 0
-    detail_requests = 0
-    results = {}
-
-    for league, config in LEAGUES.items():
-        print(f"\n=== {league} ===")
-
-        if detail_requests >= MAX_DETAIL_REQUESTS:
-            print("Global detail limit reached")
-            break
-
-        competition_id = config["id"]
-
-        if competition_id is None:
-            competition_id = discover_competition(
-                league,
-                config["country"],
-            )
-
-        if not competition_id:
-            results[league] = "Unresolved"
-            continue
+    # Show available xG fields once,
+    # so we can verify the API structure.
+    if not printed_xg_schema:
 
         print(
-            f"Using competition ID: {competition_id}"
+            "XG RESPONSE KEYS:",
+            list(expected.keys()),
+            flush=True,
         )
 
-        saved = 0
-        checked = 0
-        no_xg = 0
+        printed_xg_schema = True
 
-        for page in range(
-            1, MAX_PAGES_PER_LEAGUE + 1
-        ):
-            if saved >= MAX_MATCHES_PER_LEAGUE:
-                break
+    full_time = read_pair(
+        expected.get("all")
+    )
+
+    if full_time is None:
+        return None
+
+    # Only use genuine first-half xG.
+    # Never estimate it from full-time xG.
+    half_time = read_pair(
+        expected.get("first_half")
+    )
+
+    result = {
+        "home_xg": full_time[0],
+        "away_xg": full_time[1],
+        "home_ht_xg": None,
+        "away_ht_xg": None,
+    }
+
+    if half_time is not None:
+
+        result["home_ht_xg"] = (
+            half_time[0]
+        )
+
+        result["away_ht_xg"] = (
+            half_time[1]
+        )
+
+    return result
+
+
+# ==========================================
+# MAIN COLLECTOR
+# ==========================================
+
+def main():
+
+    global detail_requests
+
+    existing = load_existing()
+
+    new_matches = 0
+    updated_matches = 0
+    ht_available = 0
+    ht_missing = 0
+
+    print(
+        "PRO STAR LIZARD HISTORICAL TEST",
+        flush=True,
+    )
+
+    print(
+        f"Existing matches: {len(existing)}",
+        flush=True,
+    )
+
+    print(
+        f"Historical period: "
+        f"{START_DATE} to {END_DATE}",
+        flush=True,
+    )
+
+    print(
+        f"Maximum detail requests: "
+        f"{MAX_DETAIL_REQUESTS}",
+        flush=True,
+    )
+
+    try:
+
+        for league, competition_id in LEAGUES.items():
 
             if detail_requests >= MAX_DETAIL_REQUESTS:
                 break
 
-            fixtures = fixture_list(
-                competition_id, page
-            )
-
             print(
-                f"{league}, page {page}: "
-                f"{len(fixtures)} fixtures"
+                f"\n=== {league} ===",
+                flush=True,
             )
 
-            if not fixtures:
-                break
+            league_requests = 0
+            league_new = 0
+            league_updated = 0
 
-            for match in fixtures:
-                if saved >= MAX_MATCHES_PER_LEAGUE:
-                    break
-
-                if detail_requests >= MAX_DETAIL_REQUESTS:
-                    break
-
-                if not isinstance(match, dict):
-                    continue
-
-                match_id = (
-                    match.get("id")
-                    or match.get("match_id")
-                )
-
-                if not match_id:
-                    continue
-
-                match_id = str(match_id)
-
-                if match_id in known:
-                    continue
-
-                if match.get("xg_available") is False:
-                    no_xg += 1
-                    continue
-
-                actual_competition = (
-                    match.get("competition_id")
-                )
+            for page in range(
+                1,
+                MAX_PAGES_PER_LEAGUE + 1,
+            ):
 
                 if (
-                    actual_competition is not None
-                    and str(actual_competition)
-                    != str(competition_id)
+                    league_requests
+                    >= MAX_REQUESTS_PER_LEAGUE
                 ):
-                    continue
+                    break
 
-                home = team_name(
-                    match.get("home_team")
-                    or match.get("home")
-                )
-                away = team_name(
-                    match.get("away_team")
-                    or match.get("away")
-                )
-                match_date = (
-                    match.get("utc_date")
-                    or match.get("date")
-                    or match.get("match_date")
+                if (
+                    detail_requests
+                    >= MAX_DETAIL_REQUESTS
+                ):
+                    break
+
+                fixtures = get_fixtures(
+                    competition_id,
+                    page,
                 )
 
-                if not home or not away or not match_date:
-                    continue
+                print(
+                    f"{league}, page {page}: "
+                    f"{len(fixtures)} fixtures",
+                    flush=True,
+                )
 
-                checked += 1
-                detail_requests += 1
+                if not fixtures:
+                    break
 
-                try:
-                    xg = get_xg(match_id)
+                for match in fixtures:
 
-                    if xg is None:
-                        print(f"No xG: {match_id}")
-                        no_xg += 1
+                    if (
+                        league_requests
+                        >= MAX_REQUESTS_PER_LEAGUE
+                    ):
+                        break
+
+                    if (
+                        detail_requests
+                        >= MAX_DETAIL_REQUESTS
+                    ):
+                        break
+
+                    if not isinstance(match, dict):
                         continue
 
-                    row = {
-                        "match_id": match_id,
-                        "match_date": str(match_date)[:10],
-                        "home_team": home,
-                        "away_team": away,
-                        "home_xg": xg[0],
-                        "away_xg": xg[1],
-                    }
-
-                    db.table("historical_xg").upsert(
-                        row,
-                        on_conflict="match_id",
-                    ).execute()
-
-                    known.add(match_id)
-                    saved += 1
-                    total_saved += 1
-
-                    print(
-                        f"Saved {league}: "
-                        f"{home} v {away}"
+                    actual_competition = (
+                        match.get("competition_id")
                     )
 
-                except Exception as exc:
-                    print(
-                        f"Match {match_id} failed: {exc}"
+                    if (
+                        actual_competition is not None
+                        and str(actual_competition)
+                        != competition_id
+                    ):
+                        continue
+
+                    match_id = (
+                        match.get("id")
+                        or match.get("match_id")
                     )
 
-        results[league] = saved
+                    if match_id is None:
+                        continue
+
+                    match_id = str(match_id)
+
+                    previous = existing.get(
+                        match_id
+                    )
+
+                    # Skip matches already complete.
+                    if previous is not None:
+
+                        if (
+                            previous.get("home_ht_xg")
+                            is not None
+                            and previous.get("away_ht_xg")
+                            is not None
+                        ):
+                            continue
+
+                    if (
+                        match.get("xg_available")
+                        is False
+                    ):
+                        continue
+
+                    home = team_name(
+                        match.get("home_team")
+                        or match.get("home")
+                    )
+
+                    away = team_name(
+                        match.get("away_team")
+                        or match.get("away")
+                    )
+
+                    match_date = (
+                        match.get("utc_date")
+                        or match.get("date")
+                        or match.get("match_date")
+                    )
+
+                    if not all((
+                        home,
+                        away,
+                        match_date,
+                    )):
+                        continue
+
+                    detail_requests += 1
+                    league_requests += 1
+
+                    try:
+
+                        xg = get_match_xg(
+                            match_id
+                        )
+
+                        if xg is None:
+
+                            print(
+                                f"No FT xG: "
+                                f"{match_id}",
+                                flush=True,
+                            )
+
+                            continue
+
+                        has_ht = (
+                            xg["home_ht_xg"]
+                            is not None
+                            and xg["away_ht_xg"]
+                            is not None
+                        )
+
+                        if has_ht:
+                            ht_available += 1
+                        else:
+                            ht_missing += 1
+
+                        if previous is not None:
+
+                            updates = {
+                                "home_xg": (
+                                    xg["home_xg"]
+                                ),
+                                "away_xg": (
+                                    xg["away_xg"]
+                                ),
+                            }
+
+                            if has_ht:
+                                updates.update({
+                                    "home_ht_xg": (
+                                        xg["home_ht_xg"]
+                                    ),
+                                    "away_ht_xg": (
+                                        xg["away_ht_xg"]
+                                    ),
+                                })
+
+                            (
+                                db.table("historical_xg")
+                                .update(updates)
+                                .eq(
+                                    "match_id",
+                                    match_id,
+                                )
+                                .execute()
+                            )
+
+                            updated_matches += 1
+                            league_updated += 1
+
+                            print(
+                                f"UPDATED: "
+                                f"{home} v {away} "
+                                f"| HT xG: {has_ht}",
+                                flush=True,
+                            )
+
+                        else:
+
+                            row = {
+                                "match_id": match_id,
+                                "match_date": (
+                                    str(match_date)[:10]
+                                ),
+                                "home_team": home,
+                                "away_team": away,
+                                **xg,
+                            }
+
+                            (
+                                db.table("historical_xg")
+                                .upsert(
+                                    row,
+                                    on_conflict="match_id",
+                                )
+                                .execute()
+                            )
+
+                            new_matches += 1
+                            league_new += 1
+
+                            print(
+                                f"SAVED: "
+                                f"{home} v {away} "
+                                f"| HT xG: {has_ht}",
+                                flush=True,
+                            )
+
+                        existing[match_id] = {
+                            "match_id": match_id,
+                            "home_ht_xg": (
+                                xg["home_ht_xg"]
+                                if has_ht
+                                else (
+                                    previous or {}
+                                ).get("home_ht_xg")
+                            ),
+                            "away_ht_xg": (
+                                xg["away_ht_xg"]
+                                if has_ht
+                                else (
+                                    previous or {}
+                                ).get("away_ht_xg")
+                            ),
+                        }
+
+                    except StopCollection:
+                        raise
+
+                    except Exception as exc:
+
+                        print(
+                            f"Match failed: "
+                            f"{match_id}: {exc}",
+                            flush=True,
+                        )
+
+            print(
+                f"{league}: "
+                f"{league_new} new, "
+                f"{league_updated} updated, "
+                f"{league_requests} details",
+                flush=True,
+            )
+
+    except StopCollection as exc:
 
         print(
-            f"{league}: saved {saved}, "
-            f"detail requests {checked}, "
-            f"no xG {no_xg}"
+            f"COLLECTION STOPPED: {exc}",
+            flush=True,
         )
 
-    print("\n=== LEAGUE SUMMARY ===")
+    print(
+        "\n=== FINAL SUMMARY ===",
+        flush=True,
+    )
 
-    for league in LEAGUES:
-        print(
-            f"{league}: "
-            f"{results.get(league, 'Not reached')}"
-        )
+    print(
+        f"New matches: {new_matches}",
+        flush=True,
+    )
 
-    print("\n=== FINAL SUMMARY ===")
-    print(f"New matches saved: {total_saved}")
-    print(f"Detail requests: {detail_requests}")
-    print(f"Database total: {len(known)}")
+    print(
+        f"Existing matches updated: "
+        f"{updated_matches}",
+        flush=True,
+    )
+
+    print(
+        f"HT xG available: "
+        f"{ht_available}",
+        flush=True,
+    )
+
+    print(
+        f"HT xG missing: "
+        f"{ht_missing}",
+        flush=True,
+    )
+
+    print(
+        f"Detailed requests: "
+        f"{detail_requests}",
+        flush=True,
+    )
+
+    print(
+        f"Total API requests: "
+        f"{api_requests}",
+        flush=True,
+    )
+
+    print(
+        f"Reported rate limit: "
+        f"{rate_limit}",
+        flush=True,
+    )
+
+    print(
+        f"Monthly requests remaining: "
+        f"{monthly_remaining}",
+        flush=True,
+    )
+
+    print(
+        f"Database total: "
+        f"{len(existing)}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
