@@ -39,9 +39,8 @@ LEAGUES = {
 # HISTORICAL TEST SETTINGS
 # ==========================================
 
-# Test one older completed season first.
-START_DATE = "2024-08-01"
-END_DATE = "2025-07-31"
+START_DATE = "2016-08-01"
+END_DATE = "2026-07-31"
 
 # Maximum detailed match requests.
 MAX_DETAIL_REQUESTS = 100
