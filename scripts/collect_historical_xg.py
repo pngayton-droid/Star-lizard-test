@@ -12,64 +12,87 @@ SUPABASE_KEY = os.environ["SUPABASE_SECRET_KEY"]
 BASE_URL = "https://api.thestatsapi.com/api"
 db = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Known IDs are retained for our original five leagues.
-# Additional competitions are resolved using the API.
+# Seven working leagues plus confirmed Italian Serie A.
+# Spain and Portugal are discovered safely.
 LEAGUES = {
     "Premier League": {
         "id": "comp_3039",
-        "search": "Premier League",
         "country": "England",
     },
     "Championship": {
         "id": "comp_8321",
-        "search": "Championship",
         "country": "England",
     },
     "La Liga": {
         "id": None,
-        "search": "La Liga",
         "country": "Spain",
     },
     "Serie A": {
-        "id": None,
-        "search": "Serie A",
+        "id": "comp_5840",
         "country": "Italy",
     },
     "Bundesliga": {
         "id": "comp_4643",
-        "search": "Bundesliga",
         "country": "Germany",
     },
     "Ligue 1": {
         "id": "comp_0256",
-        "search": "Ligue 1",
         "country": "France",
     },
     "Eredivisie": {
-        "id": None,
-        "search": "Eredivisie",
+        "id": "comp_3809",
         "country": "Netherlands",
     },
     "Primeira Liga": {
         "id": None,
-        "search": "Primeira Liga",
         "country": "Portugal",
     },
     "Belgian Pro League": {
         "id": "comp_8531",
-        "search": "Pro League",
         "country": "Belgium",
     },
     "Scottish Premiership": {
-        "id": None,
-        "search": "Premiership",
+        "id": "comp_6387",
         "country": "Scotland",
     },
 }
 
+SEARCH_TERMS = {
+    "La Liga": [
+        "LaLiga",
+        "La Liga",
+        "Primera",
+    ],
+    "Primeira Liga": [
+        "Liga Portugal",
+        "Primeira",
+        "Portugal",
+    ],
+}
+
+ACCEPTED_NAMES = {
+    "La Liga": {
+        "laliga",
+        "laligaeasports",
+        "primeradivision",
+        "spanishprimera",
+    },
+    "Primeira Liga": {
+        "primeiraliga",
+        "ligaportugal",
+        "ligaportugalbetclic",
+        "ligaportugalbwin",
+    },
+}
+
+COUNTRY_CODES = {
+    "Spain": {"spain", "es"},
+    "Portugal": {"portugal", "pt"},
+}
+
 MAX_MATCHES_PER_LEAGUE = 5
 MAX_DETAIL_REQUESTS = 50
-MAX_PAGES_PER_LEAGUE = 15
+MAX_PAGES_PER_LEAGUE = 30
 PAGE_SIZE = 20
 
 START_DATE = "2025-08-01"
@@ -89,6 +112,7 @@ def api_get(path, params=None):
 
     for attempt in range(5):
         elapsed = time.monotonic() - last_request
+
         if elapsed < 3:
             time.sleep(3 - elapsed)
 
@@ -116,11 +140,15 @@ def api_get(path, params=None):
                         "Monthly API quota exhausted"
                     )
 
-                wait = response.headers.get(
-                    "Retry-After", "60"
-                )
                 try:
-                    wait = max(60, float(wait))
+                    wait = max(
+                        60,
+                        float(
+                            response.headers.get(
+                                "Retry-After", "60"
+                            )
+                        ),
+                    )
                 except ValueError:
                     wait = 60
 
@@ -135,7 +163,8 @@ def api_get(path, params=None):
         except requests.RequestException as exc:
             if attempt == 4:
                 raise
-            print(f"Request failed: {exc}")
+
+            print(f"API error: {exc}")
             time.sleep(15)
 
     raise RuntimeError("API retries exhausted")
@@ -148,7 +177,12 @@ def unwrap_list(payload):
     if not isinstance(payload, dict):
         return []
 
-    for key in ("data", "results", "matches", "competitions"):
+    for key in (
+        "data",
+        "results",
+        "matches",
+        "competitions",
+    ):
         value = payload.get(key)
 
         if isinstance(value, list):
@@ -156,7 +190,10 @@ def unwrap_list(payload):
 
         if isinstance(value, dict):
             for nested in (
-                "data", "results", "matches", "competitions"
+                "data",
+                "results",
+                "matches",
+                "competitions",
             ):
                 if isinstance(value.get(nested), list):
                     return value[nested]
@@ -166,116 +203,92 @@ def unwrap_list(payload):
 
 def normalise(value):
     return "".join(
-        c for c in str(value or "").casefold()
-        if c.isalnum()
+        char for char in str(value or "").casefold()
+        if char.isalnum()
     )
 
 
 def country_matches(item, country):
-    value = item.get("country", "")
+    value = item.get("country")
+
     if isinstance(value, dict):
         value = (
             value.get("name")
             or value.get("code")
-            or ""
         )
-
-    names = {
-        "England": {"england", "gbeng"},
-        "Scotland": {"scotland", "gbsct"},
-        "Spain": {"spain", "es"},
-        "Italy": {"italy", "it"},
-        "Germany": {"germany", "de"},
-        "France": {"france", "fr"},
-        "Netherlands": {"netherlands", "nl"},
-        "Portugal": {"portugal", "pt"},
-        "Belgium": {"belgium", "be"},
-    }
 
     candidates = {
         normalise(value),
         normalise(item.get("country_code")),
-        normalise(item.get("subdivision_code")),
     }
 
-    return bool(candidates & names[country])
-
-
-def resolve_competition(league, config):
-    if config["id"]:
-        print(
-            f"{league}: using existing ID "
-            f"{config['id']}"
-        )
-        return config["id"]
-
-    payload = api_get(
-        "/football/competitions",
-        {
-            "search": config["search"],
-            "per_page": 100,
-        },
+    return bool(
+        candidates & COUNTRY_CODES[country]
     )
 
-    items = unwrap_list(payload)
 
-    matches = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
+def discover_competition(league, country):
+    found = {}
 
-        if not country_matches(
-            item, config["country"]
-        ):
-            continue
+    for term in SEARCH_TERMS[league]:
+        print(f"Searching {league}: {term}")
 
-        name = normalise(item.get("name"))
-        target = normalise(config["search"])
+        payload = api_get(
+            "/football/competitions",
+            {
+                "search": term,
+                "per_page": 100,
+            },
+        )
 
-        if (
-            target in name
-            or name in target
-            or (
-                league == "La Liga"
-                and name in ("laliga", "primeradivision")
-            )
-            or (
-                league == "Primeira Liga"
-                and name in (
-                    "ligaportugal",
-                    "ligaportugalbetclic",
-                )
-            )
-            or (
-                league == "Scottish Premiership"
-                and "premiership" in name
-            )
-        ):
-            matches.append(item)
+        items = unwrap_list(payload)
 
-    if len(matches) != 1:
         print(
-            f"WARNING: {league} has "
-            f"{len(matches)} matching competitions."
+            f"Search returned {len(items)} candidates"
+        )
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+
+            competition_id = item.get("id")
+            name = item.get("name")
+
+            if not competition_id:
+                continue
+
+            print(
+                f"Candidate: {competition_id} | "
+                f"{name} | {item.get('country')}"
+            )
+
+            if not country_matches(item, country):
+                continue
+
+            if (
+                normalise(name)
+                not in ACCEPTED_NAMES[league]
+            ):
+                continue
+
+            found[str(competition_id)] = item
+
+    if len(found) != 1:
+        print(
+            f"WARNING: {league} unresolved. "
+            f"Valid candidates: {len(found)}"
         )
         print(
-            "Candidates:",
-            [
-                (
-                    x.get("id"),
-                    x.get("name"),
-                    x.get("country"),
-                )
-                for x in items
-                if isinstance(x, dict)
-            ],
+            "No competition ID will be guessed."
         )
         return None
 
-    competition_id = matches[0].get("id")
+    competition_id = next(iter(found))
+
     print(
         f"Resolved {league}: {competition_id}"
     )
+
     return competition_id
 
 
@@ -318,6 +331,7 @@ def fixture_list(competition_id, page):
             "sort": "-utc_date",
         },
     )
+
     return unwrap_list(payload)
 
 
@@ -325,6 +339,9 @@ def get_xg(match_id):
     payload = api_get(
         f"/football/matches/{match_id}/stats"
     )
+
+    if not isinstance(payload, dict):
+        return None
 
     data = payload.get("data") or {}
     overview = data.get("overview") or {}
@@ -358,28 +375,39 @@ def team_name(value):
 
 def main():
     known = existing_ids()
+
     print(f"Existing database IDs: {len(known)}")
 
     total_saved = 0
     detail_requests = 0
+    results = {}
 
     for league, config in LEAGUES.items():
         print(f"\n=== {league} ===")
 
         if detail_requests >= MAX_DETAIL_REQUESTS:
-            print("Global request limit reached.")
+            print("Global detail limit reached")
             break
 
-        competition_id = resolve_competition(
-            league, config
-        )
+        competition_id = config["id"]
+
+        if competition_id is None:
+            competition_id = discover_competition(
+                league,
+                config["country"],
+            )
 
         if not competition_id:
-            print(f"Skipping unresolved {league}")
+            results[league] = "Unresolved"
             continue
+
+        print(
+            f"Using competition ID: {competition_id}"
+        )
 
         saved = 0
         checked = 0
+        no_xg = 0
 
         for page in range(
             1, MAX_PAGES_PER_LEAGUE + 1
@@ -395,7 +423,7 @@ def main():
             )
 
             print(
-                f"{league} page {page}: "
+                f"{league}, page {page}: "
                 f"{len(fixtures)} fixtures"
             )
 
@@ -426,6 +454,7 @@ def main():
                     continue
 
                 if match.get("xg_available") is False:
+                    no_xg += 1
                     continue
 
                 actual_competition = (
@@ -434,7 +463,8 @@ def main():
 
                 if (
                     actual_competition is not None
-                    and actual_competition != competition_id
+                    and str(actual_competition)
+                    != str(competition_id)
                 ):
                     continue
 
@@ -462,9 +492,8 @@ def main():
                     xg = get_xg(match_id)
 
                     if xg is None:
-                        print(
-                            f"No xG: {match_id}"
-                        )
+                        print(f"No xG: {match_id}")
+                        no_xg += 1
                         continue
 
                     row = {
@@ -495,9 +524,20 @@ def main():
                         f"Match {match_id} failed: {exc}"
                     )
 
+        results[league] = saved
+
         print(
             f"{league}: saved {saved}, "
-            f"detail requests {checked}"
+            f"detail requests {checked}, "
+            f"no xG {no_xg}"
+        )
+
+    print("\n=== LEAGUE SUMMARY ===")
+
+    for league in LEAGUES:
+        print(
+            f"{league}: "
+            f"{results.get(league, 'Not reached')}"
         )
 
     print("\n=== FINAL SUMMARY ===")
