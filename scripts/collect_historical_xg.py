@@ -135,44 +135,22 @@ def fixture_list(competition_id, page):
     raise ValueError("Could not locate fixture list")
 
 
+
 def get_xg(match_id):
-    payload = api_get(
-        f"/football/matches/{match_id}/stats"
-    )
+    payload = api_get(f"/football/matches/{match_id}/stats")
 
-    # Match the nested expected_goals structure
-    # used by the existing collector.
-    candidates = [payload]
-    if isinstance(payload, dict):
-        candidates.extend(
-            payload.get(key)
-            for key in ("data", "stats", "statistics")
-        )
+    data = payload.get("data", {})
+    overview = data.get("overview", {})
+    expected = overview.get("expected_goals", {})
+    values = expected.get("all", {})
 
-    for candidate in candidates:
-        if not isinstance(candidate, dict):
-            continue
+    home = values.get("home")
+    away = values.get("away")
 
-        stats = candidate.get("stats", candidate)
-        if not isinstance(stats, dict):
-            continue
-
-        expected = stats.get("expected_goals")
-        if not isinstance(expected, dict):
-            continue
-
-        values = expected.get("all")
-        if not isinstance(values, dict):
-            continue
-
-        home = values.get("home")
-        away = values.get("away")
-
-        if home is not None and away is not None:
-            return float(home), float(away)
+    if home is not None and away is not None:
+        return float(home), float(away)
 
     return None
-
 
 def team_name(value):
     if isinstance(value, str):
