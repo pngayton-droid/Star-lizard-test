@@ -49,7 +49,7 @@ MAX_DETAIL_REQUESTS = 500
 MAX_REQUESTS_PER_LEAGUE = 50
 
 PAGE_SIZE = 20
-MAX_PAGES_PER_LEAGUE = 40
+MAX_PAGES_PER_LEAGUE = 100
 
 # Conservative paid-plan pacing:
 # approximately 60 requests per minute.
