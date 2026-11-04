@@ -3,6 +3,8 @@ name: Collect historical xG
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
 
 permissions:
   contents: read
