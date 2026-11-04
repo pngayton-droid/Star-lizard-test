@@ -347,7 +347,12 @@ def get_fixtures(competition_id, page):
         },
     )
 
+    
+    if not payload:
+        return []
+
     return unwrap_list(payload)
+
 
 
 # ==========================================
