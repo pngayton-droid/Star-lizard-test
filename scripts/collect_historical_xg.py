@@ -193,7 +193,20 @@ def api_get(path, params=None):
             time.sleep(10)
             continue
 
+    
+        if response.status_code == 400:
+            print(
+                f"API rejected request: {response.url}",
+                flush=True,
+            )
+            print(
+                f"API explanation: {response.text[:500]}",
+                flush=True,
+            )
+            return {}
+
         response.raise_for_status()
+    
         return response.json()
 
     raise StopCollection(
