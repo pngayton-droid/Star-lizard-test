@@ -162,7 +162,7 @@ def save_progress(season, league_index, page, match_index):
             "league_index": league_index,
             "page": page,
             "match_index": match_index,
-            "updated_at": "now()",
+            
         },
         on_conflict="collector_name",
     ).execute()
