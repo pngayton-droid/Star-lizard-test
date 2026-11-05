@@ -27,7 +27,7 @@ SESSION.headers.update({
 
 # Small, controlled recovery batch.
 # Increase after verifying the first run.
-MAX_MATCHES = 10
+MAX_MATCHES = 350
 
 # Respect the API's 1-request-per-second limit.
 REQUEST_INTERVAL = 1.2
