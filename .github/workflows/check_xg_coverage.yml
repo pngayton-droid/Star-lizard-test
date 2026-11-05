@@ -1,0 +1,27 @@
+
+name: Check historical xG coverage
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Check historical coverage
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+        run: python scripts/check_xg_coverage.py
