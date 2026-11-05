@@ -1,5 +1,5 @@
 
-"""PRO STAR LIZARD — BACKWARDS HISTORICAL xG COLLECTOR"""
+"""PRO STAR LIZARD — RESUMABLE HISTORICAL xG COLLECTOR"""
 
 import os
 import time
@@ -9,6 +9,7 @@ from supabase import create_client
 BASE = "https://api.thestatsapi.com/api"
 
 API_KEY = os.environ["STATS_API_KEY"]
+
 DB = create_client(
     os.environ["SUPABASE_URL"],
     os.environ["SUPABASE_SECRET_KEY"],
@@ -31,9 +32,11 @@ FIRST_SEASON = 2016
 LAST_SEASON = 2025
 
 MAX_DETAIL_REQUESTS = 500
-MAX_TOTAL_API_REQUESTS = 1000
+MAX_TOTAL_API_REQUESTS = 900
 PAGE_SIZE = 20
 MIN_REQUEST_INTERVAL = 1.0
+
+COLLECTOR_NAME = "historical_xg"
 
 session = requests.Session()
 session.headers.update({
@@ -48,9 +51,6 @@ monthly_remaining = "unknown"
 def api_get(path, params=None):
     global api_calls, last_request, monthly_remaining
 
-    if api_calls >= MAX_TOTAL_API_REQUESTS:
-        return None
-
     for attempt in range(4):
         if api_calls >= MAX_TOTAL_API_REQUESTS:
             return None
@@ -58,6 +58,7 @@ def api_get(path, params=None):
         wait = MIN_REQUEST_INTERVAL - (
             time.monotonic() - last_request
         )
+
         if wait > 0:
             time.sleep(wait)
 
@@ -68,6 +69,7 @@ def api_get(path, params=None):
             params=params,
             timeout=30,
         )
+
         api_calls += 1
 
         monthly_remaining = response.headers.get(
@@ -93,12 +95,14 @@ def api_get(path, params=None):
                 error = {}
 
             if error.get("code") == "PAGE_OUT_OF_RANGE":
-                return None
+                return {"data": []}
 
         response.raise_for_status()
         return response.json()
 
-    return None
+    raise RuntimeError(
+        "API retries exhausted. Progress is preserved."
+    )
 
 
 def load_existing():
@@ -129,12 +133,47 @@ def load_existing():
     return existing
 
 
+def load_progress():
+    result = (
+        DB.table("collector_progress")
+        .select("*")
+        .eq("collector_name", COLLECTOR_NAME)
+        .limit(1)
+        .execute()
+    )
+
+    if result.data:
+        row = result.data[0]
+        return (
+            int(row["season"]),
+            int(row["league_index"]),
+            int(row["page"]),
+            int(row["match_index"]),
+        )
+
+    return (LAST_SEASON, 0, 1, 0)
+
+
+def save_progress(season, league_index, page, match_index):
+    DB.table("collector_progress").upsert(
+        {
+            "collector_name": COLLECTOR_NAME,
+            "season": season,
+            "league_index": league_index,
+            "page": page,
+            "match_index": match_index,
+            "updated_at": "now()",
+        },
+        on_conflict="collector_name",
+    ).execute()
+
+
 def get_match_xg(match_id):
     payload = api_get(
         f"/football/matches/{match_id}/stats"
     )
 
-    if not payload:
+    if payload is None:
         return None
 
     data = payload.get("data") or {}
@@ -161,10 +200,12 @@ def save_match(match, values):
     home = match.get("home_team") or {}
     away = match.get("away_team") or {}
 
+    match_id = str(
+        match.get("id") or match.get("match_id")
+    )
+
     row = {
-        "match_id": str(
-            match.get("id") or match.get("match_id")
-        ),
+        "match_id": match_id,
         "match_date": str(
             match.get("utc_date", "")
         )[:10],
@@ -182,11 +223,22 @@ def save_match(match, values):
     ).execute()
 
 
+def next_league_position(season, league_index):
+    league_index += 1
+
+    if league_index >= len(LEAGUES):
+        return (season - 1, 0, 1, 0)
+
+    return (season, league_index, 1, 0)
+
+
 def main():
     existing = load_existing()
 
+    season, league_index, page, match_index = load_progress()
+
     print(
-        "PRO STAR LIZARD BACKWARDS HISTORICAL COLLECTOR",
+        "PRO STAR LIZARD RESUMABLE HISTORICAL COLLECTOR",
         flush=True,
     )
     print(
@@ -194,9 +246,9 @@ def main():
         flush=True,
     )
     print(
-        f"Working backwards: "
-        f"{LAST_SEASON}/{LAST_SEASON + 1} "
-        f"to {FIRST_SEASON}/{FIRST_SEASON + 1}",
+        f"RESUMING: season={season}, "
+        f"league={league_index}, "
+        f"page={page}, match={match_index}",
         flush=True,
     )
 
@@ -206,117 +258,115 @@ def main():
     skipped = 0
     details = 0
 
-    for season in range(
-        LAST_SEASON,
-        FIRST_SEASON - 1,
-        -1,
-    ):
+    leagues = list(LEAGUES.items())
+
+    while season >= FIRST_SEASON:
         if (
             details >= MAX_DETAIL_REQUESTS
             or api_calls >= MAX_TOTAL_API_REQUESTS
         ):
             break
 
-        start = f"{season}-08-01"
-        end = f"{season + 1}-07-31"
+        league_name, competition_id = leagues[league_index]
 
         print(
-            f"\n===== SEASON {season}/{season + 1} =====",
+            f"\n=== {league_name} "
+            f"{season}/{season + 1}, page {page} ===",
             flush=True,
         )
 
-        for league_name, competition_id in LEAGUES.items():
+        start = f"{season}-08-01"
+        end = f"{season + 1}-07-31"
+
+        payload = api_get(
+            "/football/matches",
+            {
+                "competition_id": competition_id,
+                "status": "finished",
+                "date_from": start,
+                "date_to": end,
+                "per_page": PAGE_SIZE,
+                "page": page,
+                "sort": "-utc_date",
+            },
+        )
+
+        if payload is None:
+            break
+
+        matches = payload.get("data") or []
+
+        if not isinstance(matches, list):
+            raise RuntimeError(
+                "Unexpected fixtures response. "
+                "Progress preserved."
+            )
+
+        if not matches:
+            season, league_index, page, match_index = (
+                next_league_position(season, league_index)
+            )
+
+            save_progress(
+                season, league_index, page, match_index
+            )
+            continue
+
+        print(
+            f"Page {page}: {len(matches)} fixtures",
+            flush=True,
+        )
+
+        while match_index < len(matches):
             if (
                 details >= MAX_DETAIL_REQUESTS
                 or api_calls >= MAX_TOTAL_API_REQUESTS
             ):
                 break
 
-            print(
-                f"\n=== {league_name} ===",
-                flush=True,
+            match = matches[match_index]
+
+            match_id = str(
+                match.get("id")
+                or match.get("match_id")
+                or ""
             )
 
-            page = 1
-            league_saved = 0
-
-            while page <= 100:
-                if (
-                    details >= MAX_DETAIL_REQUESTS
-                    or api_calls >= MAX_TOTAL_API_REQUESTS
-                ):
-                    break
-
-                payload = api_get(
-                    "/football/matches",
-                    {
-                        "competition_id": competition_id,
-                        "status": "finished",
-                        "date_from": start,
-                        "date_to": end,
-                        "per_page": PAGE_SIZE,
-                        "page": page,
-                        "sort": "-utc_date",
-                    },
+            if not match_id:
+                match_index += 1
+                save_progress(
+                    season, league_index, page, match_index
                 )
+                continue
 
-                if not payload:
+            if existing.get(match_id) is True:
+                skipped += 1
+
+            elif match.get("xg_available") is False:
+                missing += 1
+
+            else:
+                # Reserve a request for the detail endpoint.
+                if api_calls >= MAX_TOTAL_API_REQUESTS - 1:
                     break
 
-                matches = payload.get("data") or []
+                details += 1
 
-                if not isinstance(matches, list):
-                    break
+                try:
+                    values = get_match_xg(match_id)
 
-                if not matches:
-                    break
-
-                print(
-                    f"{league_name}, page {page}: "
-                    f"{len(matches)} fixtures",
-                    flush=True,
-                )
-
-                for match in matches:
+                except requests.HTTPError as exc:
                     if (
-                        details >= MAX_DETAIL_REQUESTS
-                        or api_calls >= MAX_TOTAL_API_REQUESTS
+                        exc.response is not None
+                        and exc.response.status_code == 404
                     ):
-                        break
-
-                    match_id = str(
-                        match.get("id")
-                        or match.get("match_id")
-                        or ""
-                    )
-
-                    if not match_id:
-                        continue
-
-                    if existing.get(match_id) is True:
-                        skipped += 1
-                        continue
-
-                    if match.get("xg_available") is False:
-                        continue
-
-                    details += 1
-
-                    try:
-                        values = get_match_xg(match_id)
-                    except requests.HTTPError as exc:
-                        if (
-                            exc.response is not None
-                            and exc.response.status_code == 404
-                        ):
-                            missing += 1
-                            continue
+                        values = None
+                    else:
                         raise
 
-                    if values is None:
-                        missing += 1
-                        continue
-
+                if values is None:
+                    missing += 1
+                else:
                     save_match(match, values)
 
                     if match_id in existing:
@@ -325,20 +375,33 @@ def main():
                         new += 1
 
                     existing[match_id] = True
-                    league_saved += 1
 
-                page += 1
+            # Advance only after this match is handled.
+            match_index += 1
 
-            print(
-                f"{league_name}: {league_saved} saved",
-                flush=True,
+            save_progress(
+                season, league_index, page, match_index
+            )
+
+        if (
+            details >= MAX_DETAIL_REQUESTS
+            or api_calls >= MAX_TOTAL_API_REQUESTS - 1
+        ):
+            break
+
+        if match_index >= len(matches):
+            page += 1
+            match_index = 0
+
+            save_progress(
+                season, league_index, page, match_index
             )
 
     print("\n=== FINAL SUMMARY ===", flush=True)
     print(f"New matches: {new}", flush=True)
     print(f"Existing matches updated: {updated}", flush=True)
     print(f"HT xG saved/updated: {new + updated}", flush=True)
-    print(f"Details without usable xG: {missing}", flush=True)
+    print(f"Without usable xG: {missing}", flush=True)
     print(f"Already complete skipped: {skipped}", flush=True)
     print(f"Detailed requests: {details}", flush=True)
     print(f"Total API requests: {api_calls}", flush=True)
@@ -347,6 +410,18 @@ def main():
         flush=True,
     )
     print(f"Database total: {len(existing)}", flush=True)
+    print(
+        f"NEXT POSITION: season={season}, "
+        f"league={league_index}, "
+        f"page={page}, match={match_index}",
+        flush=True,
+    )
+
+    if season < FIRST_SEASON:
+        print(
+            "HISTORICAL COLLECTION COMPLETE",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":
