@@ -2,14 +2,20 @@ name: Recover Historical Match Scores
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
 
 permissions:
   contents: read
 
+concurrency:
+  group: historical-score-recovery
+  cancel-in-progress: false
+
 jobs:
   recover-scores:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
