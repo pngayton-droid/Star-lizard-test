@@ -17,7 +17,7 @@ DB = create_client(
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 
 # First run: only 10 matches.
-MAX_MATCHES = 10
+MAX_MATCHES = 500
 REQUEST_INTERVAL = 1.2
 
 FIELDS = (
