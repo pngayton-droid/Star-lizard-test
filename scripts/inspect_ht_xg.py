@@ -16,16 +16,14 @@ headers = {
     "Authorization": f"Bearer {API_KEY}"
 }
 
-print("PRO STAR LIZARD - HALF-TIME xG INVESTIGATION")
+print("PRO STAR LIZARD - MATCH RESULTS INVESTIGATION")
 
 result = (
     db.table("historical_xg")
     .select("match_id,match_date,home_team,away_team")
-    .gte("match_date", "2026-08-01")
-    .is_("home_ht_xg", "null")
     .like("match_id", "mt_%")
     .order("match_date", desc=True)
-    .limit(3)
+    .limit(1)
     .execute()
 )
 
@@ -34,7 +32,6 @@ matches = result.data or []
 print(f"Matches selected: {len(matches)}")
 
 for match in matches:
-
     match_id = match["match_id"]
 
     print("\n" + "=" * 60)
@@ -47,7 +44,7 @@ for match in matches:
     print("MATCH ID:", match_id)
 
     response = requests.get(
-        f"{BASE}/football/matches/{match_id}/stats",
+        f"{BASE}/football/matches/{match_id}",
         headers=headers,
         timeout=30
     )
@@ -57,7 +54,7 @@ for match in matches:
     if response.ok:
         payload = response.json()
 
-        print("FULL API RESPONSE:")
+        print("MATCH API RESPONSE:")
         print(json.dumps(payload, indent=2))
     else:
         print("API ERROR:", response.text[:1000])
