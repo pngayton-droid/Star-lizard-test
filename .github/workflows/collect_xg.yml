@@ -5,7 +5,9 @@ on:
   workflow_dispatch:
   schedule:
         - cron: "*/30 * * * *"
-
+concurrency:
+  group: historical-xg-collector
+  cancel-in-progress: false
 permissions:
   contents: read
 
