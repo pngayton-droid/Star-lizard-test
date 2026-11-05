@@ -3,7 +3,7 @@ name: Recover Historical Match Scores
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '0,30 * * * *'
 
 permissions:
   contents: read
