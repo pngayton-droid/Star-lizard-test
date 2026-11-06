@@ -2,13 +2,15 @@
 import os
 import time
 from collections import Counter
+from datetime import datetime, timezone
 
 import requests
 from supabase import create_client
 
 # STARLIZARD - HISTORICAL EVENTS COLLECTOR
-# Safe batch collection, restartable and rate-limited.
+# Restartable, rate-limited.
 # Writes ONLY to historical_match_events.
+# Preserves raw API data and flags discrepancies.
 
 API_BASE = "https://api.thestatsapi.com/api/football/matches"
 API_KEY = os.environ["STATS_API_KEY"]
@@ -45,19 +47,18 @@ def fetch(match_id, endpoint):
             status = response.status_code
 
             if status == 429:
-                retry_after = response.headers.get(
-                    "Retry-After", ""
-                )
                 try:
-                    wait = float(retry_after)
-                except ValueError:
+                    wait = float(
+                        response.headers.get("Retry-After", "")
+                    )
+                except (ValueError, TypeError):
                     wait = 15 * attempt
 
                 wait = min(max(wait, 2), 120)
 
                 print(
                     f"RATE LIMIT: {endpoint} "
-                    f"attempt {attempt}/{MAX_ATTEMPTS}, "
+                    f"attempt {attempt}/{MAX_ATTEMPTS}; "
                     f"waiting {wait}s",
                     flush=True,
                 )
@@ -89,7 +90,12 @@ def fetch(match_id, endpoint):
                 return None, status
 
             payload = response.json()
-            data = payload.get("data")
+
+            data = (
+                payload.get("data")
+                if isinstance(payload, dict)
+                else None
+            )
 
             if not isinstance(data, dict):
                 print(
@@ -103,7 +109,10 @@ def fetch(match_id, endpoint):
         except RateLimitExhausted:
             raise
 
-        except (requests.RequestException, ValueError) as exc:
+        except (
+            requests.RequestException,
+            ValueError,
+        ) as exc:
             print(
                 f"REQUEST ERROR: {endpoint}: {exc}",
                 flush=True,
@@ -121,9 +130,14 @@ def load_existing():
     while True:
         result = (
             db.table("historical_match_events")
-            .select("match_id,stats_data,timeline_data")
+            .select(
+                "match_id,stats_data,timeline_data"
+            )
             .order("match_id")
-            .range(offset, offset + PAGE_SIZE - 1)
+            .range(
+                offset,
+                offset + PAGE_SIZE - 1,
+            )
             .execute()
         )
 
@@ -149,22 +163,28 @@ def find_pending(existing):
             db.table("historical_xg")
             .select(
                 "match_id,match_date,"
-                "home_team,away_team"
+                "home_team,away_team,"
+                "home_goals,away_goals"
             )
             .like("match_id", "mt_%")
             .not_.is_("home_goals", "null")
             .order("match_date", desc=True)
             .order("match_id")
-            .range(offset, offset + PAGE_SIZE - 1)
+            .range(
+                offset,
+                offset + PAGE_SIZE - 1,
+            )
             .execute()
         )
 
         rows = result.data or []
 
         for match in rows:
-            old = existing.get(match["match_id"], {})
+            old = existing.get(
+                match["match_id"], {}
+            )
 
-            # Fully collected matches need no more API calls.
+            # Never refetch completed matches.
             if (
                 old.get("stats_data") is not None
                 and old.get("timeline_data") is not None
@@ -184,32 +204,36 @@ def find_pending(existing):
     return pending
 
 
-def stats_total(stats, field):
+def official_pair(stats, field, period="all"):
     if not isinstance(stats, dict):
         return None
 
-    section = (
-        stats.get("overview", {}).get(field, {})
+    values = (
+        stats.get("overview", {})
+        .get(field, {})
+        .get(period)
     )
-
-    if not isinstance(section, dict):
-        return None
-
-    values = section.get("all", {})
 
     if not isinstance(values, dict):
         return None
 
-    home = values.get("home")
-    away = values.get("away")
+    try:
+        if (
+            values.get("home") is None
+            or values.get("away") is None
+        ):
+            return None
 
-    if home is None or away is None:
+        return (
+            int(values["home"]),
+            int(values["away"]),
+        )
+
+    except (TypeError, ValueError):
         return None
 
-    return int(home) + int(away)
 
-
-def timeline_count(timeline, event_type):
+def valid_events(timeline):
     if not isinstance(timeline, dict):
         return None
 
@@ -221,48 +245,236 @@ def timeline_count(timeline, event_type):
     if not isinstance(events, list):
         return None
 
-    return sum(
-        event.get("type") == event_type
+    if not all(
+        isinstance(event, dict)
         for event in events
-        if isinstance(event, dict)
-    )
+    ):
+        return None
+
+    return events
 
 
-def compare(stats, timeline, field, event_type):
-    a = stats_total(stats, field)
-    b = timeline_count(timeline, event_type)
+def count_pair(
+    events,
+    home,
+    away,
+    kind,
+    period=None,
+):
+    counts = [0, 0]
 
-    if a is None or b is None:
-        return None, a, b
+    for event in events:
+        if (
+            period is not None
+            and event.get("period") != period
+        ):
+            continue
 
-    return a == b, a, b
+        event_type = event.get("type")
+        team = event.get("team")
+
+        name = (
+            team.get("name")
+            if isinstance(team, dict)
+            else None
+        )
+
+        if name not in (home, away):
+            continue
+
+        index = 0 if name == home else 1
+
+        if (
+            kind == "corners"
+            and event_type == "corner_kick"
+        ):
+            # Observed timeline convention:
+            # team identifies the opposing side.
+            counts[1 - index] += 1
+
+        elif (
+            kind == "yellows"
+            and event_type in (
+                "yellow_card",
+                "yellow_red_card",
+            )
+        ):
+            counts[index] += 1
+
+        elif (
+            kind == "reds"
+            and event_type in (
+                "red_card",
+                "yellow_red_card",
+            )
+        ):
+            counts[index] += 1
+
+        elif kind == "goals":
+            if event_type in (
+                "goal",
+                "penalty_scored",
+            ):
+                counts[index] += 1
+
+            elif event_type == "own_goal":
+                counts[1 - index] += 1
+
+    return tuple(counts)
 
 
-def save_match(match_id, stats, timeline,
-               stats_status, timeline_status):
+def validate(
+    stats,
+    timeline,
+    home,
+    away,
+    home_goals,
+    away_goals,
+):
+    events = valid_events(timeline)
+
+    mapping = {
+        "corners": (
+            "corner_kicks",
+            "corners",
+        ),
+        "yellow_cards": (
+            "yellow_cards",
+            "yellows",
+        ),
+        "red_cards": (
+            "red_cards",
+            "reds",
+        ),
+    }
 
     checks = {}
 
-    for label, field, event_type in [
-        ("corners", "corner_kicks", "corner_kick"),
-        ("yellow_cards", "yellow_cards", "yellow_card"),
-        ("red_cards", "red_cards", "red_card"),
-    ]:
-        matched, official, timeline_total = compare(
-            stats, timeline, field, event_type
+    for label, (field, kind) in mapping.items():
+        official = official_pair(
+            stats, field
         )
 
-        checks[label] = matched
+        counted = (
+            count_pair(
+                events, home, away, kind
+            )
+            if events is not None
+            else None
+        )
+
+        if (
+            official is not None
+            and counted is not None
+        ):
+            ok = official == counted
+        else:
+            ok = None
+
+        half_results = []
+
+        if events is not None:
+            for period in (
+                "first_half",
+                "second_half",
+            ):
+                official_half = official_pair(
+                    stats, field, period
+                )
+
+                if official_half is not None:
+                    counted_half = count_pair(
+                        events,
+                        home,
+                        away,
+                        kind,
+                        period,
+                    )
+
+                    half_results.append(
+                        official_half == counted_half
+                    )
+
+                    print(
+                        f"  {label} {period}: "
+                        f"stats={official_half}, "
+                        f"timeline={counted_half}",
+                        flush=True,
+                    )
+
+        if (
+            ok is True
+            and half_results
+            and not all(half_results)
+        ):
+            ok = False
+
+        checks[label] = ok
 
         print(
-            f"{label}: stats={official}, "
-            f"timeline={timeline_total}, "
-            f"match={matched}",
+            f"{label}: "
+            f"stats={official}, "
+            f"timeline={counted}, "
+            f"match={ok}",
             flush=True,
         )
 
+    try:
+        official_goals = (
+            int(home_goals),
+            int(away_goals),
+        )
+    except (TypeError, ValueError):
+        official_goals = None
+
+    counted_goals = (
+        count_pair(
+            events,
+            home,
+            away,
+            "goals",
+        )
+        if events is not None
+        else None
+    )
+
+    goals_ok = (
+        official_goals == counted_goals
+        if (
+            official_goals is not None
+            and counted_goals is not None
+        )
+        else None
+    )
+
+    print(
+        f"goals: score={official_goals}, "
+        f"timeline={counted_goals}, "
+        f"match={goals_ok}",
+        flush=True,
+    )
+
+    return checks
+
+
+def save_match(
+    match,
+    stats,
+    timeline,
+    stats_status,
+    timeline_status,
+):
+    checks = validate(
+        stats,
+        timeline,
+        match["home_team"],
+        match["away_team"],
+        match.get("home_goals"),
+        match.get("away_goals"),
+    )
+
     record = {
-        "match_id": match_id,
+        "match_id": match["match_id"],
         "stats_data": stats,
         "timeline_data": timeline,
         "stats_status": stats_status,
@@ -270,32 +482,41 @@ def save_match(match_id, stats, timeline,
         "corners_match": checks["corners"],
         "yellow_cards_match": checks["yellow_cards"],
         "red_cards_match": checks["red_cards"],
-        "updated_at": "now()",
+        "updated_at": (
+            datetime.now(
+                timezone.utc
+            ).isoformat()
+        ),
     }
 
-    # Supabase/PostgREST expects an actual timestamp,
-    # not the SQL expression now().
-    from datetime import datetime, timezone
-    record["updated_at"] = (
-        datetime.now(timezone.utc).isoformat()
-    )
-
-    db.table("historical_match_events").upsert(
+    db.table(
+        "historical_match_events"
+    ).upsert(
         record,
         on_conflict="match_id",
     ).execute()
 
-    print("SAVED TO SUPABASE", flush=True)
+    print(
+        "SAVED TO SUPABASE",
+        flush=True,
+    )
 
 
 def main():
     print(
-        "\nSTARLIZARD HISTORICAL EVENT COLLECTOR",
+        "\nSTARLIZARD HISTORICAL "
+        "EVENT COLLECTOR",
         flush=True,
     )
-    print("Batch size:", BATCH_SIZE, flush=True)
+
+    print(
+        "Batch size:",
+        BATCH_SIZE,
+        flush=True,
+    )
 
     existing = load_existing()
+
     completed_before = sum(
         row.get("stats_data") is not None
         and row.get("timeline_data") is not None
@@ -303,14 +524,16 @@ def main():
     )
 
     print(
-        "Previously completed:", completed_before,
+        "Previously completed:",
+        completed_before,
         flush=True,
     )
 
     pending = find_pending(existing)
 
     print(
-        "Selected for this run:", len(pending),
+        "Selected for this run:",
+        len(pending),
         flush=True,
     )
 
@@ -318,9 +541,13 @@ def main():
     fully_completed = 0
     stopped_for_rate_limit = False
 
-    for index, match in enumerate(pending, 1):
+    for index, match in enumerate(
+        pending, 1
+    ):
         match_id = match["match_id"]
-        old = existing.get(match_id, {})
+        old = existing.get(
+            match_id, {}
+        )
 
         print(
             f"\n{index}/{len(pending)} "
@@ -333,9 +560,14 @@ def main():
         stats = old.get("stats_data")
         timeline = old.get("timeline_data")
 
-        stats_status = 200 if stats is not None else None
+        stats_status = (
+            200 if stats is not None
+            else None
+        )
+
         timeline_status = (
-            200 if timeline is not None else None
+            200 if timeline is not None
+            else None
         )
 
         try:
@@ -343,46 +575,57 @@ def main():
                 stats, stats_status = fetch(
                     match_id, "stats"
                 )
-                time.sleep(REQUEST_DELAY)
+                time.sleep(
+                    REQUEST_DELAY
+                )
 
             if timeline is None:
                 timeline, timeline_status = fetch(
                     match_id, "timeline"
                 )
-                time.sleep(REQUEST_DELAY)
+                time.sleep(
+                    REQUEST_DELAY
+                )
 
         except RateLimitExhausted:
             print(
-                "STOPPING: API rate limit persists. "
-                "Already saved matches are safe.",
+                "STOPPING: API rate limit "
+                "persists. Saved matches "
+                "are safe.",
                 flush=True,
             )
             stopped_for_rate_limit = True
             break
 
-        if stats is None and timeline is None:
+        if (
+            stats is None
+            and timeline is None
+        ):
             print(
-                "No usable response; will retry "
-                "in a future run.",
+                "No usable response; "
+                "will retry later.",
                 flush=True,
             )
             continue
 
-        if isinstance(timeline, dict):
-            events = timeline.get("events", [])
-            if isinstance(events, list):
-                types = Counter(
-                    event.get("type")
-                    for event in events
-                    if isinstance(event, dict)
-                )
-                print(
-                    "EVENT TYPES:", dict(types),
-                    flush=True,
-                )
+        events = valid_events(
+            timeline
+        )
+
+        if events is not None:
+            types = Counter(
+                event.get("type")
+                for event in events
+            )
+
+            print(
+                "EVENT TYPES:",
+                dict(types),
+                flush=True,
+            )
 
         save_match(
-            match_id,
+            match,
             stats,
             timeline,
             stats_status,
@@ -391,16 +634,28 @@ def main():
 
         saved += 1
 
-        if stats is not None and timeline is not None:
+        if (
+            stats is not None
+            and timeline is not None
+        ):
             fully_completed += 1
 
     print("\n" + "=" * 55)
     print("COLLECTION SUMMARY")
     print("Selected:", len(pending))
     print("Saved this run:", saved)
-    print("Fully completed this run:", fully_completed)
-    print("Stopped for rate limit:", stopped_for_rate_limit)
-    print("Existing complete before run:", completed_before)
+    print(
+        "Fully completed this run:",
+        fully_completed,
+    )
+    print(
+        "Stopped for rate limit:",
+        stopped_for_rate_limit,
+    )
+    print(
+        "Existing complete before run:",
+        completed_before,
+    )
     print("=" * 55, flush=True)
 
 
