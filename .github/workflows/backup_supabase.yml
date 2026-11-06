@@ -1,0 +1,39 @@
+
+name: Backup Starlizard Database
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install supabase
+
+      - name: Export Supabase tables
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/backup_supabase.py
+
+      - name: Upload downloadable backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: starlizard-database-backup
+          path: backup_output/
+          retention-days: 7
+          if-no-files-found: error
