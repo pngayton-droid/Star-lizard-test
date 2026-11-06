@@ -14,7 +14,7 @@ concurrency:
 jobs:
   collect-events:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -29,8 +29,9 @@ jobs:
         run: |
           pip install requests supabase
 
-      - name: Collect five test matches
+      - name: Collect 100 historical matches
         env:
+          EVENT_BATCH_SIZE: "100"
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
