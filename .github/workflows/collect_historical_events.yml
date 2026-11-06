@@ -3,6 +3,8 @@ name: Collect Historical Match Events
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
 
 concurrency:
   group: historical-events-collector
