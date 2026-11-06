@@ -27,7 +27,7 @@ session.headers.update({
 
 BATCH_SIZE = min(
     max(int(os.getenv("EVENT_BATCH_SIZE", "25")), 1),
-    100,
+    500,
 )
 PAGE_SIZE = 500
 REQUEST_DELAY = 1.3
