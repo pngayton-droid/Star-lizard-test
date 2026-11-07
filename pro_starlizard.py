@@ -3,486 +3,1293 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 from supabase import create_client
+from starlizard_live_fixtures import render_live_fixtures
 
-st.set_page_config(page_title="PRO STARLIZARD", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="PRO STARLIZARD",
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 st.markdown("""
 <style>
 .stApp {background:#0b1220;color:#e8eef8}
-.block-container {padding-top:4.5rem!important;padding-bottom:2rem;max-width:1100px}
+.block-container {
+    padding-top:4.5rem!important;
+    padding-bottom:2rem;
+    max-width:1100px
+}
 h1,h2,h3 {color:#f8fafc!important}
-label,[data-testid="stWidgetLabel"],[data-testid="stWidgetLabel"] p {color:#e8eef8!important;font-weight:600!important}
-div[data-testid="stMetric"] {background:#172338;border:1px solid #293a53;border-radius:12px;padding:12px}
-div[data-testid="stMetricValue"],div[data-testid="stMetricValue"] *,div[data-testid="stMetricLabel"],div[data-testid="stMetricLabel"] * {color:#f8fafc!important;opacity:1!important}
-div.stButton>button {width:100%;min-height:3.2rem;border-radius:12px;font-size:1rem;font-weight:700;border:1px solid #41536c}
-div.stButton>button[kind="primary"] {background:#b91c38;border-color:#ef4766;color:white}
-div.stButton>button[kind="secondary"] {background:#172338;color:#f8fafc}
+label,[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] p {
+    color:#e8eef8!important;
+    font-weight:600!important
+}
+div[data-testid="stMetric"] {
+    background:#172338;
+    border:1px solid #293a53;
+    border-radius:12px;
+    padding:12px
+}
+div[data-testid="stMetricValue"],
+div[data-testid="stMetricValue"] *,
+div[data-testid="stMetricLabel"],
+div[data-testid="stMetricLabel"] * {
+    color:#f8fafc!important;
+    opacity:1!important
+}
+div.stButton>button {
+    width:100%;
+    min-height:3.2rem;
+    border-radius:12px;
+    font-size:1rem;
+    font-weight:700;
+    border:1px solid #41536c
+}
+div.stButton>button[kind="primary"] {
+    background:#b91c38;
+    border-color:#ef4766;
+    color:white
+}
+div.stButton>button[kind="secondary"] {
+    background:#172338;
+    color:#f8fafc
+}
 div.stButton>button p {color:inherit!important}
-[data-testid="stImage"] img {object-fit:contain!important;height:auto!important}
-@media(max-width:640px) {.block-container {padding-top:4rem!important;padding-left:1rem;padding-right:1rem}h1{font-size:1.8rem!important}h2{font-size:1.4rem!important}}
+[data-testid="stImage"] img {
+    object-fit:contain!important;
+    height:auto!important
+}
+@media(max-width:640px) {
+    .block-container {
+        padding-top:4rem!important;
+        padding-left:1rem;
+        padding-right:1rem
+    }
+    h1 {font-size:1.8rem!important}
+    h2 {font-size:1.4rem!important}
+}
 </style>
 """, unsafe_allow_html=True)
 
-st.image("pro_starlizard_header_correct-1.png", width="stretch")
+st.image(
+    "pro_starlizard_header_correct-1.png",
+    width="stretch",
+)
 
 LEAGUES = {
-    "comp_0256":"France - Ligue 1","comp_3039":"England - Premier League",
-    "comp_3809":"Netherlands - Eredivisie","comp_4643":"Germany - Bundesliga",
-    "comp_5840":"Italy - Serie A","comp_6387":"Scotland - Premiership",
-    "comp_8321":"England - Championship","comp_8385":"Portugal - Primeira Liga",
-    "comp_8531":"Belgium - Pro League","comp_8814":"Spain - La Liga",
+    "comp_0256": "France - Ligue 1",
+    "comp_3039": "England - Premier League",
+    "comp_3809": "Netherlands - Eredivisie",
+    "comp_4643": "Germany - Bundesliga",
+    "comp_5840": "Italy - Serie A",
+    "comp_6387": "Scotland - Premiership",
+    "comp_8321": "England - Championship",
+    "comp_8385": "Portugal - Primeira Liga",
+    "comp_8531": "Belgium - Pro League",
+    "comp_8814": "Spain - La Liga",
 }
+
 LEAGUE_IDS = list(LEAGUES)
-FIELDS = ("match_id,competition_id,match_date,home_team,away_team,"
-          "home_goals,away_goals,home_ht_goals,away_ht_goals,"
-          "home_xg,away_xg,home_ht_xg,away_ht_xg")
+
+FIELDS = (
+    "match_id,competition_id,match_date,"
+    "home_team,away_team,home_goals,away_goals,"
+    "home_ht_goals,away_ht_goals,"
+    "home_xg,away_xg,home_ht_xg,away_ht_xg"
+)
+
 METRICS = [
-    ("Goals scored","GF"),("Goals conceded","GA"),
-    ("xG for","xGF"),("xG against","xGA"),
-    ("HT goals scored","HT GF"),("HT goals conceded","HT GA"),
-    ("HT xG for","HT xGF"),("HT xG against","HT xGA"),
-    ("2H goals scored","2H GF"),("2H goals conceded","2H GA"),
+    ("Goals scored", "GF"),
+    ("Goals conceded", "GA"),
+    ("xG for", "xGF"),
+    ("xG against", "xGA"),
+    ("HT goals scored", "HT GF"),
+    ("HT goals conceded", "HT GA"),
+    ("HT xG for", "HT xGF"),
+    ("HT xG against", "HT xGA"),
+    ("2H goals scored", "2H GF"),
+    ("2H goals conceded", "2H GA"),
 ]
-SAMPLE_OPTIONS = [5,10,15,20,25]
+
+SAMPLE_OPTIONS = [5, 10, 15, 20, 25]
+
 
 @st.cache_resource
 def get_supabase():
-    return create_client(st.secrets["SUPABASE_URL"],st.secrets["SUPABASE_SECRET_KEY"])
+    return create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_SECRET_KEY"],
+    )
 
-@st.cache_data(ttl=120,show_spinner=False)
+
+@st.cache_data(ttl=120, show_spinner=False)
 def get_database_stats():
-    db=get_supabase()
-    checks=[
-        ("Historical xG records","historical_xg",None,None),
-        ("Match event records collected","historical_match_events",None,None),
-        ("Match statistics received","historical_match_events","stats_status",200),
-        ("Goal/event timelines received","historical_match_events","timeline_status",200),
-        ("Corners matched","historical_match_events","corners_match",True),
-        ("Yellow cards matched","historical_match_events","yellow_cards_match",True),
-        ("Red cards matched","historical_match_events","red_cards_match",True),
-    ]
-    results,errors={},{}
-    for label,table,column,value in checks:
-        try:
-            query=db.table(table).select("match_id",count="exact")
-            if column is not None:
-                query=query.eq(column,value)
-            results[label]=query.limit(1).execute().count
-        except Exception as exc:
-            results[label]=None
-            errors[label]=type(exc).__name__
-    return results,errors
+    db = get_supabase()
 
-@st.cache_data(ttl=3600,show_spinner=False)
+    checks = [
+        ("Historical xG records", "historical_xg", None, None),
+        ("Match event records collected",
+         "historical_match_events", None, None),
+        ("Match statistics received",
+         "historical_match_events", "stats_status", 200),
+        ("Goal/event timelines received",
+         "historical_match_events", "timeline_status", 200),
+        ("Corners matched",
+         "historical_match_events", "corners_match", True),
+        ("Yellow cards matched",
+         "historical_match_events", "yellow_cards_match", True),
+        ("Red cards matched",
+         "historical_match_events", "red_cards_match", True),
+    ]
+
+    results, errors = {}, {}
+
+    for label, table, column, value in checks:
+        try:
+            query = db.table(table).select(
+                "match_id", count="exact"
+            )
+
+            if column is not None:
+                query = query.eq(column, value)
+
+            results[label] = query.limit(1).execute().count
+
+        except Exception as exc:
+            results[label] = None
+            errors[label] = type(exc).__name__
+
+    return results, errors
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def find_team_names(fragment):
-    db=get_supabase()
-    found=set()
-    for field in ("home_team","away_team"):
-        response=(db.table("historical_xg").select(field)
-                  .in_("competition_id",LEAGUE_IDS)
-                  .ilike(field,"%"+fragment+"%").limit(200).execute())
+    db = get_supabase()
+    found = set()
+
+    for field in ("home_team", "away_team"):
+        response = (
+            db.table("historical_xg")
+            .select(field)
+            .in_("competition_id", LEAGUE_IDS)
+            .ilike(field, "%" + fragment + "%")
+            .limit(200)
+            .execute()
+        )
+
         for row in response.data or []:
             if row.get(field):
                 found.add(row[field])
-    return sorted(found,key=str.casefold)
+
+    return sorted(found, key=str.casefold)
+
 
 def numeric(value):
     try:
         if value is None or value == "":
             return None
-        result=float(value)
+
+        result = float(value)
         return result if pd.notna(result) else None
-    except (TypeError,ValueError):
+
+    except (TypeError, ValueError):
         return None
 
-def has_score(row):
-    return numeric(row.get("home_goals")) is not None and numeric(row.get("away_goals")) is not None
 
-@st.cache_data(ttl=300,show_spinner=False)
-def get_matches(team,count,as_of,venue="All"):
-    db=get_supabase()
-    fields=["home_team"] if venue=="Home" else ["away_team"] if venue=="Away" else ["home_team","away_team"]
-    records=[]
+def has_score(row):
+    return (
+        numeric(row.get("home_goals")) is not None
+        and numeric(row.get("away_goals")) is not None
+    )
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_matches(team, count, as_of, venue="All"):
+    db = get_supabase()
+
+    if venue == "Home":
+        fields = ["home_team"]
+    elif venue == "Away":
+        fields = ["away_team"]
+    else:
+        fields = ["home_team", "away_team"]
+
+    records = []
+
     for field in fields:
-        response=(db.table("historical_xg").select(FIELDS)
-                  .eq(field,team).in_("competition_id",LEAGUE_IDS)
-                  .lte("match_date",as_of).order("match_date",desc=True)
-                  .limit(max(150,count*4)).execute())
+        response = (
+            db.table("historical_xg")
+            .select(FIELDS)
+            .eq(field, team)
+            .in_("competition_id", LEAGUE_IDS)
+            .lte("match_date", as_of)
+            .order("match_date", desc=True)
+            .limit(max(150, count * 4))
+            .execute()
+        )
         records.extend(response.data or [])
-    unique={str(row["match_id"]):row for row in records if row.get("match_id") is not None}
-    ordered=sorted(unique.values(),key=lambda r:(r.get("match_date") or "",str(r.get("match_id") or "")),reverse=True)
-    completed,incomplete=[],[]
+
+    unique = {
+        str(row["match_id"]): row
+        for row in records
+        if row.get("match_id") is not None
+    }
+
+    ordered = sorted(
+        unique.values(),
+        key=lambda r: (
+            r.get("match_date") or "",
+            str(r.get("match_id") or ""),
+        ),
+        reverse=True,
+    )
+
+    completed, incomplete = [], []
+
     for row in ordered:
-        if len(completed)>=count:
+        if len(completed) >= count:
             break
+
         if has_score(row):
             completed.append(row)
         else:
             incomplete.append(row)
-    return completed,incomplete
 
-def build_dataframe(team,matches):
-    columns=["Date","League","Venue","Opponent","GF","GA","HT GF","HT GA",
-             "2H GF","2H GA","xGF","xGA","HT xGF","HT xGA","Result"]
-    rows=[]
+    return completed, incomplete
+
+
+def build_dataframe(team, matches):
+    columns = [
+        "Date", "League", "Venue", "Opponent",
+        "GF", "GA", "HT GF", "HT GA",
+        "2H GF", "2H GA",
+        "xGF", "xGA", "HT xGF", "HT xGA",
+        "Result",
+    ]
+
+    rows = []
+
     for match in matches:
-        home=match.get("home_team")==team
-        def pair(h,a):
-            return numeric(match.get(h if home else a)),numeric(match.get(a if home else h))
-        gf,ga=pair("home_goals","away_goals")
-        hgf,hga=pair("home_ht_goals","away_ht_goals")
-        xgf,xga=pair("home_xg","away_xg")
-        hxgf,hxga=pair("home_ht_xg","away_ht_xg")
-        shgf=gf-hgf if gf is not None and hgf is not None else None
-        shga=ga-hga if ga is not None and hga is not None else None
-        result="W" if gf>ga else "L" if gf<ga else "D"
-        rows.append({
-            "Date":match.get("match_date"),"League":LEAGUES.get(match.get("competition_id"),"Unknown"),
-            "Venue":"Home" if home else "Away",
-            "Opponent":match.get("away_team") if home else match.get("home_team"),
-            "GF":gf,"GA":ga,"HT GF":hgf,"HT GA":hga,"2H GF":shgf,"2H GA":shga,
-            "xGF":xgf,"xGA":xga,"HT xGF":hxgf,"HT xGA":hxga,"Result":result
-        })
-    return pd.DataFrame(rows,columns=columns)
+        home = match.get("home_team") == team
 
-def average(df,column):
+        def pair(h, a):
+            return (
+                numeric(match.get(h if home else a)),
+                numeric(match.get(a if home else h)),
+            )
+
+        gf, ga = pair("home_goals", "away_goals")
+        hgf, hga = pair("home_ht_goals", "away_ht_goals")
+        xgf, xga = pair("home_xg", "away_xg")
+        hxgf, hxga = pair("home_ht_xg", "away_ht_xg")
+
+        shgf = (
+            gf - hgf
+            if gf is not None and hgf is not None
+            else None
+        )
+
+        shga = (
+            ga - hga
+            if ga is not None and hga is not None
+            else None
+        )
+
+        result = (
+            "W" if gf > ga
+            else "L" if gf < ga
+            else "D"
+        )
+
+        rows.append({
+            "Date": match.get("match_date"),
+            "League": LEAGUES.get(
+                match.get("competition_id"), "Unknown"
+            ),
+            "Venue": "Home" if home else "Away",
+            "Opponent": (
+                match.get("away_team")
+                if home else match.get("home_team")
+            ),
+            "GF": gf,
+            "GA": ga,
+            "HT GF": hgf,
+            "HT GA": hga,
+            "2H GF": shgf,
+            "2H GA": shga,
+            "xGF": xgf,
+            "xGA": xga,
+            "HT xGF": hxgf,
+            "HT xGA": hxga,
+            "Result": result,
+        })
+
+    return pd.DataFrame(rows, columns=columns)
+
+
+def average(df, column):
     if df.empty:
         return None
-    vals=pd.to_numeric(df[column],errors="coerce").dropna()
+
+    vals = pd.to_numeric(
+        df[column], errors="coerce"
+    ).dropna()
+
     return float(vals.mean()) if len(vals) else None
+
 
 def fmt(value):
     return f"{value:.2f}" if value is not None else "—"
 
+
 def record_text(df):
     if df.empty:
         return "No matches"
-    return f'{(df["Result"]=="W").sum()}W / {(df["Result"]=="D").sum()}D / {(df["Result"]=="L").sum()}L'
+
+    wins = (df["Result"] == "W").sum()
+    draws = (df["Result"] == "D").sum()
+    losses = (df["Result"] == "L").sum()
+
+    return f"{wins}W / {draws}D / {losses}L"
+
 
 def form_badges(df):
     if df.empty:
         st.caption("No matches")
         return
-    colors={"W":"#15803d","D":"#2563eb","L":"#b91c1c"}
-    cells="".join(
-        f'<span style="display:inline-block;background:{colors[r]};color:white;'
-        f'border-radius:6px;padding:6px 10px;margin:3px 3px 3px 0;font-weight:700">{r}</span>'
+
+    colors = {
+        "W": "#15803d",
+        "D": "#2563eb",
+        "L": "#b91c1c",
+    }
+
+    cells = "".join(
+        (
+            f'<span style="display:inline-block;'
+            f'background:{colors[r]};color:white;'
+            f'border-radius:6px;padding:6px 10px;'
+            f'margin:3px 3px 3px 0;'
+            f'font-weight:700">{r}</span>'
+        )
         for r in df["Result"].tolist()
     )
-    st.markdown(cells,unsafe_allow_html=True)
-    st.caption("Most recent first · Green win · Blue draw · Red loss")
+
+    st.markdown(cells, unsafe_allow_html=True)
+    st.caption(
+        "Most recent first · "
+        "Green win · Blue draw · Red loss"
+    )
+
 
 def styled_matches(df):
     if df.empty:
         st.info("No completed league matches found.")
         return
-    def colour_result(value):
-        return {"W":"background-color:#15803d;color:white;font-weight:bold",
-                "D":"background-color:#2563eb;color:white;font-weight:bold",
-                "L":"background-color:#b91c1c;color:white;font-weight:bold"}.get(value,"")
-    display=df.copy()
-    for c in ["GF","GA","HT GF","HT GA","2H GF","2H GA"]:
-        display[c]=display[c].map(lambda v: int(v) if pd.notna(v) else None)
-    st.dataframe(display.style.map(colour_result,subset=["Result"]),
-                 hide_index=True,width="stretch")
 
-def comparison_table(home_name,away_name,home_df,away_df):
-    rows=[]
-    for label,column in METRICS:
+    def colour_result(value):
+        return {
+            "W": "background-color:#15803d;"
+                 "color:white;font-weight:bold",
+            "D": "background-color:#2563eb;"
+                 "color:white;font-weight:bold",
+            "L": "background-color:#b91c1c;"
+                 "color:white;font-weight:bold",
+        }.get(value, "")
+
+    display = df.copy()
+
+    for c in [
+        "GF", "GA", "HT GF", "HT GA",
+        "2H GF", "2H GA",
+    ]:
+        display[c] = display[c].map(
+            lambda v: int(v) if pd.notna(v) else None
+        )
+
+    st.dataframe(
+        display.style.map(
+            colour_result, subset=["Result"]
+        ),
+        hide_index=True,
+        width="stretch",
+    )
+
+
+def comparison_table(
+    home_name, away_name, home_df, away_df
+):
+    rows = []
+
+    for label, column in METRICS:
+
         def cell(df):
             if df.empty:
                 return "—"
-            values=pd.to_numeric(df[column],errors="coerce").dropna()
-            return f"{values.mean():.2f} (n={len(values)})" if len(values) else "—"
-        rows.append({"Statistic":label,"Home team":cell(home_df),"Away team":cell(away_df)})
-    st.dataframe(pd.DataFrame(rows),hide_index=True,width="stretch",
-                 column_config={"Statistic":st.column_config.TextColumn("Statistic"),
-                                "Home team":st.column_config.TextColumn(home_name),
-                                "Away team":st.column_config.TextColumn(away_name)})
 
-def market_observation(df,market):
-    """Return (hits, eligible) using only rows with required recorded fields."""
+            values = pd.to_numeric(
+                df[column], errors="coerce"
+            ).dropna()
+
+            if len(values):
+                return (
+                    f"{values.mean():.2f} "
+                    f"(n={len(values)})"
+                )
+
+            return "—"
+
+        rows.append({
+            "Statistic": label,
+            "Home team": cell(home_df),
+            "Away team": cell(away_df),
+        })
+
+    st.dataframe(
+        pd.DataFrame(rows),
+        hide_index=True,
+        width="stretch",
+        column_config={
+            "Statistic": st.column_config.TextColumn(
+                "Statistic"
+            ),
+            "Home team": st.column_config.TextColumn(
+                home_name
+            ),
+            "Away team": st.column_config.TextColumn(
+                away_name
+            ),
+        },
+    )
+
+
+def market_observation(df, market):
+    """Count observed market hits and eligible matches."""
+
     if df.empty:
-        return 0,0
-    hits=eligible=0
-    for _,row in df.iterrows():
-        gf,ga=numeric(row["GF"]),numeric(row["GA"])
-        hgf,hga=numeric(row["HT GF"]),numeric(row["HT GA"])
+        return 0, 0
+
+    hits = 0
+    eligible = 0
+
+    for _, row in df.iterrows():
+        gf = numeric(row["GF"])
+        ga = numeric(row["GA"])
+        hgf = numeric(row["HT GF"])
+        hga = numeric(row["HT GA"])
+
         if gf is None or ga is None:
             continue
-        total=gf+ga
-        if market=="Over 1.5 goals": result=total>=2
-        elif market=="Over 2.5 goals": result=total>=3
-        elif market=="Over 3.5 goals": result=total>=4
-        elif market=="BTTS Yes": result=gf>=1 and ga>=1
-        elif market=="BTTS No": result=gf==0 or ga==0
-        elif market=="Over 0.5 first-half goals":
-            if hgf is None or hga is None: continue
-            result=hgf+hga>=1
-        elif market=="Over 1.5 first-half goals":
-            if hgf is None or hga is None: continue
-            result=hgf+hga>=2
-        elif market=="Over 0.5 second-half goals":
-            if hgf is None or hga is None: continue
-            result=total-hgf-hga>=1
-        elif market=="Over 1.5 second-half goals":
-            if hgf is None or hga is None: continue
-            result=total-hgf-hga>=2
-        elif market=="Home team to score": result=gf>=1 if row["Venue"]=="Home" else ga>=1
-        elif market=="Away team to score": result=ga>=1 if row["Venue"]=="Home" else gf>=1
-        elif market=="Home win":
-            result=(gf>ga) if row["Venue"]=="Home" else (ga>gf)
-        elif market=="Draw": result=gf==ga
-        elif market=="Away win":
-            result=(ga>gf) if row["Venue"]=="Home" else (gf>ga)
-        elif market=="Home or draw":
-            result=(gf>=ga) if row["Venue"]=="Home" else (ga>=gf)
-        elif market=="Away or draw":
-            result=(ga>=gf) if row["Venue"]=="Home" else (gf>=ga)
-        else: continue
-        eligible+=1
-        hits+=int(result)
-    return hits,eligible
 
-def betting_angles(home_df,away_df,home_name,away_name):
+        total = gf + ga
+
+        if market == "Over 1.5 goals":
+            result = total >= 2
+
+        elif market == "Over 2.5 goals":
+            result = total >= 3
+
+        elif market == "Over 3.5 goals":
+            result = total >= 4
+
+        elif market == "BTTS Yes":
+            result = gf >= 1 and ga >= 1
+
+        elif market == "BTTS No":
+            result = gf == 0 or ga == 0
+
+        elif market == "Over 0.5 first-half goals":
+            if hgf is None or hga is None:
+                continue
+            result = hgf + hga >= 1
+
+        elif market == "Over 1.5 first-half goals":
+            if hgf is None or hga is None:
+                continue
+            result = hgf + hga >= 2
+
+        elif market == "Over 0.5 second-half goals":
+            if hgf is None or hga is None:
+                continue
+            result = total - hgf - hga >= 1
+
+        elif market == "Over 1.5 second-half goals":
+            if hgf is None or hga is None:
+                continue
+            result = total - hgf - hga >= 2
+
+        elif market == "Home team to score":
+            result = (
+                gf >= 1
+                if row["Venue"] == "Home"
+                else ga >= 1
+            )
+
+        elif market == "Away team to score":
+            result = (
+                ga >= 1
+                if row["Venue"] == "Home"
+                else gf >= 1
+            )
+
+        elif market == "Home win":
+            result = (
+                gf > ga
+                if row["Venue"] == "Home"
+                else ga > gf
+            )
+
+        elif market == "Draw":
+            result = gf == ga
+
+        elif market == "Away win":
+            result = (
+                ga > gf
+                if row["Venue"] == "Home"
+                else gf > ga
+            )
+
+        elif market == "Home or draw":
+            result = (
+                gf >= ga
+                if row["Venue"] == "Home"
+                else ga >= gf
+            )
+
+        elif market == "Away or draw":
+            result = (
+                ga >= gf
+                if row["Venue"] == "Home"
+                else gf >= ga
+            )
+
+        else:
+            continue
+
+        eligible += 1
+        hits += int(result)
+
+    return hits, eligible
+
+
+def betting_angles(
+    home_df, away_df, home_name, away_name
+):
     st.header("Potential betting angles")
-    st.caption("Historical screening only — no bookmaker odds, no calibrated probabilities, "
-               "and no claim of positive expected value. Both venue samples must support an angle.")
-    if len(home_df)<5 or len(away_df)<5:
-        st.info("At least five completed home and five completed away league matches are required.")
+
+    st.caption(
+        "Historical screening only — "
+        "no bookmaker odds, no calibrated probabilities, "
+        "and no claim of positive expected value."
+    )
+
+    if len(home_df) < 5 or len(away_df) < 5:
+        st.info(
+            "At least five completed home and "
+            "five completed away league matches "
+            "are required."
+        )
         return
-    markets=[
-        "Over 1.5 goals","Over 2.5 goals","Over 3.5 goals","BTTS Yes","BTTS No",
-        "Over 0.5 first-half goals","Over 1.5 first-half goals",
-        "Over 0.5 second-half goals","Over 1.5 second-half goals",
-        "Home team to score","Away team to score","Home win","Draw","Away win",
-        "Home or draw","Away or draw",
+
+    markets = [
+        "Over 1.5 goals",
+        "Over 2.5 goals",
+        "Over 3.5 goals",
+        "BTTS Yes",
+        "BTTS No",
+        "Over 0.5 first-half goals",
+        "Over 1.5 first-half goals",
+        "Over 0.5 second-half goals",
+        "Over 1.5 second-half goals",
+        "Home team to score",
+        "Away team to score",
+        "Home win",
+        "Draw",
+        "Away win",
+        "Home or draw",
+        "Away or draw",
     ]
-    suggestions=[]
+
+    suggestions = []
+
     for market in markets:
-        h,hn=market_observation(home_df,market)
-        a,an=market_observation(away_df,market)
-        if hn<5 or an<5:
+        h, hn = market_observation(
+            home_df, market
+        )
+        a, an = market_observation(
+            away_df, market
+        )
+
+        if hn < 5 or an < 5:
             continue
-        hp,ap=h/hn,a/an
-        if min(hp,ap)<0.60:
+
+        hp = h / hn
+        ap = a / an
+
+        if min(hp, ap) < 0.60:
             continue
-        suggestions.append((min(hp,ap),(h+a)/(hn+an),market,h,hn,a,an))
+
+        suggestions.append((
+            min(hp, ap),
+            (h + a) / (hn + an),
+            market, h, hn, a, an,
+        ))
+
     suggestions.sort(reverse=True)
+
     if not suggestions:
-        st.info("No market met the screening rule: at least 60% in each venue sample. "
-                "This does not mean there are no possible bets.")
+        st.info(
+            "No market met the screening rule: "
+            "at least 60% in each venue sample. "
+            "This does not mean there are no possible bets."
+        )
         return
-    st.caption("Screening rule: each team's selected venue sample must show the outcome in "
-               "at least 60% of eligible matches. Ranked by the weaker team's observed rate.")
-    for _,pooled,market,h,hn,a,an in suggestions[:3]:
+
+    st.caption(
+        "Each team's venue sample must show "
+        "the outcome in at least 60% of eligible matches. "
+        "Ranked by the weaker observed rate."
+    )
+
+    for _, pooled, market, h, hn, a, an in suggestions[:3]:
         with st.container(border=True):
             st.markdown(f"**{market}**")
-            c1,c2=st.columns(2)
-            with c1:
-                st.metric(f"{home_name} home",f"{h}/{hn}",f"{h/hn:.0%}",delta_color="off")
-            with c2:
-                st.metric(f"{away_name} away",f"{a}/{an}",f"{a/an:.0%}",delta_color="off")
-            st.caption(f"Combined historical frequency: {h+a}/{hn+an} ({pooled:.0%}). "
-                       "This is not a predicted probability or fair price.")
-    st.info("These angles are research leads, not betting recommendations. "
-            "Markets are correlated, opponent strength is not adjusted, and "
-            "market odds are essential before assessing value.")
 
-def show_comparison(home_team,away_team,home_count,away_count,overall_count,as_of):
-    if home_team==away_team:
+            c1, c2 = st.columns(2)
+
+            with c1:
+                st.metric(
+                    f"{home_name} home",
+                    f"{h}/{hn}",
+                    f"{h / hn:.0%}",
+                    delta_color="off",
+                )
+
+            with c2:
+                st.metric(
+                    f"{away_name} away",
+                    f"{a}/{an}",
+                    f"{a / an:.0%}",
+                    delta_color="off",
+                )
+
+            st.caption(
+                f"Combined historical frequency: "
+                f"{h + a}/{hn + an} ({pooled:.0%}). "
+                "Not a predicted probability or fair price."
+            )
+
+    st.info(
+        "These are research leads, not betting "
+        "recommendations. Markets are correlated, "
+        "opponent strength is not adjusted, and "
+        "market odds are essential for assessing value."
+    )
+
+
+def show_comparison(
+    home_team,
+    away_team,
+    home_count,
+    away_count,
+    overall_count,
+    as_of,
+):
+    if home_team == away_team:
         st.warning("Choose two different teams.")
         return
-    with st.spinner("Loading historical league records..."):
-        home_all,home_all_missing=get_matches(home_team,overall_count,as_of,"All")
-        away_all,away_all_missing=get_matches(away_team,overall_count,as_of,"All")
-        home_venue,home_venue_missing=get_matches(home_team,home_count,as_of,"Home")
-        away_venue,away_venue_missing=get_matches(away_team,away_count,as_of,"Away")
-    hadf=build_dataframe(home_team,home_all)
-    aadf=build_dataframe(away_team,away_all)
-    hvdf=build_dataframe(home_team,home_venue)
-    avdf=build_dataframe(away_team,away_venue)
-    st.success("Domestic league comparison loaded.")
-    st.caption("League-only records; cup and European fixtures excluded. Latest matches first.")
+
+    with st.spinner(
+        "Loading historical league records..."
+    ):
+        home_all, home_all_missing = get_matches(
+            home_team, overall_count, as_of, "All"
+        )
+        away_all, away_all_missing = get_matches(
+            away_team, overall_count, as_of, "All"
+        )
+        home_venue, home_venue_missing = get_matches(
+            home_team, home_count, as_of, "Home"
+        )
+        away_venue, away_venue_missing = get_matches(
+            away_team, away_count, as_of, "Away"
+        )
+
+    hadf = build_dataframe(home_team, home_all)
+    aadf = build_dataframe(away_team, away_all)
+    hvdf = build_dataframe(home_team, home_venue)
+    avdf = build_dataframe(away_team, away_venue)
+
+    st.success(
+        "Domestic league comparison loaded."
+    )
+    st.caption(
+        "League-only records; cup and European "
+        "fixtures excluded. Latest matches first."
+    )
+
     st.header("Home versus away form")
-    c1,c2=st.columns(2)
+
+    c1, c2 = st.columns(2)
+
     with c1:
-        st.markdown(f"**{home_team} — HOME**")
-        st.metric("Matches",len(hvdf))
+        st.markdown(
+            f"**{home_team} — HOME**"
+        )
+        st.metric("Matches", len(hvdf))
         st.write(record_text(hvdf))
         form_badges(hvdf)
+
     with c2:
-        st.markdown(f"**{away_team} — AWAY**")
-        st.metric("Matches",len(avdf))
+        st.markdown(
+            f"**{away_team} — AWAY**"
+        )
+        st.metric("Matches", len(avdf))
         st.write(record_text(avdf))
         form_badges(avdf)
-    comparison_table(home_team,away_team,hvdf,avdf)
-    betting_angles(hvdf,avdf,home_team,away_team)
+
+    comparison_table(
+        home_team, away_team, hvdf, avdf
+    )
+
+    betting_angles(
+        hvdf, avdf, home_team, away_team
+    )
+
     st.header("Attack versus defence")
-    st.caption("Historical venue averages, not opposition-adjusted forecasts.")
-    st.dataframe(pd.DataFrame([
-        {"Comparison":f"{home_team} attack","Attacking xG":fmt(average(hvdf,"xGF")),
-         "Opponent xG conceded":fmt(average(avdf,"xGA"))},
-        {"Comparison":f"{away_team} attack","Attacking xG":fmt(average(avdf,"xGF")),
-         "Opponent xG conceded":fmt(average(hvdf,"xGA"))},
-    ]),hide_index=True,width="stretch")
-    with st.expander(f"Overall form — last {overall_count} league matches per team"):
-        c1,c2=st.columns(2)
+
+    st.caption(
+        "Historical venue averages, "
+        "not opposition-adjusted forecasts."
+    )
+
+    st.dataframe(
+        pd.DataFrame([
+            {
+                "Comparison": f"{home_team} attack",
+                "Attacking xG": fmt(
+                    average(hvdf, "xGF")
+                ),
+                "Opponent xG conceded": fmt(
+                    average(avdf, "xGA")
+                ),
+            },
+            {
+                "Comparison": f"{away_team} attack",
+                "Attacking xG": fmt(
+                    average(avdf, "xGF")
+                ),
+                "Opponent xG conceded": fmt(
+                    average(hvdf, "xGA")
+                ),
+            },
+        ]),
+        hide_index=True,
+        width="stretch",
+    )
+
+    with st.expander(
+        f"Overall form — last {overall_count} "
+        "league matches per team"
+    ):
+        c1, c2 = st.columns(2)
+
         with c1:
             st.markdown(f"**{home_team}**")
             st.write(record_text(hadf))
             form_badges(hadf)
+
         with c2:
             st.markdown(f"**{away_team}**")
             st.write(record_text(aadf))
             form_badges(aadf)
-        comparison_table(home_team,away_team,hadf,aadf)
+
+        comparison_table(
+            home_team, away_team, hadf, aadf
+        )
+
     st.header("Match-by-match records")
-    with st.expander(f"{home_team} — last {home_count} HOME league matches"):
+
+    with st.expander(
+        f"{home_team} — last {home_count} "
+        "HOME league matches"
+    ):
         styled_matches(hvdf)
-    with st.expander(f"{away_team} — last {away_count} AWAY league matches"):
+
+    with st.expander(
+        f"{away_team} — last {away_count} "
+        "AWAY league matches"
+    ):
         styled_matches(avdf)
-    with st.expander(f"{home_team} — overall league matches"):
+
+    with st.expander(
+        f"{home_team} — overall league matches"
+    ):
         styled_matches(hadf)
-    with st.expander(f"{away_team} — overall league matches"):
+
+    with st.expander(
+        f"{away_team} — overall league matches"
+    ):
         styled_matches(aadf)
+
     st.header("Data quality")
-    samples=[
-        (f"{home_team} overall",len(hadf),overall_count,len(home_all_missing)),
-        (f"{away_team} overall",len(aadf),overall_count,len(away_all_missing)),
-        (f"{home_team} home",len(hvdf),home_count,len(home_venue_missing)),
-        (f"{away_team} away",len(avdf),away_count,len(away_venue_missing)),
+
+    samples = [
+        (
+            f"{home_team} overall",
+            len(hadf),
+            overall_count,
+            len(home_all_missing),
+        ),
+        (
+            f"{away_team} overall",
+            len(aadf),
+            overall_count,
+            len(away_all_missing),
+        ),
+        (
+            f"{home_team} home",
+            len(hvdf),
+            home_count,
+            len(home_venue_missing),
+        ),
+        (
+            f"{away_team} away",
+            len(avdf),
+            away_count,
+            len(away_venue_missing),
+        ),
     ]
-    issues=False
-    for label,found,requested,missing in samples:
-        if found<requested:
-            issues=True
-            st.warning(f"{label}: {found}/{requested} completed matches available.")
+
+    issues = False
+
+    for label, found, requested, missing in samples:
+        if found < requested:
+            issues = True
+            st.warning(
+                f"{label}: {found}/{requested} "
+                "completed matches available."
+            )
+
         if missing:
-            issues=True
-            st.warning(f"{label}: {missing} incomplete-score records encountered.")
+            issues = True
+            st.warning(
+                f"{label}: {missing} "
+                "incomplete-score records encountered."
+            )
+
     if not issues:
-        st.success("All four requested samples have completed scores.")
-    st.caption("Averages exclude missing metric values. Historical rates are not opponent-adjusted "
-               "and may not reflect current squads or team strength.")
+        st.success(
+            "All four requested samples "
+            "have completed scores."
+        )
+
+    st.caption(
+        "Averages exclude missing metric values. "
+        "Historical rates are not opponent-adjusted "
+        "and may not reflect current squads "
+        "or team strength."
+    )
+
+
+# =============================================
+# MAIN NAVIGATION — FOUR PAGES
+# =============================================
 
 if "active_page" not in st.session_state:
-    st.session_state.active_page="Match Pricing"
-for page,icon in [
-    ("Match Pricing","⚽"),("Historical Research","📊"),("Database Health","🗄️")
+    st.session_state.active_page = "Match Pricing"
+
+for page, icon in [
+    ("Match Pricing", "⚽"),
+    ("Historical Research", "📊"),
+    ("Live Fixtures", "🔴"),
+    ("Database Health", "🗄️"),
 ]:
-    active=st.session_state.active_page==page
-    if st.button(f"{icon}  {page}",key=f"nav_{page}",width="stretch",
-                 type="primary" if active else "secondary"):
-        st.session_state.active_page=page
+    active = (
+        st.session_state.active_page == page
+    )
+
+    if st.button(
+        f"{icon}  {page}",
+        key=f"nav_{page}",
+        width="stretch",
+        type="primary" if active else "secondary",
+    ):
+        st.session_state.active_page = page
         st.rerun()
+
 st.divider()
 
-if st.session_state.active_page=="Match Pricing":
-    st.header("Match Pricing")
-    st.caption("Pre-match and in-play football pricing terminal")
-    st.text_input("Home team",placeholder="Enter home team")
-    st.text_input("Away team",placeholder="Enter away team")
-    st.selectbox("Select market",[
-        "Match Goals","Second-Half Goals","Match Corners","Second-Half Corners",
-        "Cards","Asian Handicap","Asian Goal Totals","Correct Score",
-        "Next Goal","Both Teams To Score",
-    ])
-    st.info("Pricing engine not connected yet. This is our dashboard preview.")
 
-elif st.session_state.active_page=="Historical Research":
+# =============================================
+# PAGE 1 — MATCH PRICING
+# =============================================
+
+if st.session_state.active_page == "Match Pricing":
+
+    st.header("Match Pricing")
+
+    st.caption(
+        "Pre-match and in-play football "
+        "pricing terminal"
+    )
+
+    st.text_input(
+        "Home team",
+        placeholder="Enter home team",
+    )
+
+    st.text_input(
+        "Away team",
+        placeholder="Enter away team",
+    )
+
+    st.selectbox(
+        "Select market",
+        [
+            "Match Goals",
+            "Second-Half Goals",
+            "Match Corners",
+            "Second-Half Corners",
+            "Cards",
+            "Asian Handicap",
+            "Asian Goal Totals",
+            "Correct Score",
+            "Next Goal",
+            "Both Teams To Score",
+        ],
+    )
+
+    st.info(
+        "Pricing engine not connected yet. "
+        "This is our dashboard preview."
+    )
+
+
+# =============================================
+# PAGE 2 — HISTORICAL RESEARCH
+# =============================================
+
+elif (
+    st.session_state.active_page
+    == "Historical Research"
+):
+
     st.header("Historical Research")
-    st.caption("Two-team, venue-specific league comparison. Read-only Supabase research.")
+
+    st.caption(
+        "Two-team, venue-specific league "
+        "comparison. Read-only Supabase research."
+    )
+
     st.subheader("Choose your teams")
-    home_search=st.text_input("Search HOME team",placeholder="e.g. Manchester",key="home_research_search",max_chars=60).strip()
-    home_team=None
-    if len(home_search)>=3:
+
+    home_search = st.text_input(
+        "Search HOME team",
+        placeholder="e.g. Manchester",
+        key="home_research_search",
+        max_chars=60,
+    ).strip()
+
+    home_team = None
+
+    if len(home_search) >= 3:
         if "%" in home_search or "_" in home_search:
-            st.warning("Please avoid % and _ in team searches.")
+            st.warning(
+                "Please avoid % and _ in team searches."
+            )
         else:
             try:
-                opts=find_team_names(home_search)
+                opts = find_team_names(home_search)
+
                 if opts:
-                    home_team=st.selectbox("Home team",opts,key="research_home_team")
+                    home_team = st.selectbox(
+                        "Home team",
+                        opts,
+                        key="research_home_team",
+                    )
                 else:
-                    st.warning("No matching home team found.")
+                    st.warning(
+                        "No matching home team found."
+                    )
+
             except Exception as exc:
-                st.error(f"Home-team search failed: {type(exc).__name__}")
-    away_search=st.text_input("Search AWAY team",placeholder="e.g. Aston",key="away_research_search",max_chars=60).strip()
-    away_team=None
-    if len(away_search)>=3:
+                st.error(
+                    "Home-team search failed: "
+                    f"{type(exc).__name__}"
+                )
+
+    away_search = st.text_input(
+        "Search AWAY team",
+        placeholder="e.g. Aston",
+        key="away_research_search",
+        max_chars=60,
+    ).strip()
+
+    away_team = None
+
+    if len(away_search) >= 3:
         if "%" in away_search or "_" in away_search:
-            st.warning("Please avoid % and _ in team searches.")
+            st.warning(
+                "Please avoid % and _ in team searches."
+            )
         else:
             try:
-                opts=find_team_names(away_search)
+                opts = find_team_names(away_search)
+
                 if opts:
-                    away_team=st.selectbox("Away team",opts,key="research_away_team")
+                    away_team = st.selectbox(
+                        "Away team",
+                        opts,
+                        key="research_away_team",
+                    )
                 else:
-                    st.warning("No matching away team found.")
+                    st.warning(
+                        "No matching away team found."
+                    )
+
             except Exception as exc:
-                st.error(f"Away-team search failed: {type(exc).__name__}")
-    st.subheader("Select recent league matches")
-    c1,c2=st.columns(2)
+                st.error(
+                    "Away-team search failed: "
+                    f"{type(exc).__name__}"
+                )
+
+    st.subheader(
+        "Select recent league matches"
+    )
+
+    c1, c2 = st.columns(2)
+
     with c1:
-        home_count=st.selectbox("HOME matches",SAMPLE_OPTIONS,index=1,key="research_home_count")
-    with c2:
-        away_count=st.selectbox("AWAY matches",SAMPLE_OPTIONS,index=1,key="research_away_count")
-    with st.expander("Optional: overall form settings"):
-        overall_count=st.selectbox("Overall league matches per team",[5,10,15,20,25,30,50],index=3)
-        as_of=st.date_input("Include matches up to",value=date.today(),max_value=date.today())
-    ready=home_team is not None and away_team is not None and home_team!=away_team
-    if st.button("📊 Analyse this fixture",type="primary",width="stretch",disabled=not ready):
-        st.session_state["comparison_selection"]=(
-            home_team,away_team,home_count,away_count,overall_count,as_of.isoformat()
+        home_count = st.selectbox(
+            "HOME matches",
+            SAMPLE_OPTIONS,
+            index=1,
+            key="research_home_count",
         )
-    current=(home_team,away_team,home_count,away_count,overall_count,as_of.isoformat())
-    if ready and st.session_state.get("comparison_selection")==current:
+
+    with c2:
+        away_count = st.selectbox(
+            "AWAY matches",
+            SAMPLE_OPTIONS,
+            index=1,
+            key="research_away_count",
+        )
+
+    with st.expander(
+        "Optional: overall form settings"
+    ):
+        overall_count = st.selectbox(
+            "Overall league matches per team",
+            [5, 10, 15, 20, 25, 30, 50],
+            index=3,
+        )
+
+        as_of = st.date_input(
+            "Include matches up to",
+            value=date.today(),
+            max_value=date.today(),
+        )
+
+    ready = (
+        home_team is not None
+        and away_team is not None
+        and home_team != away_team
+    )
+
+    if st.button(
+        "📊 Analyse this fixture",
+        type="primary",
+        width="stretch",
+        disabled=not ready,
+    ):
+        st.session_state["comparison_selection"] = (
+            home_team,
+            away_team,
+            home_count,
+            away_count,
+            overall_count,
+            as_of.isoformat(),
+        )
+
+    current = (
+        home_team,
+        away_team,
+        home_count,
+        away_count,
+        overall_count,
+        as_of.isoformat(),
+    )
+
+    if (
+        ready
+        and st.session_state.get(
+            "comparison_selection"
+        ) == current
+    ):
         try:
             show_comparison(*current)
         except Exception as exc:
-            st.error(f"Comparison failed ({type(exc).__name__}). No data has been changed.")
-    st.caption("Corners, cards and event timelines will be added only after "
-               "the verified historical event data is integrated.")
+            st.error(
+                "Comparison failed "
+                f"({type(exc).__name__}). "
+                "No data has been changed."
+            )
 
-elif st.session_state.active_page=="Database Health":
+    st.caption(
+        "Corners, cards and event timelines "
+        "will be added after verified historical "
+        "event data is integrated."
+    )
+
+
+# =============================================
+# PAGE 3 — LIVE FIXTURES (NEW)
+# =============================================
+
+elif (
+    st.session_state.active_page
+    == "Live Fixtures"
+):
+
+    render_live_fixtures(
+        LEAGUES,
+        find_team_names,
+        show_comparison,
+    )
+
+
+# =============================================
+# PAGE 4 — DATABASE HEALTH
+# =============================================
+
+elif (
+    st.session_state.active_page
+    == "Database Health"
+):
+
     st.header("Database Health")
-    st.caption("Live historical collection statistics from Supabase")
-    if st.button("🔄 Refresh database figures",width="stretch"):
+
+    st.caption(
+        "Live historical collection "
+        "statistics from Supabase"
+    )
+
+    if st.button(
+        "🔄 Refresh database figures",
+        width="stretch",
+    ):
         get_database_stats.clear()
+
     try:
-        with st.spinner("Checking database tables..."):
-            results,errors=get_database_stats()
-        passed=sum(v is not None for v in results.values())
-        if passed==7:
-            st.success("All seven database checks succeeded.")
+        with st.spinner(
+            "Checking database tables..."
+        ):
+            results, errors = get_database_stats()
+
+        passed = sum(
+            v is not None
+            for v in results.values()
+        )
+
+        if passed == 7:
+            st.success(
+                "All seven database checks succeeded."
+            )
         else:
-            st.warning(f"{passed} of 7 database checks succeeded.")
-        groups=[
-            ("Historical Database",["Historical xG records","Match event records collected"]),
-            ("Collection Status",["Match statistics received","Goal/event timelines received"]),
-            ("Verified Markets",["Corners matched","Yellow cards matched","Red cards matched"]),
+            st.warning(
+                f"{passed} of 7 "
+                "database checks succeeded."
+            )
+
+        groups = [
+            (
+                "Historical Database",
+                [
+                    "Historical xG records",
+                    "Match event records collected",
+                ],
+            ),
+            (
+                "Collection Status",
+                [
+                    "Match statistics received",
+                    "Goal/event timelines received",
+                ],
+            ),
+            (
+                "Verified Markets",
+                [
+                    "Corners matched",
+                    "Yellow cards matched",
+                    "Red cards matched",
+                ],
+            ),
         ]
-        for heading,labels in groups:
+
+        for heading, labels in groups:
             st.subheader(heading)
+
             for label in labels:
-                value=results.get(label)
-                st.metric(label,f"{value:,}" if value is not None else "Unavailable")
-        total=results.get("Match event records collected")
-        verified=results.get("Corners matched")
+                value = results.get(label)
+
+                st.metric(
+                    label,
+                    (
+                        f"{value:,}"
+                        if value is not None
+                        else "Unavailable"
+                    ),
+                )
+
+        total = results.get(
+            "Match event records collected"
+        )
+
+        verified = results.get(
+            "Corners matched"
+        )
+
         if total and verified is not None:
-            st.metric("Corner verification rate",f"{100*verified/total:.1f}%")
+            st.metric(
+                "Corner verification rate",
+                f"{100 * verified / total:.1f}%",
+            )
+
         st.subheader("Database Diagnostics")
+
         if errors:
-            for label,kind in errors.items():
+            for label, kind in errors.items():
                 st.error(f"{label}: {kind}")
         else:
-            st.success("No database query errors detected.")
-        st.caption("Read-only queries. Figures cached for two minutes. "
-                   "Received timelines are not independently goal-verified by this dashboard.")
+            st.success(
+                "No database query errors detected."
+            )
+
+        st.caption(
+            "Read-only queries. Figures cached "
+            "for two minutes. Received timelines "
+            "are not independently goal-verified "
+            "by this dashboard."
+        )
+
     except Exception as exc:
-        st.error(f"Database connection failed ({type(exc).__name__}).")
+        st.error(
+            "Database connection failed "
+            f"({type(exc).__name__})."
+        )
+
 
 st.divider()
-st.caption("PRO STARLIZARD | Research and model estimates only. No automated betting.")
-st.caption("🦎 Scrumpy & Lady Sally — Data Acquisition Team")
+
+st.caption(
+    "PRO STARLIZARD | Research and model "
+    "estimates only. No automated betting."
+)
+
+st.caption(
+    "🦎 Scrumpy & Lady Sally — "
+    "Data Acquisition Team"
+)
