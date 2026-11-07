@@ -33,7 +33,7 @@ div.stButton > button {
 </style>
 """, unsafe_allow_html=True)
 
-st.title("⚽ PRO STARLIZARD")
+st.image("file_00000000ece881f4acc6256e907bcaa7.png", use_container_width=True)
 st.caption("Professional Football Intelligence & Pricing")
 
 st.markdown(
