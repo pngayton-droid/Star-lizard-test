@@ -103,7 +103,7 @@ div.stButton > button p {
 
 st.image(
     "pro_starlizard_header_correct-1.png",
-    use_container_width=True,
+    width="stretch",
 )
 
 # ==========================================
@@ -122,7 +122,7 @@ def get_supabase():
 def get_database_stats():
     db = get_supabase()
 
-    def count_rows(table, column, value=None):
+    def count_rows(table, column=None, value=None):
         query = (
             db.table(table)
             .select("match_id", count="exact")
@@ -134,18 +134,10 @@ def get_database_stats():
         result = query.limit(1).execute()
         return result.count or 0
 
-    # Historical xG table
-    xg_total = (
-        db.table("historical_xg")
-        .select("match_id", count="exact")
-        .limit(1)
-        .execute()
-    ).count or 0
+    xg_total = count_rows("historical_xg")
 
-    # Historical match events table
     events_total = count_rows(
-        "historical_match_events",
-        None,
+        "historical_match_events"
     )
 
     stats_success = count_rows(
@@ -203,12 +195,14 @@ pages = [
 ]
 
 for page_name, page_icon in pages:
-    selected = st.session_state.active_page == page_name
+    selected = (
+        st.session_state.active_page == page_name
+    )
 
     if st.button(
         f"{page_icon}  {page_name}",
         key=f"nav_{page_name}",
-        use_container_width=True,
+        width="stretch",
         type="primary" if selected else "secondary",
     ):
         st.session_state.active_page = page_name
@@ -273,7 +267,6 @@ elif st.session_state.active_page == "Historical Research":
 
     st.markdown("""
     **Research tools planned**
-
     - Historical expected goals (xG)
     - Halftime match situations
     - Second-half goal patterns
@@ -303,7 +296,7 @@ elif st.session_state.active_page == "Database Health":
 
     if st.button(
         "🔄 Refresh database figures",
-        use_container_width=True,
+        width="stretch",
     ):
         get_database_stats.clear()
 
@@ -377,11 +370,19 @@ elif st.session_state.active_page == "Database Health":
             "Use Refresh to request current totals."
         )
 
-    except Exception:
+    except Exception as e:
+        st.warning(
+            f"Database error type: {type(e).__name__}"
+        )
+
         st.error(
-            "Unable to read Supabase. Check that "
-            "the Streamlit app has the required "
-            "database secrets and table permissions."
+            "Unable to read Supabase. "
+            "We are identifying the connection problem."
+        )
+
+        st.caption(
+            "This diagnostic deliberately hides "
+            "credentials and detailed error messages."
         )
 
 # ==========================================
