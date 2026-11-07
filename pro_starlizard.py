@@ -107,6 +107,67 @@ st.image(
 )
 
 # ==========================================
+# SAFE ERROR DIAGNOSTICS
+# ==========================================
+
+def diagnose_error(error):
+    """
+    Return only a status code and safe category.
+    Never display the raw exception message,
+    request headers, URL or credentials.
+    """
+
+    status = getattr(error, "code", None)
+
+    if status is None:
+        status = getattr(error, "status_code", None)
+
+    if isinstance(status, int):
+        code = status
+
+    elif (
+        isinstance(status, str)
+        and status.isdigit()
+    ):
+        code = int(status)
+
+    else:
+        code = None
+
+    categories = {
+        400: "Invalid request or database query",
+        401: "Authentication rejected",
+        403: "Permission denied",
+        404: "Resource or table not found",
+        406: "Response format rejected",
+        408: "Request timed out",
+        409: "Database conflict",
+        422: "Request could not be processed",
+        429: "Rate limit reached",
+        500: "Server error",
+        502: "Gateway error",
+        503: "Service unavailable",
+        504: "Gateway timeout",
+    }
+
+    if code is None:
+        return {
+            "type": type(error).__name__,
+            "status": "Not provided",
+            "category": "Further investigation required",
+        }
+
+    return {
+        "type": type(error).__name__,
+        "status": str(code),
+        "category": categories.get(
+            code,
+            "Unclassified HTTP status",
+        ),
+    }
+
+
+# ==========================================
 # SUPABASE CONNECTION
 # ==========================================
 
@@ -119,7 +180,7 @@ def get_supabase():
 
 
 # ==========================================
-# SAFE DATABASE COUNTERS
+# DATABASE COUNTERS
 # ==========================================
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -176,12 +237,14 @@ def get_database_stats():
     try:
         db = get_supabase()
 
-    except Exception as e:
+    except Exception as error:
+        errors["Supabase connection"] = (
+            diagnose_error(error)
+        )
+
         return {
-            "results": {},
-            "errors": {
-                "Supabase connection": type(e).__name__
-            },
+            "results": results,
+            "errors": errors,
         }
 
     for label, table, column, value in checks:
@@ -189,7 +252,10 @@ def get_database_stats():
         try:
             query = (
                 db.table(table)
-                .select("*", count="exact")
+                .select(
+                    "match_id",
+                    count="exact",
+                )
             )
 
             if column is not None:
@@ -199,9 +265,9 @@ def get_database_stats():
 
             results[label] = response.count
 
-        except Exception as e:
+        except Exception as error:
             results[label] = None
-            errors[label] = type(e).__name__
+            errors[label] = diagnose_error(error)
 
     return {
         "results": results,
@@ -335,25 +401,25 @@ elif st.session_state.active_page == "Database Health":
     results = data["results"]
     errors = data["errors"]
 
-    if results and not errors:
+    successful = sum(
+        value is not None
+        for value in results.values()
+    )
+
+    if successful == 7:
         st.success(
-            "All database checks completed successfully."
+            "All seven database checks succeeded."
         )
 
-    elif results:
+    elif successful > 0:
         st.warning(
-            "Some database checks succeeded, "
-            "but others need attention."
+            f"{successful} of 7 database checks succeeded."
         )
 
     else:
         st.error(
             "No database counters could be retrieved."
         )
-
-    # --------------------------------------
-    # DISPLAY ALL COUNTERS
-    # --------------------------------------
 
     st.subheader("Historical Database")
 
@@ -365,7 +431,9 @@ elif st.session_state.active_page == "Database Health":
 
         st.metric(
             label,
-            f"{value:,}" if value is not None else "Unavailable",
+            f"{value:,}"
+            if value is not None
+            else "Unavailable",
         )
 
     st.subheader("Collection Status")
@@ -378,7 +446,9 @@ elif st.session_state.active_page == "Database Health":
 
         st.metric(
             label,
-            f"{value:,}" if value is not None else "Unavailable",
+            f"{value:,}"
+            if value is not None
+            else "Unavailable",
         )
 
     st.subheader("Verified Markets")
@@ -392,12 +462,10 @@ elif st.session_state.active_page == "Database Health":
 
         st.metric(
             label,
-            f"{value:,}" if value is not None else "Unavailable",
+            f"{value:,}"
+            if value is not None
+            else "Unavailable",
         )
-
-    # --------------------------------------
-    # CORNER VERIFICATION RATE
-    # --------------------------------------
 
     total = results.get(
         "Match event records collected"
@@ -417,34 +485,38 @@ elif st.session_state.active_page == "Database Health":
             f"{100 * verified / total:.1f}%",
         )
 
-    # --------------------------------------
-    # DIAGNOSTIC RESULTS
-    # --------------------------------------
+    # ======================================
+    # DIAGNOSTICS
+    # ======================================
 
     st.subheader("Database Diagnostics")
 
     if errors:
 
         st.warning(
-            "These checks failed. "
-            "Only the error types are displayed."
+            "Diagnostic results below show HTTP "
+            "status codes where available. "
+            "Credentials and raw error messages "
+            "are deliberately hidden."
         )
 
-        for label, error_type in errors.items():
+        for label, details in errors.items():
 
             st.error(
-                f"{label}: {error_type}"
+                f"{label}\n\n"
+                f"Error type: {details['type']}\n\n"
+                f"HTTP status: {details['status']}\n\n"
+                f"Category: {details['category']}"
             )
 
     else:
-
         st.success(
             "No database query errors detected."
         )
 
     st.caption(
-        "This dashboard only reads database records. "
-        "It does not modify or delete them."
+        "This dashboard reads data only. "
+        "It cannot modify or delete records."
     )
 
     st.caption(
