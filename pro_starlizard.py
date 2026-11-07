@@ -80,13 +80,7 @@ div[data-testid="stMetric"] {
 st.image("pro_starlizard_header_correct-1.png", use_container_width=True)
   
   
-st.caption("Professional Football Intelligence & Pricing")
 
-st.markdown(
-    "Goals • Corners • Cards • Asian Markets • Historical Research"
-)
-
-st.divider()
 
 pricing, research, database = st.tabs([
     "⚽ Match Pricing",
