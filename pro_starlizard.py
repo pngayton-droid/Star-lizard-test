@@ -1,6 +1,10 @@
 
 import streamlit as st
 
+# ==========================================
+# PRO STARLIZARD — MOBILE DASHBOARD
+# ==========================================
+
 st.set_page_config(
     page_title="PRO STARLIZARD",
     page_icon="⚽",
@@ -8,7 +12,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-
+# ==========================================
+# PROFESSIONAL DARK THEME
+# ==========================================
 
 st.markdown("""
 <style>
@@ -28,7 +34,7 @@ h1, h2, h3 {
 }
 
 h2 {
-    font-size: 1.65rem !important;
+    font-size: 1.6rem !important;
 }
 
 label,
@@ -38,20 +44,35 @@ label,
     font-weight: 600 !important;
 }
 
-button[data-baseweb="tab"] {
-    color: #e8eef8 !important;
-    font-weight: 600 !important;
-}
-
-button[data-baseweb="tab"][aria-selected="true"] {
-    color: #ff6478 !important;
-}
-
 div[data-testid="stMetric"] {
     background: #172338;
     border: 1px solid #293a53;
     border-radius: 12px;
     padding: 12px;
+}
+
+div.stButton > button {
+    width: 100%;
+    min-height: 3.2rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    border: 1px solid #41536c;
+}
+
+div.stButton > button[kind="primary"] {
+    background-color: #b91c38;
+    border-color: #ef4766;
+    color: white;
+}
+
+div.stButton > button[kind="secondary"] {
+    background-color: #172338;
+    color: #f8fafc;
+}
+
+div.stButton > button p {
+    color: inherit !important;
 }
 
 @media (max-width: 640px) {
@@ -65,55 +86,72 @@ div[data-testid="stMetric"] {
     }
 
     h2 {
-        font-size: 1.45rem !important;
-    }
-
-    div[data-testid="stTabs"] {
-        font-size: 0.9rem;
+        font-size: 1.4rem !important;
     }
 }
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# SCRUMPY AND LADY SALLY HEADER
+# ==========================================
 
+st.image(
+    "pro_starlizard_header_correct-1.png",
+    use_container_width=True,
+)
 
-st.image("pro_starlizard_header_correct-1.png", use_container_width=True)
-  
-  
-
-
+# ==========================================
+# MAIN NAVIGATION
+# ==========================================
 
 if "active_page" not in st.session_state:
     st.session_state.active_page = "Match Pricing"
 
-for page_name, page_icon in [
+pages = [
     ("Match Pricing", "⚽"),
     ("Historical Research", "📊"),
     ("Database Health", "🗄️"),
-]:
+]
+
+for page_name, page_icon in pages:
+    selected = st.session_state.active_page == page_name
+
     if st.button(
         f"{page_icon}  {page_name}",
         key=f"nav_{page_name}",
         use_container_width=True,
-        type="primary" if st.session_state.active_page == page_name else "secondary",
+        type="primary" if selected else "secondary",
     ):
         st.session_state.active_page = page_name
+        st.rerun()
 
-pricing = st.container() if st.session_state.active_page == "Match Pricing" else st.empty()
-research = st.container() if st.session_state.active_page == "Historical Research" else st.empty()
-database = st.container() if st.session_state.active_page == "Database Health" else st.empty()
-  
+st.divider()
 
+# ==========================================
+# MATCH PRICING
+# ==========================================
 
-with pricing:
+if st.session_state.active_page == "Match Pricing":
+
     st.header("Match Pricing")
-    st.caption("Our future live and pre-match pricing terminal.")
 
-    home = st.text_input("Home team", placeholder="Home team")
-    away = st.text_input("Away team", placeholder="Away team")
+    st.caption(
+        "Pre-match and in-play football pricing terminal"
+    )
+
+    home = st.text_input(
+        "Home team",
+        placeholder="Enter home team",
+    )
+
+    away = st.text_input(
+        "Away team",
+        placeholder="Enter away team",
+    )
 
     market = st.selectbox(
-        "Market",
+        "Select market",
         [
             "Match Goals",
             "Second-Half Goals",
@@ -121,50 +159,83 @@ with pricing:
             "Second-Half Corners",
             "Cards",
             "Asian Handicap",
+            "Asian Goal Totals",
             "Correct Score",
             "Next Goal",
+            "Both Teams To Score",
         ],
     )
 
     st.info(
         "Pricing engine not connected yet. "
-        "This is our new interface preview."
+        "This is our new dashboard preview."
     )
 
-with research:
+# ==========================================
+# HISTORICAL RESEARCH
+# ==========================================
+
+elif st.session_state.active_page == "Historical Research":
+
     st.header("Historical Research")
-    st.caption("Investigate historical patterns and match situations.")
+
+    st.caption(
+        "Investigate historical football statistics"
+    )
 
     st.markdown("""
-    **Planned research tools**
+    **Research tools planned**
 
-    - Historical xG and match results
-    - Halftime situation analysis
-    - Goal and corner timing
-    - Cards and referee research
+    - Historical expected goals (xG)
+    - Halftime match situations
+    - Second-half goal patterns
+    - Goal and corner timings
+    - Yellow and red cards
+    - Referee research
     - Opposition-adjusted statistics
-    - Model backtesting and calibration
+    - Backtesting and model calibration
     """)
 
-    st.info("Historical database connection coming next.")
+    st.info(
+        "Historical research tools will be connected "
+        "to our existing data."
+    )
 
-with database:
+# ==========================================
+# DATABASE HEALTH
+# ==========================================
+
+elif st.session_state.active_page == "Database Health":
+
     st.header("Database Health")
-    st.caption("Monitor our Supabase historical data collection.")
 
-    c1, c2, c3 = st.columns(3)
+    st.caption(
+        "Historical match collection and verification"
+    )
 
-    with c1:
-        st.metric("Matches collected", "—")
-    with c2:
-        st.metric("Verified goals", "—")
-    with c3:
-        st.metric("Verified corners", "—")
+    st.metric(
+        "Matches collected",
+        "Not connected",
+    )
+
+    st.metric(
+        "Verified goals",
+        "Not connected",
+    )
+
+    st.metric(
+        "Verified corners",
+        "Not connected",
+    )
 
     st.info(
-        "Live database totals will appear here "
-        "after we connect Supabase."
+        "Live Supabase database statistics "
+        "will be connected next."
     )
+
+# ==========================================
+# FOOTER
+# ==========================================
 
 st.divider()
 
@@ -173,4 +244,6 @@ st.caption(
     "No automated betting."
 )
 
-st.caption("🦎 Scrumpy & Lady Sally — Data Acquisition Team")
+st.caption(
+    "🦎 Scrumpy & Lady Sally — Data Acquisition Team"
+)
