@@ -5,57 +5,43 @@ import numpy as np
 from supabase import create_client
 
 st.set_page_config(
-    page_title="PRO STARLIZARD | Pattern Discovery",
+    page_title="PRO STARLIZARD | Pattern Discovery V2",
     page_icon="🔎",
     layout="wide",
 )
 
 st.title("🔎 PRO STARLIZARD")
-st.subheader("Pattern Discovery Lab")
-
+st.subheader("Pattern Discovery Lab V2")
 st.caption(
-    "Automatic historical research | "
-    "Read-only Supabase access | "
-    "No football API calls"
+    "Automatic historical pattern discovery | "
+    "Goals and verified next-goal timelines"
 )
 
 
 # -----------------------------------------
-# DATABASE CONNECTION
+# DATABASE
 # -----------------------------------------
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_matches():
-
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_SECRET_KEY"]
-
-    db = create_client(url, key)
-
-    columns = (
-        "match_id,match_date,"
-        "home_team,away_team,"
-        "home_ht_goals,away_ht_goals,"
-        "home_goals,away_goals,"
-        "home_ht_xg,away_ht_xg"
+def load_table(table_name, columns):
+    db = create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_SECRET_KEY"],
     )
 
     records = []
     last_id = None
 
     while True:
-
         query = (
-            db.table("historical_xg")
+            db.table(table_name)
             .select(columns)
             .order("match_id")
             .limit(500)
         )
 
         if last_id is not None:
-            query = query.gt(
-                "match_id", last_id
-            )
+            query = query.gt("match_id", last_id)
 
         response = query.execute()
         batch = response.data or []
@@ -72,270 +58,271 @@ def load_matches():
     return pd.DataFrame(records)
 
 
-# -----------------------------------------
-# STATISTICAL FUNCTIONS
-# -----------------------------------------
-
-def wilson_lower(hits, total):
-
-    if total <= 0:
-        return 0.0
-
-    z = 1.96
-    p = hits / total
-
-    denominator = 1 + z**2 / total
-
-    centre = p + z**2 / (2 * total)
-
-    margin = z * np.sqrt(
-        p * (1 - p) / total
-        + z**2 / (4 * total**2)
-    )
-
-    return max(
-        0.0,
-        (centre - margin) / denominator
+def load_goals():
+    return load_table(
+        "historical_xg",
+        "match_id,match_date,home_ht_goals,"
+        "away_ht_goals,home_goals,away_goals,"
+        "home_ht_xg,away_ht_xg",
     )
 
 
-def prepare_data(df):
+def load_next_goal():
+    return load_table(
+        "starlizard_verified_next_goal",
+        "match_id,match_date,home_ht_goals,"
+        "away_ht_goals,home_ht_xg,away_ht_xg,"
+        "trailing_team_scored_first",
+    )
 
+
+# -----------------------------------------
+# DATA PREPARATION
+# -----------------------------------------
+
+def prepare(df, market):
     df = df.copy()
 
-    numeric_columns = [
+    numeric = [
         "home_ht_goals",
         "away_ht_goals",
-        "home_goals",
-        "away_goals",
         "home_ht_xg",
         "away_ht_xg",
     ]
 
-    for column in numeric_columns:
+    if market == "second_half":
+        numeric += ["home_goals", "away_goals"]
+
+    for column in numeric:
         df[column] = pd.to_numeric(
-            df[column],
-            errors="coerce"
+            df[column], errors="coerce"
         )
 
     df["match_date"] = pd.to_datetime(
-        df["match_date"],
-        errors="coerce"
+        df["match_date"], errors="coerce"
     )
 
     df = df.dropna(
-        subset=numeric_columns + ["match_date"]
-    ).copy()
+        subset=numeric + ["match_date", "match_id"]
+    )
 
-    df = df[
-        (df["home_ht_xg"] >= 0)
+    valid = (
+        (df["home_ht_goals"] >= 0)
+        & (df["away_ht_goals"] >= 0)
+        & (df["home_ht_xg"] >= 0)
         & (df["away_ht_xg"] >= 0)
-        & (
-            df["home_goals"]
-            >= df["home_ht_goals"]
-        )
-        & (
-            df["away_goals"]
-            >= df["away_ht_goals"]
-        )
         & (
             df["home_ht_goals"]
             != df["away_ht_goals"]
         )
-    ].copy()
+    )
 
-    df = df.sort_values(
-        ["match_date", "match_id"]
-    ).reset_index(drop=True)
+    if market == "second_half":
+        valid &= (
+            (df["home_goals"] >= df["home_ht_goals"])
+            & (df["away_goals"] >= df["away_ht_goals"])
+        )
+
+    df = df.loc[valid].copy()
+    df = df.drop_duplicates(subset=["match_id"])
 
     home_trailing = (
-        df["home_ht_goals"]
-        < df["away_ht_goals"]
+        df["home_ht_goals"] < df["away_ht_goals"]
     )
 
     df["trailing_side"] = np.where(
-        home_trailing,
-        "Home",
-        "Away"
+        home_trailing, "Home", "Away"
     )
 
-    df["deficit"] = abs(
-        df["home_ht_goals"]
-        - df["away_ht_goals"]
-    ).astype(int)
+    df["deficit"] = (
+        df["home_ht_goals"] - df["away_ht_goals"]
+    ).abs().astype(int)
 
     df["trailing_xg"] = np.where(
         home_trailing,
         df["home_ht_xg"],
-        df["away_ht_xg"]
+        df["away_ht_xg"],
     )
 
     df["leading_xg"] = np.where(
         home_trailing,
         df["away_ht_xg"],
-        df["home_ht_xg"]
+        df["home_ht_xg"],
     )
 
     df["xg_difference"] = (
-        df["trailing_xg"]
-        - df["leading_xg"]
+        df["trailing_xg"] - df["leading_xg"]
     )
-
-    trailing_goals_2h = np.where(
-        home_trailing,
-        df["home_goals"]
-        - df["home_ht_goals"],
-        df["away_goals"]
-        - df["away_ht_goals"]
-    )
-
-    df["scored_second_half"] = (
-        trailing_goals_2h > 0
-    ).astype(int)
 
     df["xg_band"] = pd.cut(
         df["trailing_xg"],
-        bins=[
-            -0.001,
-            0.20,
-            0.40,
-            0.80,
-            1.20,
-            np.inf
-        ],
+        bins=[-0.001, 0.20, 0.40, 0.80, 1.20, np.inf],
         labels=[
             "Under 0.20",
             "0.20–0.39",
             "0.40–0.79",
             "0.80–1.19",
-            "1.20+"
+            "1.20+",
         ],
-        right=False
+        right=False,
     )
 
     df["dominance"] = pd.cut(
         df["xg_difference"],
-        bins=[
-            -np.inf,
-            -0.50,
-            0,
-            0.50,
-            np.inf
-        ],
+        bins=[-np.inf, -0.50, 0, 0.50, np.inf],
         labels=[
             "Outplayed by 0.50+ xG",
             "Behind on xG",
             "Ahead by under 0.50 xG",
-            "Ahead by 0.50+ xG"
+            "Ahead by 0.50+ xG",
         ],
-        right=False
+        right=False,
     )
 
-    return df
+    if market == "second_half":
+        goals = np.where(
+            home_trailing,
+            df["home_goals"] - df["home_ht_goals"],
+            df["away_goals"] - df["away_ht_goals"],
+        )
+        df["hit"] = (goals > 0).astype(int)
+
+    else:
+        values = (
+            df["trailing_team_scored_first"]
+            .astype("string")
+            .str.lower()
+        )
+
+        df = df.loc[
+            values.isin(["true", "false"])
+        ].copy()
+
+        df["hit"] = (
+            values.loc[df.index] == "true"
+        ).astype(int)
+
+    return df.sort_values(
+        ["match_date", "match_id"]
+    ).reset_index(drop=True)
 
 
 # -----------------------------------------
-# AUTOMATIC PATTERN DISCOVERY
+# STATISTICS
 # -----------------------------------------
 
-def discover_patterns(
-    train,
-    test,
-    minimum_sample
-):
+def wilson_interval(hits, n):
+    if n == 0:
+        return (0.0, 1.0)
 
+    z = 1.96
+    p = hits / n
+    denom = 1 + z**2 / n
+    centre = p + z**2 / (2 * n)
+
+    margin = z * np.sqrt(
+        p * (1 - p) / n
+        + z**2 / (4 * n**2)
+    )
+
+    return (
+        max(0, (centre - margin) / denom),
+        min(1, (centre + margin) / denom),
+    )
+
+
+def chronological_split(df):
+    # Keep matches played on the same date
+    # together to avoid splitting one matchday.
+    dates = sorted(df["match_date"].unique())
+
+    if len(dates) < 2:
+        return df.iloc[:0], df.iloc[:0], None
+
+    index = min(
+        len(dates) - 1,
+        max(1, int(len(dates) * 0.70)),
+    )
+
+    cutoff = dates[index]
+
+    train = df[df["match_date"] < cutoff].copy()
+    test = df[df["match_date"] >= cutoff].copy()
+
+    return train, test, cutoff
+
+
+def discover(train, test, minimum):
     dimensions = [
+        ["trailing_side"],
         ["trailing_side", "deficit"],
         ["trailing_side", "xg_band"],
         ["trailing_side", "dominance"],
-        [
-            "trailing_side",
-            "deficit",
-            "xg_band"
-        ],
-        [
-            "trailing_side",
-            "deficit",
-            "dominance"
-        ],
+        ["trailing_side", "deficit", "xg_band"],
+        ["trailing_side", "deficit", "dominance"],
     ]
 
-    baseline = (
-        train["scored_second_half"].mean()
-    )
-
+    baseline = train["hit"].mean()
     results = []
 
     for fields in dimensions:
-
-        groups = train.groupby(
-            fields,
-            observed=True
+        grouped = train.groupby(
+            fields, observed=True
         )
 
-        for keys, group in groups:
-
+        for keys, group in grouped:
             if not isinstance(keys, tuple):
                 keys = (keys,)
 
-            sample_size = len(group)
+            n = len(group)
 
-            if sample_size < minimum_sample:
+            if n < minimum:
                 continue
 
-            mask = pd.Series(
-                True,
-                index=test.index
-            )
+            mask = pd.Series(True, index=test.index)
 
-            for field, value in zip(
-                fields, keys
-            ):
-                mask &= (
-                    test[field] == value
-                )
+            for field, value in zip(fields, keys):
+                mask &= test[field] == value
 
             holdout = test.loc[mask]
+            test_n = len(holdout)
 
-            if len(holdout) < 30:
+            if test_n < 30:
                 continue
 
-            training_hits = int(
-                group[
-                    "scored_second_half"
-                ].sum()
+            hits = int(group["hit"].sum())
+            test_hits = int(holdout["hit"].sum())
+
+            rate = hits / n
+            test_rate = test_hits / test_n
+
+            lower, upper = wilson_interval(
+                test_hits, test_n
             )
 
-            training_rate = (
-                training_hits / sample_size
-            )
+            # A more relevant comparison than
+            # the overall average: same home/away
+            # situation in the training period.
+            side = keys[fields.index("trailing_side")]
 
-            test_hits = int(
-                holdout[
-                    "scored_second_half"
-                ].sum()
-            )
+            side_baseline = train.loc[
+                train["trailing_side"] == side, "hit"
+            ].mean()
 
-            test_size = len(holdout)
-
-            test_rate = (
-                test_hits / test_size
-            )
-
-            pattern_name = " | ".join(
+            description = " | ".join(
                 f"{field.replace('_', ' ')}: {value}"
-                for field, value in zip(
-                    fields, keys
-                )
+                for field, value in zip(fields, keys)
             )
 
             results.append({
-                "Pattern": pattern_name,
-                "Training matches": sample_size,
-                "Training hit %": round(
-                    training_rate * 100, 2
+                "Pattern": description,
+                "Training matches": n,
+                "Training hit %": round(rate * 100, 2),
+                "Training lift vs side pp": round(
+                    (rate - side_baseline) * 100, 2
                 ),
-                "Test matches": test_size,
+                "Test matches": test_n,
+                "Test hits": test_hits,
                 "Test hit %": round(
                     test_rate * 100, 2
                 ),
@@ -344,208 +331,209 @@ def discover_patterns(
                     if test_rate > 0
                     else np.nan
                 ),
-                "Test lower 95% %": round(
-                    wilson_lower(
-                        test_hits,
-                        test_size
-                    ) * 100,
-                    2
+                "Test 95% lower %": round(
+                    lower * 100, 2
                 ),
-                "Training lift pp": round(
-                    (
-                        training_rate - baseline
-                    ) * 100,
-                    2
+                "Test 95% upper %": round(
+                    upper * 100, 2
                 ),
             })
 
-    return (
-        pd.DataFrame(results),
-        baseline
-    )
+    return pd.DataFrame(results), baseline
 
 
 # -----------------------------------------
-# STREAMLIT INTERFACE
+# INTERFACE
 # -----------------------------------------
+
+market_choice = st.radio(
+    "Select research market",
+    [
+        "Trailing team scores in second half",
+        "Trailing team scores FIRST second-half goal",
+    ],
+)
+
+is_next_goal = (
+    market_choice
+    == "Trailing team scores FIRST second-half goal"
+)
+
+market = "next_goal" if is_next_goal else "second_half"
+
+st.divider()
 
 try:
-
-    with st.spinner(
-        "Loading historical database..."
-    ):
-        raw = load_matches()
+    with st.spinner("Loading historical data..."):
+        if is_next_goal:
+            raw = load_next_goal()
+        else:
+            raw = load_goals()
 
     if raw.empty:
-        st.warning(
-            "No historical matches returned."
-        )
+        st.warning("No records returned.")
         st.stop()
 
-    data = prepare_data(raw)
+    data = prepare(raw, market)
 
-    st.success(
-        "Connected to Supabase successfully!"
-    )
-
-    st.metric(
-        "Historical records loaded",
-        f"{len(raw):,}"
-    )
-
-    st.metric(
-        "Usable trailing-team matches",
-        f"{len(data):,}"
-    )
-
-    st.info(
-        "Version 1 investigates whether "
-        "a team trailing at half-time "
-        "scores at least once in the "
-        "second half. This is different "
-        "from the first second-half "
-        "goal market."
-    )
-
-    if len(data) < 300:
-        st.warning(
-            "Not enough matches for analysis."
-        )
-        st.stop()
-
-    split = int(
-        len(data) * 0.70
-    )
-
-    train = data.iloc[
-        :split
-    ].copy()
-
-    test = data.iloc[
-        split:
-    ].copy()
-
-    st.subheader(
-        "Historical testing"
-    )
+    st.success("Connected to Supabase successfully!")
 
     col1, col2 = st.columns(2)
 
     with col1:
         st.metric(
-            "Training matches",
-            f"{len(train):,}"
+            "Historical records loaded",
+            f"{len(raw):,}",
         )
 
     with col2:
         st.metric(
-            "Later test matches",
-            f"{len(test):,}"
+            "Usable trailing-team matches",
+            f"{len(data):,}",
+        )
+
+    if is_next_goal:
+        st.info(
+            "Verified timeline market: the trailing "
+            "team must score the FIRST goal after "
+            "half-time. Matches with no second-half "
+            "goal count as losses."
+        )
+        st.caption(
+            "Source: starlizard_verified_next_goal. "
+            "The view returned 11,333 verified "
+            "matches at our last database check."
+        )
+    else:
+        st.info(
+            "Full-time score market: the trailing "
+            "team must score at least once in the "
+            "second half, regardless of which "
+            "team scores first."
+        )
+
+    if len(data) < 300:
+        st.warning(
+            "Not enough usable matches for research."
+        )
+        st.stop()
+
+    train, test, cutoff = chronological_split(data)
+
+    if len(train) < 100 or len(test) < 30:
+        st.warning(
+            "Insufficient training or testing data."
+        )
+        st.stop()
+
+    st.subheader("Chronological testing")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Training", f"{len(train):,}")
+
+    with col2:
+        st.metric("Later testing", f"{len(test):,}")
+
+    with col3:
+        st.metric(
+            "Training baseline",
+            f"{train['hit'].mean() * 100:.2f}%",
         )
 
     st.caption(
-        "Matches are ordered by date. "
-        "Earlier matches are used for "
-        "pattern discovery, while later "
-        "matches are reserved for testing."
+        f"Test period begins: {pd.Timestamp(cutoff).date()}. "
+        "All matches on the cutoff date remain "
+        "in the test set."
     )
 
     minimum = st.slider(
-        "Minimum training sample",
+        "Minimum training matches per pattern",
         min_value=50,
         max_value=500,
         value=150,
-        step=50
+        step=50,
     )
 
-    results, baseline = discover_patterns(
-        train,
-        test,
-        minimum
+    results, baseline = discover(
+        train, test, minimum
     )
 
-    st.metric(
-        "Overall training hit rate",
-        f"{baseline * 100:.2f}%"
-    )
+    st.subheader("Automatically discovered patterns")
 
     if results.empty:
         st.warning(
-            "No patterns passed the "
-            "sample requirements."
+            "No patterns met both the training "
+            "and test sample requirements."
         )
         st.stop()
 
     results = results.sort_values(
         [
-            "Training lift pp",
-            "Training matches"
+            "Training lift vs side pp",
+            "Training matches",
         ],
-        ascending=[
-            False,
-            False
-        ]
+        ascending=[False, False],
     ).reset_index(drop=True)
 
-    st.subheader(
-        "Automatically discovered patterns"
+    st.caption(
+        "Ranked by training-period lift versus "
+        "the same home/away baseline. "
+        "Test results are shown separately."
     )
 
     st.dataframe(
         results,
         use_container_width=True,
-        hide_index=True
+        hide_index=True,
     )
+
+    csv = results.to_csv(index=False)
 
     st.download_button(
-        "Download pattern results",
-        data=results.to_csv(
-            index=False
-        ),
+        "Download research results CSV",
+        data=csv,
         file_name=(
-            "starlizard_pattern_discovery.csv"
+            "starlizard_next_goal_patterns.csv"
+            if is_next_goal
+            else "starlizard_second_half_patterns.csv"
         ),
-        mime="text/csv"
+        mime="text/csv",
     )
 
-    st.subheader(
-        "Research interpretation"
+    st.subheader("Research safeguards")
+
+    st.write(
+        "The training period is used to identify "
+        "patterns. Later matches are used to "
+        "evaluate them."
     )
 
     st.write(
-        "Training lift measures how much "
-        "a historical pattern exceeds "
-        "the overall training hit rate."
-    )
-
-    st.write(
-        "Test fair odds are calculated "
-        "from the observed success rate "
-        "in later matches. They are "
-        "descriptive estimates, not "
-        "bookmaker prices."
+        "Fair odds are calculated from observed "
+        "test hit rates. Confidence intervals "
+        "show uncertainty, not guaranteed "
+        "future probabilities."
     )
 
     st.warning(
-        "Patterns can overlap and "
-        "multiple comparisons can "
-        "produce misleading findings. "
-        "No betting edge is established "
-        "until predictions are validated "
-        "against actual market odds, "
-        "commission and further unseen data."
+        "This is a research engine, not yet a "
+        "proven value-betting scanner. Patterns "
+        "overlap, multiple testing can create "
+        "false discoveries, and we still need "
+        "market odds, commission, calibration "
+        "and independent forward validation."
     )
 
     st.caption(
-        "Research-only model | "
         "Read-only database access | "
-        "Existing collectors unaffected"
+        "No TheStatsAPI calls | "
+        "Collectors unaffected"
     )
 
 except Exception as error:
-
     st.error(
-        "Pattern Discovery Lab could not load."
+        "Pattern Discovery Lab V2 could not load."
     )
-
     st.exception(error)
