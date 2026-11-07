@@ -107,7 +107,7 @@ st.image(
 )
 
 # ==========================================
-# DATABASE FUNCTIONS
+# SUPABASE CONNECTION
 # ==========================================
 
 @st.cache_resource
@@ -118,66 +118,94 @@ def get_supabase():
     )
 
 
+# ==========================================
+# SAFE DATABASE COUNTERS
+# ==========================================
+
 @st.cache_data(ttl=120, show_spinner=False)
 def get_database_stats():
-    db = get_supabase()
 
-    def count_rows(table, column=None, value=None):
-        query = (
-            db.table(table)
-            .select("match_id", count="exact")
-        )
+    results = {}
+    errors = {}
 
-        if column is not None:
-            query = query.eq(column, value)
+    checks = [
+        (
+            "Historical xG records",
+            "historical_xg",
+            None,
+            None,
+        ),
+        (
+            "Match event records collected",
+            "historical_match_events",
+            None,
+            None,
+        ),
+        (
+            "Match statistics received",
+            "historical_match_events",
+            "stats_status",
+            200,
+        ),
+        (
+            "Goal/event timelines received",
+            "historical_match_events",
+            "timeline_status",
+            200,
+        ),
+        (
+            "Corners matched",
+            "historical_match_events",
+            "corners_match",
+            True,
+        ),
+        (
+            "Yellow cards matched",
+            "historical_match_events",
+            "yellow_cards_match",
+            True,
+        ),
+        (
+            "Red cards matched",
+            "historical_match_events",
+            "red_cards_match",
+            True,
+        ),
+    ]
 
-        result = query.limit(1).execute()
-        return result.count or 0
+    try:
+        db = get_supabase()
 
-    xg_total = count_rows("historical_xg")
+    except Exception as e:
+        return {
+            "results": {},
+            "errors": {
+                "Supabase connection": type(e).__name__
+            },
+        }
 
-    events_total = count_rows(
-        "historical_match_events"
-    )
+    for label, table, column, value in checks:
 
-    stats_success = count_rows(
-        "historical_match_events",
-        "stats_status",
-        200,
-    )
+        try:
+            query = (
+                db.table(table)
+                .select("*", count="exact")
+            )
 
-    timelines_success = count_rows(
-        "historical_match_events",
-        "timeline_status",
-        200,
-    )
+            if column is not None:
+                query = query.eq(column, value)
 
-    corners_verified = count_rows(
-        "historical_match_events",
-        "corners_match",
-        True,
-    )
+            response = query.limit(1).execute()
 
-    yellow_verified = count_rows(
-        "historical_match_events",
-        "yellow_cards_match",
-        True,
-    )
+            results[label] = response.count
 
-    red_verified = count_rows(
-        "historical_match_events",
-        "red_cards_match",
-        True,
-    )
+        except Exception as e:
+            results[label] = None
+            errors[label] = type(e).__name__
 
     return {
-        "xg_total": xg_total,
-        "events_total": events_total,
-        "stats_success": stats_success,
-        "timelines_success": timelines_success,
-        "corners_verified": corners_verified,
-        "yellow_verified": yellow_verified,
-        "red_verified": red_verified,
+        "results": results,
+        "errors": errors,
     }
 
 
@@ -195,6 +223,7 @@ pages = [
 ]
 
 for page_name, page_icon in pages:
+
     selected = (
         st.session_state.active_page == page_name
     )
@@ -283,7 +312,7 @@ elif st.session_state.active_page == "Historical Research":
     )
 
 # ==========================================
-# LIVE DATABASE HEALTH
+# DATABASE HEALTH
 # ==========================================
 
 elif st.session_state.active_page == "Database Health":
@@ -300,90 +329,128 @@ elif st.session_state.active_page == "Database Health":
     ):
         get_database_stats.clear()
 
-    try:
-        with st.spinner("Reading Supabase database..."):
-            data = get_database_stats()
+    with st.spinner("Checking database tables..."):
+        data = get_database_stats()
 
-        st.success("Connected to Supabase")
+    results = data["results"]
+    errors = data["errors"]
 
-        st.subheader("Historical Database")
-
-        st.metric(
-            "Historical xG records",
-            f"{data['xg_total']:,}",
+    if results and not errors:
+        st.success(
+            "All database checks completed successfully."
         )
 
-        st.metric(
-            "Match event records collected",
-            f"{data['events_total']:,}",
-        )
-
-        st.subheader("Collection Status")
-
-        st.metric(
-            "Match statistics received",
-            f"{data['stats_success']:,}",
-        )
-
-        st.metric(
-            "Goal/event timelines received",
-            f"{data['timelines_success']:,}",
-        )
-
-        st.subheader("Verified Markets")
-
-        st.metric(
-            "Corners matched",
-            f"{data['corners_verified']:,}",
-        )
-
-        st.metric(
-            "Yellow cards matched",
-            f"{data['yellow_verified']:,}",
-        )
-
-        st.metric(
-            "Red cards matched",
-            f"{data['red_verified']:,}",
-        )
-
-        if data["events_total"] > 0:
-            corner_rate = (
-                100 * data["corners_verified"]
-                / data["events_total"]
-            )
-
-            st.metric(
-                "Corner verification rate",
-                f"{corner_rate:.1f}%",
-            )
-
-        st.caption(
-            "Matched means event totals agree with "
-            "the provider's match statistics. "
-            "Received timelines are not independently "
-            "goal-verified by this dashboard."
-        )
-
-        st.caption(
-            "Figures are cached for two minutes. "
-            "Use Refresh to request current totals."
-        )
-
-    except Exception as e:
+    elif results:
         st.warning(
-            f"Database error type: {type(e).__name__}"
+            "Some database checks succeeded, "
+            "but others need attention."
         )
 
+    else:
         st.error(
-            "Unable to read Supabase. "
-            "We are identifying the connection problem."
+            "No database counters could be retrieved."
         )
 
-        st.caption(
-            "This diagnostic deliberately hides "
-            "credentials and detailed error messages."
+    # --------------------------------------
+    # DISPLAY ALL COUNTERS
+    # --------------------------------------
+
+    st.subheader("Historical Database")
+
+    for label in [
+        "Historical xG records",
+        "Match event records collected",
+    ]:
+        value = results.get(label)
+
+        st.metric(
+            label,
+            f"{value:,}" if value is not None else "Unavailable",
         )
+
+    st.subheader("Collection Status")
+
+    for label in [
+        "Match statistics received",
+        "Goal/event timelines received",
+    ]:
+        value = results.get(label)
+
+        st.metric(
+            label,
+            f"{value:,}" if value is not None else "Unavailable",
+        )
+
+    st.subheader("Verified Markets")
+
+    for label in [
+        "Corners matched",
+        "Yellow cards matched",
+        "Red cards matched",
+    ]:
+        value = results.get(label)
+
+        st.metric(
+            label,
+            f"{value:,}" if value is not None else "Unavailable",
+        )
+
+    # --------------------------------------
+    # CORNER VERIFICATION RATE
+    # --------------------------------------
+
+    total = results.get(
+        "Match event records collected"
+    )
+
+    verified = results.get(
+        "Corners matched"
+    )
+
+    if (
+        total is not None
+        and verified is not None
+        and total > 0
+    ):
+        st.metric(
+            "Corner verification rate",
+            f"{100 * verified / total:.1f}%",
+        )
+
+    # --------------------------------------
+    # DIAGNOSTIC RESULTS
+    # --------------------------------------
+
+    st.subheader("Database Diagnostics")
+
+    if errors:
+
+        st.warning(
+            "These checks failed. "
+            "Only the error types are displayed."
+        )
+
+        for label, error_type in errors.items():
+
+            st.error(
+                f"{label}: {error_type}"
+            )
+
+    else:
+
+        st.success(
+            "No database query errors detected."
+        )
+
+    st.caption(
+        "This dashboard only reads database records. "
+        "It does not modify or delete them."
+    )
+
+    st.caption(
+        "Figures are cached for two minutes. "
+        "Use Refresh to request current totals."
+    )
 
 # ==========================================
 # FOOTER
