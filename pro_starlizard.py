@@ -1,8 +1,9 @@
 
 import streamlit as st
+from supabase import create_client
 
 # ==========================================
-# PRO STARLIZARD — MOBILE DASHBOARD
+# PRO STARLIZARD
 # ==========================================
 
 st.set_page_config(
@@ -13,7 +14,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# PROFESSIONAL DARK THEME
+# DARK MOBILE THEME
 # ==========================================
 
 st.markdown("""
@@ -33,10 +34,6 @@ h1, h2, h3 {
     color: #f8fafc !important;
 }
 
-h2 {
-    font-size: 1.6rem !important;
-}
-
 label,
 [data-testid="stWidgetLabel"],
 [data-testid="stWidgetLabel"] p {
@@ -49,6 +46,14 @@ div[data-testid="stMetric"] {
     border: 1px solid #293a53;
     border-radius: 12px;
     padding: 12px;
+}
+
+div[data-testid="stMetricValue"],
+div[data-testid="stMetricValue"] *,
+div[data-testid="stMetricLabel"],
+div[data-testid="stMetricLabel"] * {
+    color: #f8fafc !important;
+    opacity: 1 !important;
 }
 
 div.stButton > button {
@@ -93,7 +98,7 @@ div.stButton > button p {
 """, unsafe_allow_html=True)
 
 # ==========================================
-# SCRUMPY AND LADY SALLY HEADER
+# SCRUMPY AND LADY SALLY
 # ==========================================
 
 st.image(
@@ -102,7 +107,90 @@ st.image(
 )
 
 # ==========================================
-# MAIN NAVIGATION
+# DATABASE FUNCTIONS
+# ==========================================
+
+@st.cache_resource
+def get_supabase():
+    return create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_SECRET_KEY"],
+    )
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def get_database_stats():
+    db = get_supabase()
+
+    def count_rows(table, column, value=None):
+        query = (
+            db.table(table)
+            .select("match_id", count="exact")
+        )
+
+        if column is not None:
+            query = query.eq(column, value)
+
+        result = query.limit(1).execute()
+        return result.count or 0
+
+    # Historical xG table
+    xg_total = (
+        db.table("historical_xg")
+        .select("match_id", count="exact")
+        .limit(1)
+        .execute()
+    ).count or 0
+
+    # Historical match events table
+    events_total = count_rows(
+        "historical_match_events",
+        None,
+    )
+
+    stats_success = count_rows(
+        "historical_match_events",
+        "stats_status",
+        200,
+    )
+
+    timelines_success = count_rows(
+        "historical_match_events",
+        "timeline_status",
+        200,
+    )
+
+    corners_verified = count_rows(
+        "historical_match_events",
+        "corners_match",
+        True,
+    )
+
+    yellow_verified = count_rows(
+        "historical_match_events",
+        "yellow_cards_match",
+        True,
+    )
+
+    red_verified = count_rows(
+        "historical_match_events",
+        "red_cards_match",
+        True,
+    )
+
+    return {
+        "xg_total": xg_total,
+        "events_total": events_total,
+        "stats_success": stats_success,
+        "timelines_success": timelines_success,
+        "corners_verified": corners_verified,
+        "yellow_verified": yellow_verified,
+        "red_verified": red_verified,
+    }
+
+
+# ==========================================
+# NAVIGATION
 # ==========================================
 
 if "active_page" not in st.session_state:
@@ -168,7 +256,7 @@ if st.session_state.active_page == "Match Pricing":
 
     st.info(
         "Pricing engine not connected yet. "
-        "This is our new dashboard preview."
+        "This is our dashboard preview."
     )
 
 # ==========================================
@@ -193,7 +281,7 @@ elif st.session_state.active_page == "Historical Research":
     - Yellow and red cards
     - Referee research
     - Opposition-adjusted statistics
-    - Backtesting and model calibration
+    - Backtesting and calibration
     """)
 
     st.info(
@@ -202,7 +290,7 @@ elif st.session_state.active_page == "Historical Research":
     )
 
 # ==========================================
-# DATABASE HEALTH
+# LIVE DATABASE HEALTH
 # ==========================================
 
 elif st.session_state.active_page == "Database Health":
@@ -210,28 +298,91 @@ elif st.session_state.active_page == "Database Health":
     st.header("Database Health")
 
     st.caption(
-        "Historical match collection and verification"
+        "Live historical collection statistics from Supabase"
     )
 
-    st.metric(
-        "Matches collected",
-        "Not connected",
-    )
+    if st.button(
+        "🔄 Refresh database figures",
+        use_container_width=True,
+    ):
+        get_database_stats.clear()
 
-    st.metric(
-        "Verified goals",
-        "Not connected",
-    )
+    try:
+        with st.spinner("Reading Supabase database..."):
+            data = get_database_stats()
 
-    st.metric(
-        "Verified corners",
-        "Not connected",
-    )
+        st.success("Connected to Supabase")
 
-    st.info(
-        "Live Supabase database statistics "
-        "will be connected next."
-    )
+        st.subheader("Historical Database")
+
+        st.metric(
+            "Historical xG records",
+            f"{data['xg_total']:,}",
+        )
+
+        st.metric(
+            "Match event records collected",
+            f"{data['events_total']:,}",
+        )
+
+        st.subheader("Collection Status")
+
+        st.metric(
+            "Match statistics received",
+            f"{data['stats_success']:,}",
+        )
+
+        st.metric(
+            "Goal/event timelines received",
+            f"{data['timelines_success']:,}",
+        )
+
+        st.subheader("Verified Markets")
+
+        st.metric(
+            "Corners matched",
+            f"{data['corners_verified']:,}",
+        )
+
+        st.metric(
+            "Yellow cards matched",
+            f"{data['yellow_verified']:,}",
+        )
+
+        st.metric(
+            "Red cards matched",
+            f"{data['red_verified']:,}",
+        )
+
+        if data["events_total"] > 0:
+            corner_rate = (
+                100 * data["corners_verified"]
+                / data["events_total"]
+            )
+
+            st.metric(
+                "Corner verification rate",
+                f"{corner_rate:.1f}%",
+            )
+
+        st.caption(
+            "Matched means event totals agree with "
+            "the provider's match statistics. "
+            "Received timelines are not independently "
+            "goal-verified by this dashboard."
+        )
+
+        st.caption(
+            "Figures are cached for two minutes. "
+            "Use Refresh to request current totals."
+        )
+
+    except Exception:
+        st.error(
+            "Unable to read Supabase. Check that "
+            "the Streamlit app has the required "
+            "database secrets and table permissions."
+        )
 
 # ==========================================
 # FOOTER
