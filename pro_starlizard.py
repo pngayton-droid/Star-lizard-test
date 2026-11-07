@@ -82,10 +82,27 @@ st.image("pro_starlizard_header_correct-1.png", use_container_width=True)
   
 
 
-pricing, research, database = st.tabs([
-    "⚽ Match Pricing",
-    "📊 Historical Research",
-    "🗄️ Database Health",
+
+if "active_page" not in st.session_state:
+    st.session_state.active_page = "Match Pricing"
+
+for page_name, page_icon in [
+    ("Match Pricing", "⚽"),
+    ("Historical Research", "📊"),
+    ("Database Health", "🗄️"),
+]:
+    if st.button(
+        f"{page_icon}  {page_name}",
+        key=f"nav_{page_name}",
+        use_container_width=True,
+        type="primary" if st.session_state.active_page == page_name else "secondary",
+    ):
+        st.session_state.active_page = page_name
+
+pricing = st.container() if st.session_state.active_page == "Match Pricing" else st.empty()
+research = st.container() if st.session_state.active_page == "Historical Research" else st.empty()
+database = st.container() if st.session_state.active_page == "Database Health" else st.empty()
+  
 ])
 
 with pricing:
