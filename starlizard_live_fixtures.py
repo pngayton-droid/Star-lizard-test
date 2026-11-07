@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import pandas as pd
@@ -7,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 API_BASE = "https://api.thestatsapi.com/api"
 UK = ZoneInfo("Europe/London")
+
 KEY_NAMES = (
     "STATS_API_KEY",
     "THESTATSAPI_KEY",
@@ -15,56 +15,115 @@ KEY_NAMES = (
     "STATSAPI_KEY",
 )
 
+
+def uk_time():
+    return datetime.now(UK).strftime(
+        "%Y-%m-%d %H:%M:%S %Z"
+    )
+
+
+def get_key():
+    for name in KEY_NAMES:
+        key = st.secrets.get(name)
+        if key:
+            return str(key).strip()
+    return None
+
+
+def api_request(key, path, params=None):
+    started = uk_time()
+
+    response = requests.get(
+        API_BASE + path,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Cache-Control": "no-cache",
+        },
+        params=params,
+        timeout=25,
+    )
+
+    received = uk_time()
+    response.raise_for_status()
+
+    return {
+        "body": response.json(),
+        "started": started,
+        "received": received,
+        "status": response.status_code,
+        "http_date": response.headers.get("Date"),
+        "age": response.headers.get("Age"),
+        "cache_control": response.headers.get(
+            "Cache-Control"
+        ),
+    }
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def fixtures_for_day(key, day):
     rows = []
+
     for page in range(1, 21):
-        response = requests.get(
-            API_BASE + "/football/matches",
-            headers={"Authorization": "Bearer " + key},
-            params={
+        result = api_request(
+            key,
+            "/football/matches",
+            {
                 "date_from": day,
                 "date_to": day,
                 "sort": "utc_date",
                 "per_page": 100,
                 "page": page,
             },
-            timeout=20,
         )
-        response.raise_for_status()
-        payload = response.json()
+
+        payload = result["body"]
         rows.extend(payload.get("data") or [])
-        total_pages = int(
-            (payload.get("meta") or {}).get("total_pages") or 1
+
+        pages = int(
+            (payload.get("meta") or {}).get(
+                "total_pages"
+            ) or 1
         )
-        if page >= total_pages:
+
+        if page >= pages:
             return rows
+
     raise RuntimeError(
-        "Fixture results exceeded 20 pages; narrow the date range."
+        "Fixture results exceeded 20 pages."
     )
+
 
 @st.cache_data(ttl=60, show_spinner=False)
 def fetch_live_stats(key, match_id):
     response = requests.get(
-        API_BASE + "/football/matches/" + match_id + "/live-stats",
-        headers={"Authorization": "Bearer " + key},
-        timeout=20,
+        API_BASE
+        + f"/football/matches/{match_id}/live-stats",
+        headers={
+            "Authorization": f"Bearer {key}"
+        },
+        timeout=25,
     )
+
     if response.status_code == 409:
         return None
+
     response.raise_for_status()
-    return response.json().get("data")
+    return response.json().get("data") or {}
+
 
 def kickoff(item):
     raw = item.get("utc_date")
+
     if not raw:
         return None
+
     try:
         return datetime.fromisoformat(
             raw.replace("Z", "+00:00")
         ).astimezone(UK)
-    except ValueError:
+    except (ValueError, TypeError):
         return None
+
 
 def team_name(item, side):
     return (
@@ -72,24 +131,36 @@ def team_name(item, side):
         or "Unknown"
     )
 
-def label(item):
+
+def fixture_label(item):
     start = kickoff(item)
-    time = start.strftime("%H:%M") if start else "--:--"
+    clock = (
+        start.strftime("%H:%M")
+        if start else "--:--"
+    )
+
     score = item.get("score") or {}
-    h, a = score.get("home"), score.get("away")
-    result = (
-        f" [{h}-{a}]"
-        if h is not None and a is not None
+    home = score.get("home")
+    away = score.get("away")
+
+    score_text = (
+        f" [{home}-{away}]"
+        if home is not None and away is not None
         else ""
     )
+
     return (
-        f"{time}  {team_name(item, 'home')} v "
-        f"{team_name(item, 'away')}{result}  "
+        f"{clock} "
+        f"{team_name(item, 'home')} v "
+        f"{team_name(item, 'away')}"
+        f"{score_text} "
         f"({item.get('status', 'unknown')})"
     )
 
+
 def exact_match(api_name, find_team_names):
     matches = find_team_names(api_name[:5])
+
     exact = next(
         (
             name for name in matches
@@ -97,42 +168,226 @@ def exact_match(api_name, find_team_names):
         ),
         None,
     )
+
     return exact, matches
 
+
+def show_live_stats(snapshot, home, away):
+    if not snapshot:
+        st.info("Live statistics unavailable.")
+        return
+
+    meta = snapshot.get("meta") or {}
+
+    st.write(
+        f"Minute: {meta.get('elapsed_minutes', '—')}"
+        f" · Score: "
+        f"{meta.get('home_goals', '—')}-"
+        f"{meta.get('away_goals', '—')}"
+    )
+
+    stats = snapshot.get("stats") or {}
+    rows = []
+
+    for title, field in [
+        ("Shots", "total_shots"),
+        ("Shots on target", "shots_on_target"),
+        ("Corners", "corner_kicks"),
+        ("Yellow cards", "yellow_cards"),
+        ("Red cards", "red_cards"),
+        ("xG", "expected_goals"),
+    ]:
+        values = (
+            (stats.get(field) or {}).get("all")
+            or {}
+        )
+
+        if (
+            values.get("home") is not None
+            or values.get("away") is not None
+        ):
+            rows.append({
+                "Statistic": title,
+                home: values.get("home"),
+                away: values.get("away"),
+            })
+
+    if rows:
+        st.dataframe(
+            pd.DataFrame(rows),
+            hide_index=True,
+            width="stretch",
+        )
+
+
+def show_diagnostics(key, match_id):
+    st.subheader("🔍 Live feed diagnostics")
+
+    st.caption(
+        "Fresh HTTP requests bypassing "
+        "Streamlit's cached match data."
+    )
+
+    try:
+        with st.spinner(
+            "Checking both API endpoints..."
+        ):
+            match_result = api_request(
+                key,
+                f"/football/matches/{match_id}",
+            )
+
+            stats_result = api_request(
+                key,
+                f"/football/matches/"
+                f"{match_id}/live-stats",
+            )
+
+    except requests.RequestException as exc:
+        st.error(
+            f"Diagnostic request failed: {exc}"
+        )
+        return
+
+    match = (
+        match_result["body"].get("data") or {}
+    )
+    stats = (
+        stats_result["body"].get("data") or {}
+    )
+
+    score = match.get("score") or {}
+    live = match.get("live") or {}
+    meta = stats.get("meta") or {}
+
+    st.write("**Match ID:**", match_id)
+
+    st.write(
+        "**Teams:**",
+        team_name(match, "home"),
+        "v",
+        team_name(match, "away"),
+    )
+
+    st.write(
+        "**Match status:**",
+        match.get("status"),
+    )
+
+    st.dataframe(
+        pd.DataFrame([
+            {
+                "Source": "Match details",
+                "Score": (
+                    f"{score.get('home', '—')}-"
+                    f"{score.get('away', '—')}"
+                ),
+                "Minute": live.get(
+                    "elapsed_minutes", "—"
+                ),
+                "Received UK": match_result[
+                    "received"
+                ],
+            },
+            {
+                "Source": "Live statistics",
+                "Score": (
+                    f"{meta.get('home_goals', '—')}-"
+                    f"{meta.get('away_goals', '—')}"
+                ),
+                "Minute": meta.get(
+                    "elapsed_minutes", "—"
+                ),
+                "Received UK": stats_result[
+                    "received"
+                ],
+            },
+        ]),
+        hide_index=True,
+        width="stretch",
+    )
+
+    st.subheader("HTTP response information")
+
+    st.dataframe(
+        pd.DataFrame([
+            {
+                "Source": "Match details",
+                "HTTP Date": match_result[
+                    "http_date"
+                ],
+                "Age": match_result["age"],
+                "Cache-Control": match_result[
+                    "cache_control"
+                ],
+            },
+            {
+                "Source": "Live statistics",
+                "HTTP Date": stats_result[
+                    "http_date"
+                ],
+                "Age": stats_result["age"],
+                "Cache-Control": stats_result[
+                    "cache_control"
+                ],
+            },
+        ]),
+        hide_index=True,
+        width="stretch",
+    )
+
+    with st.expander(
+        "Additional API timestamps and metadata"
+    ):
+        st.write(
+            "Fixture live metadata:", live
+        )
+        st.write(
+            "Live statistics metadata:", meta
+        )
+        st.write(
+            "Match response fields:",
+            list(match.keys()),
+        )
+        st.write(
+            "Statistics response fields:",
+            list(stats.keys()),
+        )
+
+    st.warning(
+        "A fresh HTTP response does not "
+        "guarantee fresh underlying match data. "
+        "Compare the score and minute against "
+        "an independent live source."
+    )
+
+
 def render_live_fixtures(
-    leagues, find_team_names, show_comparison
+    leagues,
+    find_team_names,
+    show_comparison,
 ):
     st.header("⚽ Live Fixtures")
+
     st.caption(
-        "TheStatsAPI fixtures and live scores; "
+        "TheStatsAPI live fixtures and "
         "Supabase historical analysis."
     )
 
-    key = next(
-        (
-            st.secrets.get(name)
-            for name in KEY_NAMES
-            if st.secrets.get(name)
-        ),
-        None,
-    )
+    key = get_key()
 
     if not key:
         st.warning(
-            "TheStatsAPI key is not configured "
-            "in this Streamlit app."
-        )
-        st.info(
-            "Add the existing key to Streamlit secrets "
-            "as STATS_API_KEY. "
-            "Do not put the key in GitHub code."
+            "TheStatsAPI key is missing "
+            "from Streamlit secrets."
         )
         return
 
     today = datetime.now(UK).date()
+
     day = st.date_input(
         "Fixture date (UK)",
-        today,
+        value=today,
         min_value=today - timedelta(days=7),
         max_value=today + timedelta(days=14),
         key="lf_date",
@@ -147,7 +402,8 @@ def render_live_fixtures(
     )
 
     if st.button(
-        "🔄 Refresh fixture data", key="lf_refresh"
+        "🔄 Refresh fixture data",
+        key="lf_refresh",
     ):
         fixtures_for_day.clear()
         fetch_live_stats.clear()
@@ -159,6 +415,7 @@ def render_live_fixtures(
     try:
         with st.spinner("Fetching fixtures..."):
             found = []
+
             for query_day in (
                 day - timedelta(days=1),
                 day,
@@ -166,22 +423,26 @@ def render_live_fixtures(
             ):
                 found.extend(
                     fixtures_for_day(
-                        key, query_day.isoformat()
+                        key,
+                        query_day.isoformat(),
                     )
                 )
+
     except (
         requests.RequestException,
-        ValueError,
         RuntimeError,
+        ValueError,
     ) as exc:
         st.error(
-            f"Fixtures could not be retrieved: {exc}"
+            f"Fixture retrieval failed: {exc}"
         )
         return
 
     by_id = {}
+
     for item in found:
         start = kickoff(item)
+
         if (
             item.get("competition_id") in chosen
             and start is not None
@@ -192,110 +453,80 @@ def render_live_fixtures(
 
     matches = sorted(
         by_id.values(),
-        key=lambda item: kickoff(item),
+        key=kickoff,
     )
 
     st.caption(
-        f"{len(matches)} matches found · "
-        "UK kick-off times · "
-        "5-minute fixture cache"
+        f"{len(matches)} fixtures found "
+        "· UK kick-off times"
     )
 
     if not matches:
         st.info(
-            "No fixtures found for these leagues "
-            "on this date."
+            "No matches found for this date."
         )
         return
 
     selected = st.selectbox(
         "Select a match",
         matches,
-        format_func=label,
+        format_func=fixture_label,
         key="lf_match",
     )
 
-    home_api = team_name(selected, "home")
-    away_api = team_name(selected, "away")
+    home_api = team_name(
+        selected, "home"
+    )
+    away_api = team_name(
+        selected, "away"
+    )
 
-    st.subheader(f"{home_api} v {away_api}")
+    match_id = selected["id"]
+
+    st.subheader(
+        f"{home_api} v {away_api}"
+    )
+
     st.caption(
-        f"{leagues.get(selected.get('competition_id'), 'League')}"
-        f" · {selected.get('status', 'unknown')}"
+        leagues.get(
+            selected.get("competition_id"),
+            "League",
+        )
     )
 
     if selected.get("status") == "live":
         try:
             snapshot = fetch_live_stats(
-                key, selected["id"]
+                key, match_id
             )
-
-            if snapshot:
-                meta = snapshot.get("meta") or {}
-
-                st.write(
-                    f"Minute: "
-                    f"{meta.get('elapsed_minutes', '—')}"
-                    f" · Score: "
-                    f"{meta.get('home_goals', '—')}-"
-                    f"{meta.get('away_goals', '—')}"
-                )
-
-                stats = snapshot.get("stats") or {}
-                rows = []
-
-                for title, field in [
-                    ("Shots", "total_shots"),
-                    ("Shots on target", "shots_on_target"),
-                    ("Corners", "corner_kicks"),
-                    ("Yellow cards", "yellow_cards"),
-                    ("Red cards", "red_cards"),
-                    ("xG", "expected_goals"),
-                ]:
-                    values = (
-                        (stats.get(field) or {})
-                        .get("all") or {}
-                    )
-
-                    if (
-                        values.get("home") is not None
-                        or values.get("away") is not None
-                    ):
-                        rows.append({
-                            "Statistic": title,
-                            home_api: values.get("home"),
-                            away_api: values.get("away"),
-                        })
-
-                if rows:
-                    st.dataframe(
-                        pd.DataFrame(rows),
-                        hide_index=True,
-                        width="stretch",
-                    )
-                else:
-                    st.info(
-                        "Detailed live statistics "
-                        "are not available for this match."
-                    )
-            else:
-                st.info(
-                    "Live statistics are "
-                    "temporarily unavailable."
-                )
-
-        except requests.RequestException:
+            show_live_stats(
+                snapshot, home_api, away_api
+            )
+        except requests.RequestException as exc:
             st.warning(
-                "Live statistics request failed."
+                f"Live stats unavailable: {exc}"
             )
+
+    st.divider()
+
+    if st.button(
+        "🔍 Diagnose live feed freshness",
+        type="primary",
+        width="stretch",
+        key="lf_diagnose",
+    ):
+        show_diagnostics(key, match_id)
+
+    st.divider()
 
     st.header(
-        "Historical comparison and potential angles"
+        "Historical comparison "
+        "and potential angles"
     )
+
     st.caption(
-        "Only league matches played before "
-        "the selected fixture date are included. "
-        "Historical rates are not predicted probabilities."
+        "League matches before the "
+        "selected fixture date only."
     )
 
     try:
@@ -307,15 +538,12 @@ def render_live_fixtures(
         )
     except Exception as exc:
         st.error(
-            "Database team lookup failed: "
+            "Historical team lookup failed: "
             f"{type(exc).__name__}"
         )
         return
 
     if home is None:
-        st.warning(
-            f"Confirm historical name for {home_api}."
-        )
         choice = st.selectbox(
             "Home database team",
             ["Select a team"] + home_options,
@@ -328,9 +556,6 @@ def render_live_fixtures(
         )
 
     if away is None:
-        st.warning(
-            f"Confirm historical name for {away_api}."
-        )
         choice = st.selectbox(
             "Away database team",
             ["Select a team"] + away_options,
@@ -361,7 +586,7 @@ def render_live_fixtures(
         )
 
     selection = (
-        selected["id"],
+        match_id,
         home,
         away,
         home_count,
@@ -370,18 +595,20 @@ def render_live_fixtures(
 
     if st.button(
         "📊 Analyse this fixture",
-        type="primary",
         width="stretch",
         disabled=not (
             home and away and home != away
         ),
         key="lf_analyse",
     ):
-        st.session_state["lf_selection"] = selection
+        st.session_state[
+            "lf_selection"
+        ] = selection
 
     if (
-        st.session_state.get("lf_selection")
-        == selection
+        st.session_state.get(
+            "lf_selection"
+        ) == selection
     ):
         cutoff = (
             day - timedelta(days=1)
@@ -398,6 +625,6 @@ def render_live_fixtures(
             )
         except Exception as exc:
             st.error(
-                "Comparison failed: "
+                "Historical analysis failed: "
                 f"{type(exc).__name__}"
             )
