@@ -8,27 +8,69 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+
+
 st.markdown("""
 <style>
 .stApp {
     background-color: #0b1220;
     color: #e8eef8;
 }
+
 .block-container {
-    padding-top: 1.5rem;
-    max-width: 1250px;
+    padding-top: 0.5rem;
+    padding-bottom: 2rem;
+    max-width: 1100px;
 }
+
 h1, h2, h3 {
     color: #f8fafc !important;
 }
+
+h2 {
+    font-size: 1.65rem !important;
+}
+
+label,
+[data-testid="stWidgetLabel"],
+[data-testid="stWidgetLabel"] p {
+    color: #e8eef8 !important;
+    font-weight: 600 !important;
+}
+
+button[data-baseweb="tab"] {
+    color: #e8eef8 !important;
+    font-weight: 600 !important;
+}
+
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #ff6478 !important;
+}
+
 div[data-testid="stMetric"] {
     background: #172338;
     border: 1px solid #293a53;
     border-radius: 12px;
-    padding: 16px;
+    padding: 12px;
 }
-div.stButton > button {
-    border-radius: 10px;
+
+@media (max-width: 640px) {
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    h1 {
+        font-size: 1.8rem !important;
+    }
+
+    h2 {
+        font-size: 1.45rem !important;
+    }
+
+    div[data-testid="stTabs"] {
+        font-size: 0.9rem;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
