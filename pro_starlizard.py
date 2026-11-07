@@ -103,7 +103,7 @@ pricing = st.container() if st.session_state.active_page == "Match Pricing" else
 research = st.container() if st.session_state.active_page == "Historical Research" else st.empty()
 database = st.container() if st.session_state.active_page == "Database Health" else st.empty()
   
-])
+
 
 with pricing:
     st.header("Match Pricing")
