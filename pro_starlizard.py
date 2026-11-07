@@ -34,7 +34,9 @@ div.stButton > button {
 """, unsafe_allow_html=True)
 
 
-st.image("pro_starlizard_header_correct.png", use_container_width=True)
+
+st.image("pro_starlizard_header_correct-1.png", use_container_width=True)
+  
   
 st.caption("Professional Football Intelligence & Pricing")
 
