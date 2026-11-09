@@ -1,14 +1,10 @@
 
 """
 PRO STARLIZARD
-Corners & Cards Research Engine V2.1
+Corners & Cards Research V2.2
 
-Read-only historical research.
-Loads one market at a time in small batches.
-
-Full-match eligibility follows data_quality.py.
-Half-by-half statistics require an additional
-arithmetic consistency check.
+Read-only historical research with match context.
+Preserves V2.1 quality and half-integrity rules.
 """
 
 import sys
@@ -22,8 +18,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from data_quality import MARKETS, _get, _number
-
+from data_quality import (
+    MARKETS,
+    _get,
+    _number,
+    classify_match,
+)
 
 st.set_page_config(
     page_title="Scrumpy | Corners & Cards",
@@ -32,11 +32,10 @@ st.set_page_config(
 )
 
 st.title("🦎 PRO STARLIZARD")
-st.subheader("Corners & Cards Research V2.1")
+st.subheader("Corners & Cards Research V2.2")
 
 st.caption(
-    "Verified historical totals | "
-    "Half-by-half integrity checks | "
+    "Verified historical data | Match context | "
     "Read-only Supabase research"
 )
 
@@ -52,15 +51,20 @@ EXPECTED = {
     "red_cards": 11716,
 }
 
-EXCLUDED_COMPETITIONS = {"comp_6387"}
-
 market_label = st.selectbox(
     "Select market",
-    list(MARKET_LABELS.keys()),
+    list(MARKET_LABELS),
 )
-
 market = MARKET_LABELS[market_label]
+
 field, verification_flag = MARKETS[market]
+
+
+def database():
+    return create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_SECRET_KEY"],
+    )
 
 
 def extract_stats(stats):
@@ -70,11 +74,7 @@ def extract_stats(stats):
         for side in ("home", "away"):
             values[f"{period}_{side}"] = _number(
                 _get(
-                    stats,
-                    "overview",
-                    field,
-                    period,
-                    side,
+                    stats, "overview", field, period, side
                 )
             )
 
@@ -82,10 +82,6 @@ def extract_stats(stats):
 
 
 def consistent_halves(values):
-    """
-    Require complete and arithmetically consistent
-    home and away half-by-half statistics.
-    """
     for side in ("home", "away"):
         total = values[f"all_{side}"]
         first = values[f"first_half_{side}"]
@@ -100,53 +96,25 @@ def consistent_halves(values):
     return True
 
 
-def flag_is_true(value):
-    return value is True or (
-        isinstance(value, str)
-        and value.strip().lower() == "true"
-    )
-
-
-def is_usable(record, values):
-    """
-    Preserve the established totals eligibility
-    and timeline-verification rules.
-    """
-    if record["competition_id"] in EXCLUDED_COMPETITIONS:
-        return False, False
-
-    if (
-        values["all_home"] is None
-        or values["all_away"] is None
-    ):
-        return False, False
-
-    coverage = record["coverage"]
-    verified = flag_is_true(record["verified"])
-
-    if coverage == "full" and verified:
-        return True, True
-
-    if coverage == "partial" and consistent_halves(values):
-        return True, False
-
-    return False, False
-
-
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_competitions():
-    db = create_client(
-        st.secrets["SUPABASE_URL"],
-        st.secrets["SUPABASE_SECRET_KEY"],
-    )
-
-    mapping = {}
+def load_match_context():
+    db = database()
+    context = {}
     last_id = None
+
+    columns = (
+        "match_id,match_date,competition_id,"
+        "home_team,away_team,"
+        "home_goals,away_goals,"
+        "home_ht_goals,away_ht_goals,"
+        "home_xg,away_xg,"
+        "home_ht_xg,away_ht_xg"
+    )
 
     while True:
         query = (
             db.table("historical_xg")
-            .select("match_id,competition_id")
+            .select(columns)
             .order("match_id")
             .limit(500)
         )
@@ -159,24 +127,20 @@ def load_competitions():
         if not batch:
             break
 
-        for row in batch:
-            mapping[row["match_id"]] = row["competition_id"]
+        for record in batch:
+            context[record["match_id"]] = record
 
         last_id = batch[-1]["match_id"]
 
         if len(batch) < 500:
             break
 
-    return mapping
+    return context
 
 
 def research(selected_market):
-    db = create_client(
-        st.secrets["SUPABASE_URL"],
-        st.secrets["SUPABASE_SECRET_KEY"],
-    )
-
-    competitions = load_competitions()
+    db = database()
+    context = load_match_context()
 
     rows = []
     last_id = None
@@ -186,8 +150,8 @@ def research(selected_market):
         query = (
             db.table("historical_match_events")
             .select(
-                f"match_id,stats_data,"
-                f"timeline_data->>coverage,"
+                "match_id,stats_data,"
+                "timeline_data->>coverage,"
                 f"{verification_flag}"
             )
             .order("match_id")
@@ -204,39 +168,62 @@ def research(selected_market):
 
         for record in batch:
             match_id = record["match_id"]
-            competition = competitions.get(match_id)
+            match = context.get(match_id)
 
-            if competition is None:
+            if match is None:
                 continue
 
             stats = record.get("stats_data")
             values = extract_stats(stats)
 
-            record_info = {
-                "competition_id": competition,
-                "coverage": record.get("coverage"),
-                "verified": record.get(verification_flag),
+            quality_record = {
+                "competition_id": match["competition_id"],
+                "stats_data": stats,
+                "timeline_data": {
+                    "coverage": record.get("coverage")
+                },
+                verification_flag: record.get(
+                    verification_flag
+                ),
             }
 
-            usable, timing = is_usable(
-                record_info, values
+            quality = classify_match(
+                quality_record, selected_market
             )
 
-            if not usable:
+            if quality not in (
+                "timeline_verified",
+                "partial_totals_only",
+            ):
                 continue
 
             half_valid = consistent_halves(values)
 
-            row = {
-                "competition_id": competition,
-                "timing_usable": timing,
-                "halves_consistent": half_valid,
-                **values,
-            }
+            home_ht = match.get("home_ht_goals")
+            away_ht = match.get("away_ht_goals")
 
-            row["match_total"] = (
-                values["all_home"] + values["all_away"]
-            )
+            if home_ht is None or away_ht is None:
+                ht_situation = "Unknown"
+            elif home_ht > away_ht:
+                ht_situation = "Home leading"
+            elif home_ht < away_ht:
+                ht_situation = "Away leading"
+            else:
+                ht_situation = "Level"
+
+            row = {
+                **match,
+                **values,
+                "quality": quality,
+                "timing_usable": (
+                    quality == "timeline_verified"
+                ),
+                "halves_consistent": half_valid,
+                "ht_situation": ht_situation,
+                "match_total": (
+                    values["all_home"] + values["all_away"]
+                ),
+            }
 
             rows.append(row)
 
@@ -249,15 +236,12 @@ def research(selected_market):
 
 
 if st.button("Run historical research", type="primary"):
-
-    with st.spinner("Checking historical records..."):
+    with st.spinner("Researching historical matches..."):
         try:
             data = research(market)
 
             if data.empty:
-                st.warning(
-                    "No eligible historical records found."
-                )
+                st.warning("No eligible matches found.")
                 st.stop()
 
             actual = len(data)
@@ -265,74 +249,53 @@ if st.button("Run historical research", type="primary"):
 
             st.subheader("Quality verification")
 
-            col1, col2, col3 = st.columns(3)
+            a, b, c = st.columns(3)
 
-            col1.metric("Usable", f"{actual:,}")
-            col2.metric("Expected", f"{expected:,}")
-            col3.metric(
+            a.metric("Usable matches", f"{actual:,}")
+            b.metric("Expected", f"{expected:,}")
+            c.metric(
                 "Timing verified",
                 f"{int(data['timing_usable'].sum()):,}",
             )
 
             if actual == expected:
-                st.success("Quality benchmark matched!")
+                st.success("Full-match benchmark matched.")
             else:
-                st.warning(
-                    "Match count differs from "
-                    "our verified benchmark."
+                st.error(
+                    "Full-match benchmark differs. "
+                    "Investigate before using results."
                 )
 
             st.subheader("Half-by-half integrity")
 
-            valid_halves = int(
-                data["halves_consistent"].sum()
-            )
-            excluded_halves = actual - valid_halves
+            valid = int(data["halves_consistent"].sum())
+            excluded = actual - valid
 
-            col1, col2 = st.columns(2)
-
-            col1.metric(
-                "Consistent halves",
-                f"{valid_halves:,}",
-            )
-            col2.metric(
+            a, b = st.columns(2)
+            a.metric("Consistent halves", f"{valid:,}")
+            b.metric(
                 "Excluded from half analysis",
-                f"{excluded_halves:,}",
-            )
-
-            if excluded_halves:
-                st.info(
-                    "These matches remain eligible for "
-                    "full-match totals but are excluded "
-                    "from half-by-half averages."
-                )
-
-            st.subheader("Historical averages")
-
-            col1, col2, col3 = st.columns(3)
-
-            col1.metric(
-                "Match total",
-                f"{data['match_total'].mean():.2f}",
-            )
-            col2.metric(
-                "Home average",
-                f"{data['all_home'].mean():.2f}",
-            )
-            col3.metric(
-                "Away average",
-                f"{data['all_away'].mean():.2f}",
+                f"{excluded:,}",
             )
 
             halves = data.loc[
                 data["halves_consistent"]
-            ].copy()
+            ]
 
-            st.subheader("Half-time distributions")
+            st.subheader("Historical averages")
 
-            st.metric(
-                "Matches with consistent halves",
-                f"{len(halves):,}",
+            a, b, c = st.columns(3)
+            a.metric(
+                "Match total",
+                f"{data['match_total'].mean():.2f}",
+            )
+            b.metric(
+                "Home average",
+                f"{data['all_home'].mean():.2f}",
+            )
+            c.metric(
+                "Away average",
+                f"{data['all_away'].mean():.2f}",
             )
 
             if not halves.empty:
@@ -340,29 +303,78 @@ if st.button("Run historical research", type="primary"):
                     halves["first_half_home"]
                     + halves["first_half_away"]
                 )
-
                 second = (
                     halves["second_half_home"]
                     + halves["second_half_away"]
                 )
 
-                col1, col2 = st.columns(2)
-
-                col1.metric(
+                a, b = st.columns(2)
+                a.metric(
                     "First-half average",
                     f"{first.mean():.2f}",
                 )
-                col2.metric(
+                b.metric(
                     "Second-half average",
                     f"{second.mean():.2f}",
                 )
+
+            st.subheader("Match context coverage")
+
+            required_context = [
+                "match_date",
+                "home_team",
+                "away_team",
+                "home_goals",
+                "away_goals",
+                "home_ht_goals",
+                "away_ht_goals",
+                "home_xg",
+                "away_xg",
+                "home_ht_xg",
+                "away_ht_xg",
+            ]
+
+            context_complete = data[
+                required_context
+            ].notna().all(axis=1)
+
+            a, b = st.columns(2)
+            a.metric(
+                "Complete context",
+                f"{int(context_complete.sum()):,}",
+            )
+            b.metric(
+                "Incomplete context",
+                f"{int((~context_complete).sum()):,}",
+            )
+
+            st.subheader("Half-time match situations")
+
+            situations = (
+                data.groupby("ht_situation")
+                .agg(
+                    matches=("match_id", "count"),
+                    avg_total=("match_total", "mean"),
+                    consistent_halves=(
+                        "halves_consistent", "sum"
+                    ),
+                )
+                .round(2)
+                .reset_index()
+            )
+
+            st.dataframe(
+                situations,
+                hide_index=True,
+                width="stretch",
+            )
 
             st.subheader("Competition breakdown")
 
             summary = (
                 data.groupby("competition_id")
                 .agg(
-                    matches=("match_total", "count"),
+                    matches=("match_id", "count"),
                     avg_total=("match_total", "mean"),
                     avg_home=("all_home", "mean"),
                     avg_away=("all_away", "mean"),
@@ -374,10 +386,6 @@ if st.button("Run historical research", type="primary"):
                 .reset_index()
             )
 
-            summary["consistent_halves"] = (
-                summary["consistent_halves"].astype(int)
-            )
-
             st.dataframe(
                 summary,
                 hide_index=True,
@@ -385,15 +393,22 @@ if st.button("Run historical research", type="primary"):
             )
 
             st.download_button(
-                "Download summary CSV",
+                "Download competition summary CSV",
                 data=summary.to_csv(index=False),
                 file_name=f"scrumpy_{market}_summary.csv",
                 mime="text/csv",
             )
 
+            st.download_button(
+                "Download match-level research CSV",
+                data=data.to_csv(index=False),
+                file_name=f"scrumpy_{market}_matches.csv",
+                mime="text/csv",
+            )
+
             st.caption(
-                "Read-only Supabase access. "
-                "No historical records modified."
+                "Historical research only. "
+                "No Supabase records modified."
             )
 
         except Exception as exc:
