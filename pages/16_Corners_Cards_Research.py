@@ -1,11 +1,14 @@
 
 """
 PRO STARLIZARD
-Corners & Cards Research Engine V2
+Corners & Cards Research Engine V2.1
 
-Memory-conscious, read-only historical research.
-One market at a time.
-No StatsAPI requests or database writes.
+Read-only historical research.
+Loads one market at a time in small batches.
+
+Full-match eligibility follows data_quality.py.
+Half-by-half statistics require an additional
+arithmetic consistency check.
 """
 
 import sys
@@ -16,7 +19,6 @@ import streamlit as st
 from supabase import create_client
 
 ROOT = Path(__file__).resolve().parents[1]
-
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -30,10 +32,11 @@ st.set_page_config(
 )
 
 st.title("🦎 PRO STARLIZARD")
-st.subheader("Corners & Cards Research V2")
+st.subheader("Corners & Cards Research V2.1")
 
 st.caption(
     "Verified historical totals | "
+    "Half-by-half integrity checks | "
     "Read-only Supabase research"
 )
 
@@ -78,7 +81,37 @@ def extract_stats(stats):
     return values
 
 
+def consistent_halves(values):
+    """
+    Require complete and arithmetically consistent
+    home and away half-by-half statistics.
+    """
+    for side in ("home", "away"):
+        total = values[f"all_{side}"]
+        first = values[f"first_half_{side}"]
+        second = values[f"second_half_{side}"]
+
+        if None in (total, first, second):
+            return False
+
+        if abs(total - first - second) > 0.000001:
+            return False
+
+    return True
+
+
+def flag_is_true(value):
+    return value is True or (
+        isinstance(value, str)
+        and value.strip().lower() == "true"
+    )
+
+
 def is_usable(record, values):
+    """
+    Preserve the established totals eligibility
+    and timeline-verification rules.
+    """
     if record["competition_id"] in EXCLUDED_COMPETITIONS:
         return False, False
 
@@ -89,23 +122,12 @@ def is_usable(record, values):
         return False, False
 
     coverage = record["coverage"]
-    verified = record["verified"] is True
+    verified = flag_is_true(record["verified"])
 
     if coverage == "full" and verified:
         return True, True
 
-    if coverage == "partial":
-        for side in ("home", "away"):
-            total = values[f"all_{side}"]
-            first = values[f"first_half_{side}"]
-            second = values[f"second_half_{side}"]
-
-            if None in (total, first, second):
-                return False, False
-
-            if abs(total - first - second) > 0.000001:
-                return False, False
-
+    if coverage == "partial" and consistent_halves(values):
         return True, False
 
     return False, False
@@ -165,7 +187,7 @@ def research(selected_market):
             db.table("historical_match_events")
             .select(
                 f"match_id,stats_data,"
-                f"timeline_data->{'coverage'},"
+                f"timeline_data->>coverage,"
                 f"{verification_flag}"
             )
             .order("match_id")
@@ -182,7 +204,6 @@ def research(selected_market):
 
         for record in batch:
             match_id = record["match_id"]
-
             competition = competitions.get(match_id)
 
             if competition is None:
@@ -194,9 +215,7 @@ def research(selected_market):
             record_info = {
                 "competition_id": competition,
                 "coverage": record.get("coverage"),
-                "verified": record.get(
-                    verification_flag
-                ),
+                "verified": record.get(verification_flag),
             }
 
             usable, timing = is_usable(
@@ -206,9 +225,12 @@ def research(selected_market):
             if not usable:
                 continue
 
+            half_valid = consistent_halves(values)
+
             row = {
                 "competition_id": competition,
                 "timing_usable": timing,
+                "halves_consistent": half_valid,
                 **values,
             }
 
@@ -260,6 +282,31 @@ if st.button("Run historical research", type="primary"):
                     "our verified benchmark."
                 )
 
+            st.subheader("Half-by-half integrity")
+
+            valid_halves = int(
+                data["halves_consistent"].sum()
+            )
+            excluded_halves = actual - valid_halves
+
+            col1, col2 = st.columns(2)
+
+            col1.metric(
+                "Consistent halves",
+                f"{valid_halves:,}",
+            )
+            col2.metric(
+                "Excluded from half analysis",
+                f"{excluded_halves:,}",
+            )
+
+            if excluded_halves:
+                st.info(
+                    "These matches remain eligible for "
+                    "full-match totals but are excluded "
+                    "from half-by-half averages."
+                )
+
             st.subheader("Historical averages")
 
             col1, col2, col3 = st.columns(3)
@@ -268,30 +315,23 @@ if st.button("Run historical research", type="primary"):
                 "Match total",
                 f"{data['match_total'].mean():.2f}",
             )
-
             col2.metric(
                 "Home average",
                 f"{data['all_home'].mean():.2f}",
             )
-
             col3.metric(
                 "Away average",
                 f"{data['all_away'].mean():.2f}",
             )
 
-            halves = data.dropna(
-                subset=[
-                    "first_half_home",
-                    "first_half_away",
-                    "second_half_home",
-                    "second_half_away",
-                ]
-            )
+            halves = data.loc[
+                data["halves_consistent"]
+            ].copy()
 
             st.subheader("Half-time distributions")
 
             st.metric(
-                "Matches with both halves",
+                "Matches with consistent halves",
                 f"{len(halves):,}",
             )
 
@@ -312,7 +352,6 @@ if st.button("Run historical research", type="primary"):
                     "First-half average",
                     f"{first.mean():.2f}",
                 )
-
                 col2.metric(
                     "Second-half average",
                     f"{second.mean():.2f}",
@@ -327,9 +366,16 @@ if st.button("Run historical research", type="primary"):
                     avg_total=("match_total", "mean"),
                     avg_home=("all_home", "mean"),
                     avg_away=("all_away", "mean"),
+                    consistent_halves=(
+                        "halves_consistent", "sum"
+                    ),
                 )
                 .round(2)
                 .reset_index()
+            )
+
+            summary["consistent_halves"] = (
+                summary["consistent_halves"].astype(int)
             )
 
             st.dataframe(
@@ -347,7 +393,7 @@ if st.button("Run historical research", type="primary"):
 
             st.caption(
                 "Read-only Supabase access. "
-                "No prediction or profitability claims."
+                "No historical records modified."
             )
 
         except Exception as exc:
