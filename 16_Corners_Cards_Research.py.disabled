@@ -1,11 +1,11 @@
 
 """
 PRO STARLIZARD
-Corners & Cards Research Engine — V1
+Corners & Cards Research Engine V2
 
-Read-only historical research.
-Uses verified data-quality rules.
-No StatsAPI calls or database writes.
+Memory-conscious, read-only historical research.
+One market at a time.
+No StatsAPI requests or database writes.
 """
 
 import sys
@@ -16,10 +16,11 @@ import streamlit as st
 from supabase import create_client
 
 ROOT = Path(__file__).resolve().parents[1]
+
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from data_quality import add_quality_columns
+from data_quality import MARKETS, _get, _number
 
 
 st.set_page_config(
@@ -29,16 +30,17 @@ st.set_page_config(
 )
 
 st.title("🦎 PRO STARLIZARD")
-st.subheader("Corners & Cards Research Engine")
+st.subheader("Corners & Cards Research V2")
+
 st.caption(
-    "Historical research V1 | Verified Supabase data"
+    "Verified historical totals | "
+    "Read-only Supabase research"
 )
 
-
-MARKETS = {
-    "Corners": ("corners", "corner_kicks"),
-    "Yellow cards": ("yellow_cards", "yellow_cards"),
-    "Red cards": ("red_cards", "red_cards"),
+MARKET_LABELS = {
+    "Corners": "corners",
+    "Yellow cards": "yellow_cards",
+    "Red cards": "red_cards",
 }
 
 EXPECTED = {
@@ -47,21 +49,82 @@ EXPECTED = {
     "red_cards": 11716,
 }
 
+EXCLUDED_COMPETITIONS = {"comp_6387"}
+
+market_label = st.selectbox(
+    "Select market",
+    list(MARKET_LABELS.keys()),
+)
+
+market = MARKET_LABELS[market_label]
+field, verification_flag = MARKETS[market]
+
+
+def extract_stats(stats):
+    values = {}
+
+    for period in ("all", "first_half", "second_half"):
+        for side in ("home", "away"):
+            values[f"{period}_{side}"] = _number(
+                _get(
+                    stats,
+                    "overview",
+                    field,
+                    period,
+                    side,
+                )
+            )
+
+    return values
+
+
+def is_usable(record, values):
+    if record["competition_id"] in EXCLUDED_COMPETITIONS:
+        return False, False
+
+    if (
+        values["all_home"] is None
+        or values["all_away"] is None
+    ):
+        return False, False
+
+    coverage = record["coverage"]
+    verified = record["verified"] is True
+
+    if coverage == "full" and verified:
+        return True, True
+
+    if coverage == "partial":
+        for side in ("home", "away"):
+            total = values[f"all_{side}"]
+            first = values[f"first_half_{side}"]
+            second = values[f"second_half_{side}"]
+
+            if None in (total, first, second):
+                return False, False
+
+            if abs(total - first - second) > 0.000001:
+                return False, False
+
+        return True, False
+
+    return False, False
+
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def load_table(table, columns):
+def load_competitions():
     db = create_client(
         st.secrets["SUPABASE_URL"],
         st.secrets["SUPABASE_SECRET_KEY"],
     )
 
-    records = []
+    mapping = {}
     last_id = None
 
     while True:
         query = (
-            db.table(table)
-            .select(columns)
+            db.table("historical_xg")
+            .select("match_id,competition_id")
             .order("match_id")
             .limit(500)
         )
@@ -69,288 +132,224 @@ def load_table(table, columns):
         if last_id is not None:
             query = query.gt("match_id", last_id)
 
-        response = query.execute()
-        batch = response.data or []
+        batch = query.execute().data or []
 
         if not batch:
             break
 
-        records.extend(batch)
+        for row in batch:
+            mapping[row["match_id"]] = row["competition_id"]
+
         last_id = batch[-1]["match_id"]
 
         if len(batch) < 500:
             break
 
-    return pd.DataFrame(records)
+    return mapping
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def load_history():
-    xg = load_table(
-        "historical_xg",
-        "match_id,competition_id,match_date",
+def research(selected_market):
+    db = create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_SECRET_KEY"],
     )
 
-    events = load_table(
-        "historical_match_events",
-        "match_id,stats_data,timeline_data,"
-        "corners_match,yellow_cards_match,"
-        "red_cards_match",
-    )
+    competitions = load_competitions()
 
-    if xg.empty or events.empty:
-        raise ValueError("No historical records returned.")
+    rows = []
+    last_id = None
+    batch_size = 150
 
-    if (
-        xg["match_id"].duplicated().any()
-        or events["match_id"].duplicated().any()
-    ):
-        raise ValueError(
-            "Duplicate match IDs found. "
-            "Research stopped to prevent double counting."
+    while True:
+        query = (
+            db.table("historical_match_events")
+            .select(
+                f"match_id,stats_data,"
+                f"timeline_data->{'coverage'},"
+                f"{verification_flag}"
+            )
+            .order("match_id")
+            .limit(batch_size)
         )
 
-    df = xg.merge(
-        events,
-        on="match_id",
-        how="inner",
-        validate="one_to_one",
-    )
+        if last_id is not None:
+            query = query.gt("match_id", last_id)
 
-    return add_quality_columns(
-        df,
-        markets=(
-            "corners",
-            "yellow_cards",
-            "red_cards",
-        ),
-    )
+        batch = query.execute().data or []
 
+        if not batch:
+            break
 
-def stat_value(stats, field, period, side):
-    if not isinstance(stats, dict):
-        return None
+        for record in batch:
+            match_id = record["match_id"]
 
-    overview = stats.get("overview", {})
-    if not isinstance(overview, dict):
-        return None
+            competition = competitions.get(match_id)
 
-    market = overview.get(field, {})
-    if not isinstance(market, dict):
-        return None
+            if competition is None:
+                continue
 
-    period_data = market.get(period, {})
-    if not isinstance(period_data, dict):
-        return None
+            stats = record.get("stats_data")
+            values = extract_stats(stats)
 
-    value = period_data.get(side)
+            record_info = {
+                "competition_id": competition,
+                "coverage": record.get("coverage"),
+                "verified": record.get(
+                    verification_flag
+                ),
+            }
 
-    if value is None or isinstance(value, bool):
-        return None
-
-    try:
-        number = float(value)
-        if not pd.notna(number):
-            return None
-        return number
-    except (TypeError, ValueError):
-        return None
-
-
-def prepare_market(df, market, field):
-    eligible = df[
-        df[f"{market}_totals_usable"]
-    ].copy()
-
-    eligible["match_date"] = pd.to_datetime(
-        eligible["match_date"],
-        errors="coerce",
-    )
-
-    for period in ("all", "first_half", "second_half"):
-        for side in ("home", "away"):
-            column = f"{period}_{side}"
-
-            eligible[column] = eligible[
-                "stats_data"
-            ].apply(
-                lambda stats: stat_value(
-                    stats, field, period, side
-                )
+            usable, timing = is_usable(
+                record_info, values
             )
 
-    eligible = eligible.dropna(
-        subset=["all_home", "all_away"]
-    ).copy()
+            if not usable:
+                continue
 
-    eligible["match_total"] = (
-        eligible["all_home"] + eligible["all_away"]
-    )
+            row = {
+                "competition_id": competition,
+                "timing_usable": timing,
+                **values,
+            }
 
-    eligible["first_half_total"] = (
-        eligible["first_half_home"]
-        + eligible["first_half_away"]
-    )
+            row["match_total"] = (
+                values["all_home"] + values["all_away"]
+            )
 
-    eligible["second_half_total"] = (
-        eligible["second_half_home"]
-        + eligible["second_half_away"]
-    )
+            rows.append(row)
 
-    return eligible
+        last_id = batch[-1]["match_id"]
+
+        if len(batch) < batch_size:
+            break
+
+    return pd.DataFrame(rows)
 
 
-try:
-    with st.spinner("Loading historical records..."):
-        history = load_history()
+if st.button("Run historical research", type="primary"):
 
-    st.success("Connected to Supabase successfully!")
+    with st.spinner("Checking historical records..."):
+        try:
+            data = research(market)
 
-    st.metric(
-        "Historical matches loaded",
-        f"{len(history):,}",
-    )
+            if data.empty:
+                st.warning(
+                    "No eligible historical records found."
+                )
+                st.stop()
 
-    st.divider()
+            actual = len(data)
+            expected = EXPECTED[market]
 
-    selection = st.selectbox(
-        "Select research market",
-        list(MARKETS.keys()),
-    )
+            st.subheader("Quality verification")
 
-    market, field = MARKETS[selection]
+            col1, col2, col3 = st.columns(3)
 
-    data = prepare_market(
-        history, market, field
-    )
+            col1.metric("Usable", f"{actual:,}")
+            col2.metric("Expected", f"{expected:,}")
+            col3.metric(
+                "Timing verified",
+                f"{int(data['timing_usable'].sum()):,}",
+            )
 
-    expected = EXPECTED[market]
-    actual = len(data)
+            if actual == expected:
+                st.success("Quality benchmark matched!")
+            else:
+                st.warning(
+                    "Match count differs from "
+                    "our verified benchmark."
+                )
 
-    st.subheader("Data quality")
+            st.subheader("Historical averages")
 
-    col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns(3)
 
-    col1.metric("Usable matches", f"{actual:,}")
-    col2.metric("Expected", f"{expected:,}")
-    col3.metric(
-        "Coverage",
-        f"{actual / 11745 * 100:.1f}%",
-    )
+            col1.metric(
+                "Match total",
+                f"{data['match_total'].mean():.2f}",
+            )
 
-    if actual == expected:
-        st.success(
-            "Quality benchmark matched."
-        )
-    else:
-        st.warning(
-            "Match count differs from the "
-            "previous verified audit."
-        )
+            col2.metric(
+                "Home average",
+                f"{data['all_home'].mean():.2f}",
+            )
 
-    st.subheader("Historical averages")
+            col3.metric(
+                "Away average",
+                f"{data['all_away'].mean():.2f}",
+            )
 
-    col1, col2, col3 = st.columns(3)
+            halves = data.dropna(
+                subset=[
+                    "first_half_home",
+                    "first_half_away",
+                    "second_half_home",
+                    "second_half_away",
+                ]
+            )
 
-    col1.metric(
-        "Average match total",
-        f"{data['match_total'].mean():.2f}",
-    )
+            st.subheader("Half-time distributions")
 
-    col2.metric(
-        "Average home team",
-        f"{data['all_home'].mean():.2f}",
-    )
+            st.metric(
+                "Matches with both halves",
+                f"{len(halves):,}",
+            )
 
-    col3.metric(
-        "Average away team",
-        f"{data['all_away'].mean():.2f}",
-    )
+            if not halves.empty:
+                first = (
+                    halves["first_half_home"]
+                    + halves["first_half_away"]
+                )
 
-    st.subheader("First-half / second-half totals")
+                second = (
+                    halves["second_half_home"]
+                    + halves["second_half_away"]
+                )
 
-    halves = data.dropna(
-        subset=[
-            "first_half_total",
-            "second_half_total",
-        ]
-    )
+                col1, col2 = st.columns(2)
 
-    st.metric(
-        "Matches with both halves available",
-        f"{len(halves):,}",
-    )
+                col1.metric(
+                    "First-half average",
+                    f"{first.mean():.2f}",
+                )
 
-    if not halves.empty:
-        col1, col2 = st.columns(2)
+                col2.metric(
+                    "Second-half average",
+                    f"{second.mean():.2f}",
+                )
 
-        col1.metric(
-            "Average first half",
-            f"{halves['first_half_total'].mean():.2f}",
-        )
+            st.subheader("Competition breakdown")
 
-        col2.metric(
-            "Average second half",
-            f"{halves['second_half_total'].mean():.2f}",
-        )
+            summary = (
+                data.groupby("competition_id")
+                .agg(
+                    matches=("match_total", "count"),
+                    avg_total=("match_total", "mean"),
+                    avg_home=("all_home", "mean"),
+                    avg_away=("all_away", "mean"),
+                )
+                .round(2)
+                .reset_index()
+            )
 
-    st.subheader("Competition breakdown")
+            st.dataframe(
+                summary,
+                hide_index=True,
+                width="stretch",
+            )
 
-    summary = (
-        data.groupby("competition_id")
-        .agg(
-            matches=("match_id", "count"),
-            avg_total=("match_total", "mean"),
-            avg_home=("all_home", "mean"),
-            avg_away=("all_away", "mean"),
-        )
-        .reset_index()
-    )
+            st.download_button(
+                "Download summary CSV",
+                data=summary.to_csv(index=False),
+                file_name=f"scrumpy_{market}_summary.csv",
+                mime="text/csv",
+            )
 
-    for column in (
-        "avg_total",
-        "avg_home",
-        "avg_away",
-    ):
-        summary[column] = summary[column].round(2)
+            st.caption(
+                "Read-only Supabase access. "
+                "No prediction or profitability claims."
+            )
 
-    st.dataframe(
-        summary,
-        hide_index=True,
-        use_container_width=True,
-    )
-
-    st.subheader("Historical total distribution")
-
-    distribution = (
-        data["match_total"]
-        .value_counts()
-        .sort_index()
-        .rename_axis("Match total")
-        .reset_index(name="Matches")
-    )
-
-    st.dataframe(
-        distribution,
-        hide_index=True,
-        use_container_width=True,
-    )
-
-    st.download_button(
-        "Download competition summary",
-        data=summary.to_csv(index=False),
-        file_name=(
-            f"scrumpy_{market}_summary.csv"
-        ),
-        mime="text/csv",
-    )
-
-    st.caption(
-        "Research only. No prediction or "
-        "profitability claims. "
-        "Read-only Supabase access."
-    )
-
-except Exception as exc:
-    st.error("Research engine could not load.")
-    st.exception(exc)
+        except Exception as exc:
+            st.error("Research could not complete.")
+            st.exception(exc)
