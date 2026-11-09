@@ -185,22 +185,24 @@ def prepare(df, market):
             df["home_goals"] - df["home_ht_goals"],
             df["away_goals"] - df["away_ht_goals"],
         )
+
         df["hit"] = (goals > 0).astype(int)
 
     else:
+        # Verified NULL outcomes have been checked:
+        # they are genuine goalless second halves.
+        # These must count as LOSSES, not disappear.
         values = (
             df["trailing_team_scored_first"]
             .astype("string")
             .str.lower()
         )
 
-        df = df.loc[
-            values.isin(["true", "false"])
-        ].copy()
-
         df["hit"] = (
-            values.loc[df.index] == "true"
-        ).astype(int)
+            (values == "true")
+            .fillna(False)
+            .astype(int)
+        )
 
     return df.sort_values(
         ["match_date", "match_id"]
@@ -232,8 +234,7 @@ def wilson_interval(hits, n):
 
 
 def chronological_split(df):
-    # Keep matches played on the same date
-    # together to avoid splitting one matchday.
+    # Keep matches on the same date together.
     dates = sorted(df["match_date"].unique())
 
     if len(dates) < 2:
@@ -300,13 +301,13 @@ def discover(train, test, minimum):
                 test_hits, test_n
             )
 
-            # A more relevant comparison than
-            # the overall average: same home/away
-            # situation in the training period.
-            side = keys[fields.index("trailing_side")]
+            side = keys[
+                fields.index("trailing_side")
+            ]
 
             side_baseline = train.loc[
-                train["trailing_side"] == side, "hit"
+                train["trailing_side"] == side,
+                "hit",
             ].mean()
 
             description = " | ".join(
@@ -317,7 +318,9 @@ def discover(train, test, minimum):
             results.append({
                 "Pattern": description,
                 "Training matches": n,
-                "Training hit %": round(rate * 100, 2),
+                "Training hit %": round(
+                    rate * 100, 2
+                ),
                 "Training lift vs side pp": round(
                     (rate - side_baseline) * 100, 2
                 ),
@@ -359,7 +362,10 @@ is_next_goal = (
     == "Trailing team scores FIRST second-half goal"
 )
 
-market = "next_goal" if is_next_goal else "second_half"
+market = (
+    "next_goal" if is_next_goal
+    else "second_half"
+)
 
 st.divider()
 
@@ -392,18 +398,69 @@ try:
             f"{len(data):,}",
         )
 
+    # Overall results for independent validation.
+    total_matches = len(data)
+    total_hits = int(data["hit"].sum())
+    overall_rate = (
+        total_hits / total_matches
+        if total_matches else 0
+    )
+
+    st.subheader("Overall historical results")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "Matches",
+            f"{total_matches:,}",
+        )
+
+    with col2:
+        st.metric(
+            "Successful outcomes",
+            f"{total_hits:,}",
+        )
+
+    with col3:
+        st.metric(
+            "Overall strike rate",
+            f"{overall_rate * 100:.2f}%",
+        )
+
     if is_next_goal:
         st.info(
-            "Verified timeline market: the trailing "
+            "Verified next-goal market: the trailing "
             "team must score the FIRST goal after "
             "half-time. Matches with no second-half "
             "goal count as losses."
         )
+
         st.caption(
             "Source: starlizard_verified_next_goal. "
-            "The view returned 11,333 verified "
-            "matches at our last database check."
+            "NULL first-scorer outcomes count as "
+            "losses after database verification."
         )
+
+        # Cross-check against the verified
+        # database audit from November 2026.
+        if (
+            total_matches == 7143
+            and total_hits == 2745
+        ):
+            st.success(
+                "Verified audit matched: "
+                "7,143 matches, 2,745 wins, "
+                "38.43% strike rate."
+            )
+        else:
+            st.warning(
+                "Current results differ from the "
+                "previous verified audit. This may "
+                "reflect new data or changed filters. "
+                "Review before relying on results."
+            )
+
     else:
         st.info(
             "Full-time score market: the trailing "
@@ -431,10 +488,16 @@ try:
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Training", f"{len(train):,}")
+        st.metric(
+            "Training",
+            f"{len(train):,}",
+        )
 
     with col2:
-        st.metric("Later testing", f"{len(test):,}")
+        st.metric(
+            "Later testing",
+            f"{len(test):,}",
+        )
 
     with col3:
         st.metric(
@@ -443,7 +506,8 @@ try:
         )
 
     st.caption(
-        f"Test period begins: {pd.Timestamp(cutoff).date()}. "
+        f"Test period begins: "
+        f"{pd.Timestamp(cutoff).date()}. "
         "All matches on the cutoff date remain "
         "in the test set."
     )
