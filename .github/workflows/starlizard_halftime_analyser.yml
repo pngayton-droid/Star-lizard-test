@@ -1,0 +1,67 @@
+
+name: PRO STARLIZARD Halftime Intelligence
+
+on:
+  workflow_dispatch:
+    inputs:
+      home_ht_goals:
+        description: 'Home goals at halftime'
+        required: true
+        default: '0'
+      away_ht_goals:
+        description: 'Away goals at halftime'
+        required: true
+        default: '1'
+      home_ht_xg:
+        description: 'Home halftime xG'
+        required: true
+        default: '0.85'
+      away_ht_xg:
+        description: 'Away halftime xG'
+        required: true
+        default: '0.35'
+      xg_tolerance:
+        description: 'Starting xG tolerance'
+        required: true
+        default: '0.30'
+      competition:
+        description: 'Competition ID or ALL'
+        required: true
+        default: 'ALL'
+
+jobs:
+  halftime-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas supabase
+
+      - name: Verify analyser file
+        run: |
+          test -f starlizard_halftime_analyser.py
+
+      - name: Run halftime historical analysis
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          HT_COMPETITION: ${{ inputs.competition }}
+          HT_HOME_GOALS: ${{ inputs.home_ht_goals }}
+          HT_AWAY_GOALS: ${{ inputs.away_ht_goals }}
+          HT_HOME_XG: ${{ inputs.home_ht_xg }}
+          HT_AWAY_XG: ${{ inputs.away_ht_xg }}
+          HT_XG_TOLERANCE: ${{ inputs.xg_tolerance }}
+          HT_MIN_SAMPLE: '100'
+        run: |
+          python -u starlizard_halftime_analyser.py
