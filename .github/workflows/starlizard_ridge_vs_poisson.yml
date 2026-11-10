@@ -27,14 +27,14 @@ jobs:
         run: |
           test -f starlizard_ridge_vs_poisson.py
 
-      - name: Run ridge versus quasi-Poisson experiment
+      - name: Run independent validation
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           BACKTEST_COMPETITION: comp_3039
-          BACKTEST_START: '2025-08-01'
+          BACKTEST_START: '2026-09-21'
           BACKTEST_END: '2026-11-10'
           BACKTEST_MIN_TRAIN: '100'
-          BACKTEST_MAX_DATES: '120'
+          BACKTEST_MAX_DATES: '0'
         run: |
           python -u starlizard_ridge_vs_poisson.py
