@@ -1,22 +1,17 @@
 
 """
-PRO STARLIZARD — Unified Dashboard V2
+PRO STARLIZARD — Unified Dashboard V3
 
-Mobile-friendly historical pricing interface.
+Compact mobile-first pricing dashboard.
+All historical markets in one non-scrolling table.
 
-Features:
-- Read-only Supabase connection
-- Historical halftime scenario matching
-- Goals, corners and yellow-card pricing
-- Compact mobile-friendly pricing tables
-- Historical fair decimal odds
-- Sample-size warnings
-
-Existing pricing engine remains unchanged.
+Uses existing unified historical pricing engine.
+Read-only Supabase access.
 """
 
 import os
 from datetime import date
+from html import escape
 
 import streamlit as st
 from supabase import create_client
@@ -34,88 +29,121 @@ from starlizard_unified_pricing import (
 )
 
 
-# ============================================================
-# PAGE CONFIGURATION
-# ============================================================
-
 st.set_page_config(
-    page_title="PRO STARLIZARD Unified",
+    page_title="PRO STARLIZARD",
     page_icon="🦎",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 
-# ============================================================
-# MOBILE STYLING
-# ============================================================
-
 st.markdown(
     """
-    <style>
-    .block-container {
-        padding-top: 1.2rem;
-        padding-bottom: 2rem;
-        max-width: 1100px;
+<style>
+.block-container {
+    padding: 0.7rem 0.55rem 2rem;
+    max-width: 1000px;
+}
+
+h1 {
+    font-size: 1.45rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+h2, h3 {
+    font-size: 1rem !important;
+    padding-top: 0.5rem !important;
+}
+
+div[data-testid="stAlert"] {
+    padding: 0.4rem 0.6rem;
+}
+
+div[data-testid="stMetricValue"] {
+    font-size: 1.3rem;
+}
+
+div[data-testid="stVerticalBlock"] {
+    gap: 0.45rem;
+}
+
+.starlizard-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 12px;
+    line-height: 1.3;
+}
+
+.starlizard-table th {
+    text-align: left;
+    padding: 7px 3px;
+    border-bottom: 2px solid #777;
+    font-weight: 700;
+}
+
+.starlizard-table td {
+    padding: 7px 3px;
+    border-bottom: 1px solid rgba(128,128,128,0.25);
+    overflow-wrap: break-word;
+}
+
+.starlizard-table th:nth-child(1),
+.starlizard-table td:nth-child(1) {
+    width: 51%;
+}
+
+.starlizard-table th:nth-child(2),
+.starlizard-table td:nth-child(2) {
+    width: 18%;
+    text-align: right;
+}
+
+.starlizard-table th:nth-child(3),
+.starlizard-table td:nth-child(3) {
+    width: 17%;
+    text-align: right;
+}
+
+.starlizard-table th:nth-child(4),
+.starlizard-table td:nth-child(4) {
+    width: 14%;
+    text-align: right;
+}
+
+.starlizard-section td {
+    font-weight: 700;
+    padding-top: 12px;
+    padding-bottom: 5px;
+    background: rgba(128,128,128,0.09);
+}
+
+.starlizard-fair {
+    font-weight: 700;
+}
+
+.starlizard-small {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+@media (max-width: 400px) {
+    .starlizard-table {
+        font-size: 11px;
     }
 
-    h1 {
-        font-size: 2rem !important;
-        margin-bottom: 0.2rem;
+    .starlizard-table td,
+    .starlizard-table th {
+        padding-left: 2px;
+        padding-right: 2px;
     }
-
-    h2 {
-        font-size: 1.35rem !important;
-        margin-top: 0.8rem;
-    }
-
-    div[data-testid="stMetricValue"] {
-        font-size: 1.6rem;
-    }
-
-    div[data-testid="stDataFrame"] {
-        font-size: 0.85rem;
-    }
-
-    @media (max-width: 600px) {
-        .block-container {
-            padding-left: 0.7rem;
-            padding-right: 0.7rem;
-        }
-
-        h1 {
-            font-size: 1.7rem !important;
-        }
-
-        h2 {
-            font-size: 1.2rem !important;
-        }
-    }
-    </style>
-    """,
+}
+</style>
+""",
     unsafe_allow_html=True,
 )
 
-
-# ============================================================
-# HEADER
-# ============================================================
-
-st.title("🦎 PRO STARLIZARD")
-
-st.caption(
-    "Unified historical pricing | Goals • Corners • Cards"
-)
-
-st.info(
-    "Historical probabilities, not yet calibrated "
-    "predictive prices."
-)
-
-
-# ============================================================
-# DATABASE CONNECTION
-# ============================================================
 
 @st.cache_resource
 def database():
@@ -123,30 +151,19 @@ def database():
         st.secrets.get("SUPABASE_URL")
         or os.environ.get("SUPABASE_URL")
     )
-
     key = (
         st.secrets.get("SUPABASE_SECRET_KEY")
         or os.environ.get("SUPABASE_SECRET_KEY")
     )
 
     if not url or not key:
-        raise RuntimeError(
-            "Missing SUPABASE_URL or SUPABASE_SECRET_KEY"
-        )
+        raise RuntimeError("Supabase credentials missing")
 
     return create_client(url, key)
 
 
-# ============================================================
-# LOAD HISTORICAL DATA
-# ============================================================
-
-@st.cache_data(
-    ttl=3600,
-    show_spinner="Loading PRO STARLIZARD historical data..."
-)
+@st.cache_data(ttl=3600, show_spinner="Loading history...")
 def historical_matches():
-
     db = database()
 
     xg_rows = load_table(
@@ -164,165 +181,184 @@ def historical_matches():
         "match_id,stats_data",
     )
 
-    matches, rejected = build_matches(
-        xg_rows,
-        event_rows,
-    )
-
-    return matches, rejected
+    return build_matches(xg_rows, event_rows)
 
 
-# ============================================================
-# COMPACT PRICING TABLE
-# ============================================================
+def markets():
+    return [
+        ("⚽ Goals", None),
+        ("Home scores 2H", home_scores_second_half),
+        ("Away scores 2H", away_scores_second_half),
+        ("Home wins 2H", home_wins_second_half),
+        ("Over 0.5 goals 2H", over_goals(0.5)),
+        ("Over 1.5 goals 2H", over_goals(1.5)),
+        ("Over 2.5 goals 2H", over_goals(2.5)),
 
-def show_markets(matches, markets):
+        ("🚩 Corners", None),
+        (
+            "Over 3.5 corners 2H",
+            market_over("corners", "second_half", 3.5),
+        ),
+        (
+            "Over 4.5 corners 2H",
+            market_over("corners", "second_half", 4.5),
+        ),
+        (
+            "Over 5.5 corners 2H",
+            market_over("corners", "second_half", 5.5),
+        ),
+        (
+            "Over 8.5 corners FT",
+            market_over("corners", "all", 8.5),
+        ),
+        (
+            "Over 9.5 corners FT",
+            market_over("corners", "all", 9.5),
+        ),
 
-    rows = []
+        ("🟨 Yellow cards", None),
+        (
+            "Over 1.5 yellows 2H",
+            market_over("yellows", "second_half", 1.5),
+        ),
+        (
+            "Over 2.5 yellows 2H",
+            market_over("yellows", "second_half", 2.5),
+        ),
+        (
+            "Over 3.5 yellows 2H",
+            market_over("yellows", "second_half", 3.5),
+        ),
+        (
+            "Over 3.5 yellows FT",
+            market_over("yellows", "all", 3.5),
+        ),
+        (
+            "Over 4.5 yellows FT",
+            market_over("yellows", "all", 4.5),
+        ),
+    ]
 
-    for label, predicate in markets:
 
-        result = price_market(
-            matches,
-            predicate,
-        )
+def render_compact_table(sample):
+    html = [
+        '<table class="starlizard-table">',
+        "<thead><tr>",
+        "<th>Market</th>",
+        "<th>Prob.</th>",
+        "<th>Fair</th>",
+        "<th>N</th>",
+        "</tr></thead><tbody>",
+    ]
 
-        if result is None:
-            rows.append({
-                "Market": label,
-                "Prob.": "—",
-                "Fair": "—",
-                "N": "0",
-            })
+    for label, predicate in markets():
+        if predicate is None:
+            html.append(
+                '<tr class="starlizard-section">'
+                f'<td colspan="4">{escape(label)}</td>'
+                "</tr>"
+            )
             continue
 
-        warning = (
-            " ⚠️"
-            if not result["sufficient_sample"]
-            else ""
+        result = price_market(sample, predicate)
+
+        if result is None:
+            probability = "—"
+            fair = "—"
+            count = "0"
+        else:
+            probability = f"{result['probability']:.1%}"
+            fair = f"{result['fair_odds']:.2f}"
+            count = str(result["sample"])
+
+            if not result["sufficient_sample"]:
+                label += " ⚠️"
+
+        html.append(
+            "<tr>"
+            f"<td>{escape(label)}</td>"
+            f"<td>{probability}</td>"
+            f'<td class="starlizard-fair">{fair}</td>'
+            f"<td>{count}</td>"
+            "</tr>"
         )
 
-        rows.append({
-            "Market": label + warning,
-            "Prob.": f"{result['probability']:.1%}",
-            "Fair": f"{result['fair_odds']:.2f}",
-            "N": str(result["sample"]),
-        })
+    html.append("</tbody></table>")
 
-    st.dataframe(
-        rows,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "Market": st.column_config.TextColumn(
-                "Market",
-                width="large",
-            ),
-            "Prob.": st.column_config.TextColumn(
-                "Prob.",
-                width="small",
-            ),
-            "Fair": st.column_config.TextColumn(
-                "Fair",
-                width="small",
-            ),
-            "N": st.column_config.TextColumn(
-                "N",
-                width="small",
-            ),
-        },
+    st.markdown(
+        "\n".join(html),
+        unsafe_allow_html=True,
     )
 
 
-# ============================================================
-# INITIALISE DATA
-# ============================================================
+st.title("🦎 PRO STARLIZARD")
+st.caption("Unified historical pricing • Mobile V3")
 
 try:
     matches, rejected = historical_matches()
-
 except Exception as exc:
-    st.error(
-        f"Historical data could not be loaded: {exc}"
-    )
+    st.error(f"Could not load historical data: {exc}")
     st.stop()
 
+st.caption(f"Database: {len(matches):,} historical matches")
 
-st.success(
-    f"{len(matches):,} historical matches loaded"
-)
+st.subheader("Halftime inputs")
 
+with st.container():
+    names = st.columns(2)
 
-# ============================================================
-# HALFTIME INPUTS
-# ============================================================
+    with names[0]:
+        home_name = st.text_input(
+            "Home",
+            value="Home",
+        )
 
-st.subheader("Halftime match situation")
+    with names[1]:
+        away_name = st.text_input(
+            "Away",
+            value="Away",
+        )
 
-home_name = st.text_input(
-    "Home team",
-    value="Home",
-)
+    scores = st.columns(2)
 
-away_name = st.text_input(
-    "Away team",
-    value="Away",
-)
+    with scores[0]:
+        home_goals = st.number_input(
+            f"{home_name} HT goals",
+            min_value=0,
+            max_value=10,
+            value=0,
+        )
+        home_xg = st.number_input(
+            f"{home_name} HT xG",
+            min_value=0.0,
+            max_value=10.0,
+            value=0.85,
+            step=0.05,
+        )
 
-col1, col2 = st.columns(2)
+    with scores[1]:
+        away_goals = st.number_input(
+            f"{away_name} HT goals",
+            min_value=0,
+            max_value=10,
+            value=1,
+        )
+        away_xg = st.number_input(
+            f"{away_name} HT xG",
+            min_value=0.0,
+            max_value=10.0,
+            value=0.35,
+            step=0.05,
+        )
 
-with col1:
-
-    home_goals = st.number_input(
-        f"{home_name} HT goals",
-        min_value=0,
-        max_value=10,
-        value=0,
-    )
-
-    home_xg = st.number_input(
-        f"{home_name} HT xG",
-        min_value=0.0,
-        max_value=10.0,
-        value=0.85,
+with st.expander("Advanced historical filters"):
+    tolerance = st.slider(
+        "xG similarity tolerance",
+        min_value=0.10,
+        max_value=1.00,
+        value=0.30,
         step=0.05,
     )
-
-with col2:
-
-    away_goals = st.number_input(
-        f"{away_name} HT goals",
-        min_value=0,
-        max_value=10,
-        value=1,
-    )
-
-    away_xg = st.number_input(
-        f"{away_name} HT xG",
-        min_value=0.0,
-        max_value=10.0,
-        value=0.35,
-        step=0.05,
-    )
-
-
-tolerance = st.slider(
-    "Historical xG similarity",
-    min_value=0.10,
-    max_value=1.00,
-    value=0.30,
-    step=0.05,
-)
-
-st.caption(
-    "Smaller tolerance = more similar matches, "
-    "but usually fewer observations."
-)
-
-
-# ============================================================
-# HISTORICAL MATCH FILTERING
-# ============================================================
 
 sample = comparable_matches(
     matches,
@@ -334,199 +370,37 @@ sample = comparable_matches(
     before_date=date.today().isoformat(),
 )
 
-st.metric(
-    "Comparable historical matches",
-    len(sample),
+st.markdown(
+    f"**{home_name} {home_goals}–{away_goals} "
+    f"{away_name}** · "
+    f"HT xG {home_xg:.2f}–{away_xg:.2f} · "
+    f"**{len(sample)} matches**"
 )
 
 if len(sample) < 100:
     st.warning(
-        "Small historical sample. "
-        "Treat these prices with extra caution."
+        "Small sample: historical estimates may be unstable."
     )
 
 if not sample:
     st.stop()
 
+st.subheader("Market pricing")
 
-# ============================================================
-# GOALS MARKETS
-# ============================================================
+render_compact_table(sample)
 
-st.divider()
-
-st.subheader("⚽ Second-half goals")
-
-goal_markets = [
-    (
-        "Home scores 2H",
-        home_scores_second_half,
-    ),
-    (
-        "Away scores 2H",
-        away_scores_second_half,
-    ),
-    (
-        "Home wins 2H",
-        home_wins_second_half,
-    ),
-    (
-        "Over 0.5 goals 2H",
-        over_goals(0.5),
-    ),
-    (
-        "Over 1.5 goals 2H",
-        over_goals(1.5),
-    ),
-    (
-        "Over 2.5 goals 2H",
-        over_goals(2.5),
-    ),
-]
-
-show_markets(
-    sample,
-    goal_markets,
-)
-
-
-# ============================================================
-# CORNERS MARKETS
-# ============================================================
-
-st.divider()
-
-st.subheader("🚩 Corners")
-
-corner_markets = [
-    (
-        "Over 3.5 corners 2H",
-        market_over(
-            "corners",
-            "second_half",
-            3.5,
-        ),
-    ),
-    (
-        "Over 4.5 corners 2H",
-        market_over(
-            "corners",
-            "second_half",
-            4.5,
-        ),
-    ),
-    (
-        "Over 5.5 corners 2H",
-        market_over(
-            "corners",
-            "second_half",
-            5.5,
-        ),
-    ),
-    (
-        "Over 8.5 corners FT",
-        market_over(
-            "corners",
-            "all",
-            8.5,
-        ),
-    ),
-    (
-        "Over 9.5 corners FT",
-        market_over(
-            "corners",
-            "all",
-            9.5,
-        ),
-    ),
-]
-
-show_markets(
-    sample,
-    corner_markets,
-)
-
-
-# ============================================================
-# YELLOW CARD MARKETS
-# ============================================================
-
-st.divider()
-
-st.subheader("🟨 Yellow cards")
-
-yellow_markets = [
-    (
-        "Over 1.5 yellows 2H",
-        market_over(
-            "yellows",
-            "second_half",
-            1.5,
-        ),
-    ),
-    (
-        "Over 2.5 yellows 2H",
-        market_over(
-            "yellows",
-            "second_half",
-            2.5,
-        ),
-    ),
-    (
-        "Over 3.5 yellows 2H",
-        market_over(
-            "yellows",
-            "second_half",
-            3.5,
-        ),
-    ),
-    (
-        "Over 3.5 yellows FT",
-        market_over(
-            "yellows",
-            "all",
-            3.5,
-        ),
-    ),
-    (
-        "Over 4.5 yellows FT",
-        market_over(
-            "yellows",
-            "all",
-            4.5,
-        ),
-    ),
-]
-
-show_markets(
-    sample,
-    yellow_markets,
-)
-
-
-# ============================================================
-# FOOTER
-# ============================================================
-
-st.divider()
-
-st.caption(
-    "Fair = historical decimal odds | "
-    "N = valid historical observations | "
-    "⚠️ = fewer than 100 observations"
+st.markdown(
+    '<p class="starlizard-small">'
+    "Fair = historical decimal odds. "
+    "N = valid observations. "
+    "⚠️ = fewer than 100 matches. "
+    "FT markets are conditional on the halftime state."
+    "</p>",
+    unsafe_allow_html=True,
 )
 
 st.caption(
-    "Full-time markets are conditional on the "
-    "entered halftime score and xG."
-)
-
-st.caption(
-    "Yellow-card counts are not bookmaker "
-    "card-points totals."
-)
-
-st.caption(
-    "PRO STARLIZARD V2 | Read-only historical pricing | "
-    "Existing pricing engine unchanged"
+    "Historical frequencies, not calibrated predictions. "
+    "Yellow cards are not bookmaker card points. "
+    "Existing pricing engine unchanged."
 )
