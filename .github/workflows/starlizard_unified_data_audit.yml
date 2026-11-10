@@ -1,0 +1,35 @@
+
+name: PRO STARLIZARD Unified Data Audit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  unified-data-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install supabase
+
+      - name: Verify audit file
+        run: |
+          test -f starlizard_unified_data_audit.py
+
+      - name: Audit goals corners cards and timelines
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          python -u starlizard_unified_data_audit.py
