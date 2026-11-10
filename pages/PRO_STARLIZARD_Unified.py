@@ -1,5 +1,5 @@
 
-"""PRO STARLIZARD V5.5 — halftime-first, read-only, team-strength experiment."""
+"""PRO STARLIZARD V5.6 — mobile-friendly halftime pricing."""
 import os
 import math
 from collections import defaultdict, deque
@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from supabase import create_client
+
 from starlizard_pricing_engine import (
     load_historical_xg, fit_ratings, price_fixture, asian_market
 )
@@ -24,11 +25,20 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
-st.markdown(
-    '<style>.block-container{max-width:1050px;padding:.8rem .6rem 2rem}'
-    'h1{font-size:1.5rem!important}h2,h3{font-size:1.1rem!important}</style>',
-    unsafe_allow_html=True
-)
+
+st.markdown("""
+<style>
+.block-container {
+    max-width: 900px;
+    padding: .7rem .5rem 2rem;
+}
+h1 {font-size:1.5rem!important}
+h2,h3 {font-size:1.1rem!important}
+[data-testid="stMetricValue"] {
+    font-size:1.35rem!important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 LEAGUES = {
     "comp_3039": "Premier League",
@@ -67,7 +77,10 @@ def historical_data():
         "match_id,stats_data,timeline_data"
     )
     matches, rejected = build_matches(xg, events)
-    meta = {str(r["match_id"]): r for r in xg if r.get("match_id")}
+    meta = {
+        str(r["match_id"]): r
+        for r in xg if r.get("match_id")
+    }
     timelines = {
         str(r["match_id"]): r.get("timeline_data")
         for r in events if r.get("match_id")
@@ -110,18 +123,21 @@ def nonnegative_int(value):
         return None
     try:
         n = float(value)
-        return int(n) if math.isfinite(n) and n >= 0 and n.is_integer() else None
+        if math.isfinite(n) and n >= 0 and n.is_integer():
+            return int(n)
     except (TypeError, ValueError):
-        return None
+        pass
+    return None
 
 
 def parse_goal_sequence(match, meta, timeline):
-    if not isinstance(timeline, dict) or timeline.get("coverage") != "full":
+    if not isinstance(timeline, dict):
         return None
+    if timeline.get("coverage") != "full":
+        return None
+
     events = timeline.get("events")
     if not isinstance(events, list):
-        return None
-    if not all(isinstance(e, dict) for e in events):
         return None
 
     home = str(meta.get("home_team") or "")
@@ -129,10 +145,16 @@ def parse_goal_sequence(match, meta, timeline):
     if not home or not away or home == away:
         return None
 
-    counts = {"first_half": [0, 0], "second_half": [0, 0]}
+    counts = {
+        "first_half": [0, 0],
+        "second_half": [0, 0]
+    }
     second = []
 
     for e in events:
+        if not isinstance(e, dict):
+            return None
+
         kind = e.get("type")
         if kind not in ("goal", "penalty_scored", "own_goal"):
             continue
@@ -140,6 +162,7 @@ def parse_goal_sequence(match, meta, timeline):
         period = e.get("period")
         team = e.get("team")
         name = team.get("name") if isinstance(team, dict) else None
+
         if period not in counts or name not in (home, away):
             return None
 
@@ -149,7 +172,8 @@ def parse_goal_sequence(match, meta, timeline):
 
         minute = nonnegative_int(e.get("minute"))
         extra = nonnegative_int(
-            e.get("extra_time") if e.get("extra_time") is not None else 0
+            e.get("extra_time")
+            if e.get("extra_time") is not None else 0
         )
         if minute is None or extra is None:
             return None
@@ -231,7 +255,7 @@ def verified_history():
 
 @st.cache_resource(ttl=3600, show_spinner=False)
 def strength_history():
-    """Lagged eight-match xG strength, grouped by competition."""
+    """Historical pre-match strength, using only earlier dates."""
     _, _, meta, _ = historical_data()
     raw = []
 
@@ -242,6 +266,7 @@ def strength_history():
             )
             hg = float(r["home_xg"])
             ag = float(r["away_xg"])
+
             if pd.isna(dt):
                 continue
             if not all(math.isfinite(x) and x >= 0 for x in (hg, ag)):
@@ -250,6 +275,7 @@ def strength_history():
             cid = str(r.get("competition_id") or "")
             h = str(r.get("home_team") or "")
             a = str(r.get("away_team") or "")
+
             if not cid or not h or not a or h == a:
                 continue
 
@@ -258,6 +284,7 @@ def strength_history():
             continue
 
     raw.sort(key=lambda r: (r[0], r[1]))
+
     teams = defaultdict(lambda: deque(maxlen=8))
     league = defaultdict(lambda: deque(maxlen=300))
     results = {}
@@ -272,7 +299,12 @@ def strength_history():
             hh = teams[(cid, h)]
             aa = teams[(cid, a)]
             ll = league[cid]
-            known = len(hh) >= 4 and len(aa) >= 4 and len(ll) >= 20
+
+            known = (
+                len(hh) >= 4
+                and len(aa) >= 4
+                and len(ll) >= 20
+            )
 
             if known:
                 avg = max(.25, float(np.mean(ll)))
@@ -289,9 +321,15 @@ def strength_history():
 
                 hat, hde = score(hh)
                 aat, ade = score(aa)
-                hs = float(np.clip(hat * ade / (avg * avg), .25, 4))
-                ass = float(np.clip(aat * hde / (avg * avg), .25, 4))
-                balance = float(np.clip(math.log(hs / ass), -2, 2))
+                hs = float(np.clip(
+                    hat * ade / (avg * avg), .25, 4
+                ))
+                ass = float(np.clip(
+                    aat * hde / (avg * avg), .25, 4
+                ))
+                balance = float(np.clip(
+                    math.log(hs / ass), -2, 2
+                ))
             else:
                 balance = 0.0
 
@@ -309,7 +347,7 @@ def strength_history():
 
 @st.cache_resource(ttl=3600, show_spinner=False)
 def current_team_strength(cid, home, away, cutoff):
-    """Team strength calculated strictly before the fixture date."""
+    """Last eight earlier xG matches, league-relative."""
     _, _, meta, _ = historical_data()
     rows = []
     cutoff_day = pd.Timestamp(cutoff).date()
@@ -338,7 +376,10 @@ def current_team_strength(cid, home, away, cutoff):
         if not h or not a or h == a:
             continue
 
-        rows.append((dt, str(r.get("match_id") or ""), h, a, hg, ag))
+        rows.append((
+            dt, str(r.get("match_id") or ""),
+            h, a, hg, ag
+        ))
 
     rows.sort(key=lambda x: (x[0], x[1]))
     histories = defaultdict(lambda: deque(maxlen=8))
@@ -359,8 +400,12 @@ def current_team_strength(cid, home, away, cutoff):
 
     def strength(values):
         n = len(values)
-        attack = (sum(x[0] for x in values) + avg * 4) / (n + 4)
-        defence = (sum(x[1] for x in values) + avg * 4) / (n + 4)
+        attack = (
+            sum(x[0] for x in values) + avg * 4
+        ) / (n + 4)
+        defence = (
+            sum(x[1] for x in values) + avg * 4
+        ) / (n + 4)
         return attack, defence
 
     hat, hde = strength(hh)
@@ -370,10 +415,14 @@ def current_team_strength(cid, home, away, cutoff):
     return float(np.clip(math.log(hs / ass), -2, 2))
 
 
-def live_strength_prices(sample, meta, timelines, cid, home, away, cutoff):
-    target = current_team_strength(cid, home, away, cutoff)
+def live_strength_prices(
+    sample, meta, timelines, cid, home, away, cutoff
+):
+    target = current_team_strength(
+        cid, home, away, cutoff
+    )
     if target is None:
-        return None, "Insufficient earlier team/league xG for a strength rating."
+        return None, "Insufficient earlier team xG."
 
     history_strength = strength_history()
     counts = dict.fromkeys(OUTCOMES, 0)
@@ -388,15 +437,17 @@ def live_strength_prices(sample, meta, timelines, cid, home, away, cutoff):
             continue
 
         counts[outcome] += 1
-        balance, available = history_strength.get(mid, (0.0, False))
+        balance, available = history_strength.get(
+            mid, (0.0, False)
+        )
         if available:
             known.append((balance, outcome))
 
     n = sum(counts.values())
     if n < 30 or len(known) < 20:
         return None, (
-            f"Only {len(known)} strength-rated historical "
-            "comparables (need 20)."
+            f"Only {len(known)} strength-rated "
+            "historical comparables (need 20)."
         )
 
     xg_probs = {
@@ -443,6 +494,7 @@ def run_halftime_test(limit=200, tolerance=.30):
 
     strengths = strength_history()
     hist = hist.copy()
+
     hist["strength"] = [
         strengths.get(mid, (0.0, False))[0]
         for mid in hist.match_id
@@ -457,7 +509,6 @@ def run_halftime_test(limit=200, tolerance=.30):
         key: group
         for key, group in hist.groupby(["hh", "ah"])
     }
-
     results = []
     excluded = defaultdict(int)
 
@@ -478,7 +529,6 @@ def run_halftime_test(limit=200, tolerance=.30):
         similar = similar[
             (similar.ax - target.ax).abs() <= tolerance
         ]
-
         if len(similar) < 30:
             excluded["Fewer than 30 xG comparables"] += 1
             continue
@@ -492,19 +542,24 @@ def run_halftime_test(limit=200, tolerance=.30):
             known = similar[similar.strength_known]
             if len(known) >= 20:
                 distances = np.abs(
-                    known.strength.to_numpy(float) - target.strength
+                    known.strength.to_numpy(float)
+                    - target.strength
                 )
                 weights = np.exp(-distances / .50)
                 strength_n = len(known)
                 weighted = {
                     k: float(
-                        weights[(known.outcome == k).to_numpy()].sum()
+                        weights[
+                            (known.outcome == k).to_numpy()
+                        ].sum()
                     )
                     for k in OUTCOMES
                 }
                 total = float(weights.sum())
                 third = {
-                    k: (weighted[k] + 30 * xg[k]) / (total + 30)
+                    k: (
+                        weighted[k] + 30 * xg[k]
+                    ) / (total + 30)
                     for k in OUTCOMES
                 }
 
@@ -540,25 +595,29 @@ def run_halftime_test(limit=200, tolerance=.30):
             "Strength log loss": l2,
             "Strength available": third is not None,
             "Strength index": (
-                target.strength if target.strength_known else np.nan
+                target.strength
+                if target.strength_known else np.nan
             ),
             "Strength comparable N": strength_n,
-            "Trailing xG flag": bool(trailing and txg >= .20),
+            "Trailing xG flag": bool(
+                trailing and txg >= .20
+            ),
             "Trailing scored next": (
-                target.outcome == trailing if trailing else None
+                target.outcome == trailing
+                if trailing else None
             ),
             "Baseline N": len(prior),
             "STARLIZARD N": len(similar)
         }
 
-        for prefix, probs in [
+        for prefix, p in [
             ("Baseline", base),
             ("xG", xg),
             ("Strength", third)
         ]:
             for k in OUTCOMES:
                 row[f"{prefix} {k}"] = (
-                    probs[k] if probs else np.nan
+                    p[k] if p else np.nan
                 )
 
         results.append(row)
@@ -575,8 +634,7 @@ def show_halftime_backtest():
     st.divider()
     st.subheader("🧪 Halftime next-goal backtest")
     st.caption(
-        "Chronological out-of-sample comparison: score only, "
-        "score + HT xG, and score + HT xG + pre-match team strength. "
+        "Chronological out-of-sample test. "
         "Lower Brier and log loss are better."
     )
 
@@ -600,21 +658,21 @@ def show_halftime_backtest():
     ):
         try:
             with st.spinner("Testing historical predictions..."):
-                frame, n, considered, excluded = run_halftime_test(
+                result = run_halftime_test(
                     limit, tolerance
                 )
-            st.session_state["ht_result"] = (
-                frame, n, considered, excluded
-            )
+            st.session_state["ht_result"] = result
         except Exception as exc:
             st.error(f"Halftime backtest failed: {exc}")
 
     if "ht_result" not in st.session_state:
         return
 
-    frame, n, considered, excluded = st.session_state["ht_result"]
+    frame, n, considered, excluded = (
+        st.session_state["ht_result"]
+    )
     st.caption(
-        f"{n:,} verified goal sequences; "
+        f"{n:,} verified sequences; "
         f"{considered:,} held-out matches considered."
     )
 
@@ -622,129 +680,127 @@ def show_halftime_backtest():
         st.warning("No qualifying predictions.")
         return
 
-    st.success(f"{len(frame):,} out-of-sample predictions")
-
-    rows = []
-    for label, b, l in [
-        ("HT score baseline", "Baseline Brier", "Baseline log loss"),
-        ("HT score + xG", "STARLIZARD xG Brier", "STARLIZARD xG log loss"),
-        ("HT score + xG + strength", "Strength Brier", "Strength log loss")
-    ]:
-        part = frame.dropna(subset=[b, l])
-        rows.append({
-            "Method": label,
-            "N": len(part),
-            "Brier": round(part[b].mean(), 4) if len(part) else None,
-            "Log loss": round(part[l].mean(), 4) if len(part) else None
-        })
-
-    st.dataframe(
-        pd.DataFrame(rows),
-        hide_index=True,
-        width="stretch"
+    st.success(
+        f"{len(frame):,} out-of-sample predictions"
     )
+
+    methods = [
+        (
+            "HT score baseline",
+            "Baseline Brier",
+            "Baseline log loss"
+        ),
+        (
+            "HT score + xG",
+            "STARLIZARD xG Brier",
+            "STARLIZARD xG log loss"
+        ),
+        (
+            "HT score + xG + strength",
+            "Strength Brier",
+            "Strength log loss"
+        )
+    ]
+
+    for label, b, l in methods:
+        part = frame.dropna(subset=[b, l])
+        with st.container(border=True):
+            st.markdown(f"**{label}**")
+            st.caption(f"{len(part)} predictions")
+            if len(part):
+                left, right = st.columns(2)
+                left.metric(
+                    "Brier", f"{part[b].mean():.4f}"
+                )
+                right.metric(
+                    "Log loss", f"{part[l].mean():.4f}"
+                )
 
     common = frame[frame["Strength available"]]
     if len(common):
         st.markdown(
-            "**Fair comparison: same matches for all three methods**"
+            "**Fair comparison — identical matches**"
         )
         st.caption(
-            f"{len(common):,} matches with usable pre-match strength."
+            f"{len(common):,} matches with team strength."
         )
-        fair_rows = []
-        for label, b, l in [
-            ("Score only", "Baseline Brier", "Baseline log loss"),
-            ("Score + xG", "STARLIZARD xG Brier", "STARLIZARD xG log loss"),
-            ("Score + xG + strength", "Strength Brier", "Strength log loss")
-        ]:
-            fair_rows.append({
-                "Method": label,
-                "Brier": round(common[b].mean(), 4),
-                "Log loss": round(common[l].mean(), 4)
-            })
-        st.dataframe(
-            pd.DataFrame(fair_rows),
-            hide_index=True,
-            width="stretch"
-        )
+        for label, b, l in methods:
+            with st.container(border=True):
+                st.markdown(f"**{label}**")
+                left, right = st.columns(2)
+                left.metric(
+                    "Brier", f"{common[b].mean():.4f}"
+                )
+                right.metric(
+                    "Log loss", f"{common[l].mean():.4f}"
+                )
 
     if excluded:
         st.markdown("**Excluded matches**")
-        st.dataframe(
-            pd.DataFrame([
-                {"Reason": k, "Matches": v}
-                for k, v in excluded.items()
-            ]),
-            hide_index=True,
-            width="stretch"
-        )
+        for reason, count in excluded.items():
+            st.write(f"{reason}: **{count}**")
 
     flagged = frame[frame["Trailing xG flag"]]
     st.markdown("**Trailing-team HT xG ≥ 0.20**")
 
     if len(flagged):
-        st.write(f"Flagged matches: {len(flagged)}")
+        st.write(
+            f"Flagged matches: **{len(flagged)}**"
+        )
         st.write(
             "Trailing team scored next: "
-            f'{flagged["Trailing scored next"].astype(float).mean():.1%}'
+            f'**{flagged["Trailing scored next"].astype(float).mean():.1%}**'
         )
         st.write(
-            f'Baseline Brier: {flagged["Baseline Brier"].mean():.4f}'
+            "Baseline Brier: "
+            f'{flagged["Baseline Brier"].mean():.4f}'
         )
         st.write(
-            f'HT xG Brier: {flagged["STARLIZARD xG Brier"].mean():.4f}'
+            "HT xG Brier: "
+            f'{flagged["STARLIZARD xG Brier"].mean():.4f}'
         )
         f = flagged[flagged["Strength available"]]
         if len(f):
             st.write(
-                f'Strength Brier: {f["Strength Brier"].mean():.4f} '
+                "Strength Brier: "
+                f'{f["Strength Brier"].mean():.4f} '
                 f"({len(f)} matches)"
             )
 
     st.download_button(
         "Download halftime backtest results",
         frame.to_csv(index=False),
-        file_name="starlizard_halftime_v55.csv",
+        file_name="starlizard_halftime_v56.csv",
         mime="text/csv"
     )
     st.caption(
-        "Experimental accuracy comparison, not betting ROI. "
-        "Strength is a lagged xG-based proxy."
+        "Experimental prediction accuracy, not betting ROI."
     )
 
 
 def show_market_group(sample, heading, markets):
     st.markdown(f"**{heading}**")
-    rows = []
 
     for name, predicate in markets:
         try:
             r = price_market(sample, predicate)
-            rows.append({
-                "Market": name,
-                "Probability": (
-                    f'{r["probability"]:.1%}' if r else "—"
-                ),
-                "Fair odds": (
-                    f'{r["fair_odds"]:.2f}'
-                    if r and r.get("fair_odds") else "—"
-                ),
-                "N": r["sample"] if r else 0
-            })
+            probability = (
+                f'{r["probability"]:.1%}' if r else "—"
+            )
+            odds = (
+                f'{r["fair_odds"]:.2f}'
+                if r and r.get("fair_odds") else "—"
+            )
+            n = r["sample"] if r else 0
         except (ValueError, KeyError, TypeError):
-            rows.append({
-                "Market": name,
-                "Probability": "—",
-                "Fair odds": "—",
-                "N": 0
-            })
+            probability, odds, n = "—", "—", 0
 
-    st.dataframe(
-        pd.DataFrame(rows),
-        hide_index=True,
-        width="stretch"
-    )
+        with st.container(border=True):
+            st.markdown(f"**{name}**")
+            left, right = st.columns(2)
+            left.metric("Probability", probability)
+            right.metric("Fair odds", odds)
+            st.caption(f"Historical sample: {n}")
 
 
 def show_halftime_markets(sample):
@@ -798,8 +854,9 @@ def show_halftime_markets(sample):
 def prematch_test_data():
     rows = load_table(
         database(), "historical_xg",
-        "match_id,competition_id,match_date,home_team,away_team,"
-        "home_xg,away_xg,home_goals,away_goals"
+        "match_id,competition_id,match_date,"
+        "home_team,away_team,home_xg,away_xg,"
+        "home_goals,away_goals"
     )
     df = pd.DataFrame(rows)
     if df.empty:
@@ -807,30 +864,41 @@ def prematch_test_data():
 
     req = [
         "match_id", "competition_id", "match_date",
-        "home_team", "away_team", "home_xg", "away_xg",
-        "home_goals", "away_goals"
+        "home_team", "away_team", "home_xg",
+        "away_xg", "home_goals", "away_goals"
     ]
     df = df.dropna(subset=req).copy()
     df["match_date"] = pd.to_datetime(
         df["match_date"], errors="coerce", utc=True
     )
 
-    for c in ("home_xg", "away_xg", "home_goals", "away_goals"):
+    for c in (
+        "home_xg", "away_xg",
+        "home_goals", "away_goals"
+    ):
         df[c] = pd.to_numeric(df[c], errors="coerce")
 
     df = df.dropna(subset=req)
 
-    for c in ("home_xg", "away_xg", "home_goals", "away_goals"):
-        df = df[np.isfinite(df[c]) & (df[c] >= 0)]
+    for c in (
+        "home_xg", "away_xg",
+        "home_goals", "away_goals"
+    ):
+        df = df[
+            np.isfinite(df[c]) & (df[c] >= 0)
+        ]
 
     df = df[
         (df.home_goals % 1 == 0)
         & (df.away_goals % 1 == 0)
         & (df.home_team != df.away_team)
     ]
+
     return (
         df.drop_duplicates("match_id")
-        .sort_values(["competition_id", "match_date", "match_id"])
+        .sort_values([
+            "competition_id", "match_date", "match_id"
+        ])
         .reset_index(drop=True)
     )
 
@@ -850,10 +918,16 @@ def prematch_backtest(df, months):
 
         for step in range(months):
             month = last - (months - 1 - step)
-            cutoff = pd.Timestamp(month.start_time).tz_localize("UTC")
-            end = pd.Timestamp((month + 1).start_time).tz_localize("UTC")
+            cutoff = pd.Timestamp(
+                month.start_time
+            ).tz_localize("UTC")
+            end = pd.Timestamp(
+                (month + 1).start_time
+            ).tz_localize("UTC")
 
-            train = league[league.match_date < cutoff]
+            train = league[
+                league.match_date < cutoff
+            ]
             test = league[
                 (league.match_date >= cutoff)
                 & (league.match_date < end)
@@ -869,8 +943,9 @@ def prematch_backtest(df, months):
             try:
                 ratings = fit_ratings(
                     train[[
-                        "match_id", "competition_id", "match_date",
-                        "home_team", "away_team", "home_xg", "away_xg"
+                        "match_id", "competition_id",
+                        "match_date", "home_team",
+                        "away_team", "home_xg", "away_xg"
                     ]],
                     cid,
                     cutoff.strftime("%Y-%m-%d"),
@@ -882,12 +957,22 @@ def prematch_backtest(df, months):
 
             n = len(train)
             baseline = [
-                ((train.home_goals > train.away_goals).sum() + 1) / (n + 3),
-                ((train.home_goals == train.away_goals).sum() + 1) / (n + 3),
-                ((train.home_goals < train.away_goals).sum() + 1) / (n + 3)
+                (
+                    (train.home_goals > train.away_goals).sum()
+                    + 1
+                ) / (n + 3),
+                (
+                    (train.home_goals == train.away_goals).sum()
+                    + 1
+                ) / (n + 3),
+                (
+                    (train.home_goals < train.away_goals).sum()
+                    + 1
+                ) / (n + 3)
             ]
             bo = (
-                (train.home_goals + train.away_goals >= 3).sum() + 1
+                (train.home_goals + train.away_goals >= 3).sum()
+                + 1
             ) / (n + 2)
             bb = (
                 (
@@ -935,7 +1020,8 @@ def prematch_backtest(df, months):
                     "model_btts": p["btts_yes"],
                     "base_btts": bb,
                     "actual_btts": int(
-                        r.home_goals > 0 and r.away_goals > 0
+                        r.home_goals > 0
+                        and r.away_goals > 0
                     )
                 })
 
@@ -964,7 +1050,9 @@ def prematch_summary(df):
         y = np.eye(3)[actual]
 
         result[f"{label} 1X2 Brier"] = round(
-            float(np.mean(np.sum((p - y) ** 2, axis=1))), 4
+            float(np.mean(
+                np.sum((p - y) ** 2, axis=1)
+            )), 4
         )
         result[f"{label} 1X2 log loss"] = round(
             float(np.mean(
@@ -993,7 +1081,7 @@ def prematch_summary(df):
 st.title("🦎 PRO STARLIZARD")
 st.caption(
     "Halftime-first unified pricing | "
-    "V5.5 · Team-strength experiment"
+    "V5.6 · Mobile-friendly"
 )
 
 tab_ht, tab_pre, tab_test = st.tabs([
@@ -1024,7 +1112,7 @@ with tab_ht:
             leagues = {}
 
         if not leagues:
-            st.warning("No team catalogue available for strength pricing.")
+            st.warning("No team catalogue available.")
             st.stop()
 
         cid_live = st.selectbox(
@@ -1035,21 +1123,17 @@ with tab_ht:
         )
         team_list = leagues[cid_live]
 
-        c1, c2 = st.columns(2)
-        with c1:
-            home_name = st.selectbox(
-                "Home team",
-                team_list,
-                key="ht_home_team"
-            )
-        with c2:
-            away_name = st.selectbox(
-                "Away team",
-                team_list,
-                index=min(1, len(team_list) - 1),
-                key="ht_away_team"
-            )
-
+        home_name = st.selectbox(
+            "Home team",
+            team_list,
+            key="ht_home_team"
+        )
+        away_name = st.selectbox(
+            "Away team",
+            team_list,
+            index=min(1, len(team_list) - 1),
+            key="ht_away_team"
+        )
         fixture_day = st.date_input(
             "Fixture date",
             date.today(),
@@ -1057,10 +1141,7 @@ with tab_ht:
         )
 
         if home_name == away_name:
-            st.warning(
-                "Choose different home and away teams "
-                "to enable strength pricing."
-            )
+            st.warning("Choose different teams.")
 
         c1, c2 = st.columns(2)
         with c1:
@@ -1082,8 +1163,7 @@ with tab_ht:
 
         with st.expander("Historical filters"):
             tolerance = st.slider(
-                "HT xG tolerance",
-                .10, 1., .30, .05
+                "HT xG tolerance", .10, 1., .30, .05
             )
             cid = st.selectbox(
                 "League scope",
@@ -1108,13 +1188,16 @@ with tab_ht:
         )
 
         st.markdown(
-            f"**{home_name} {hh}–{ah} {away_name}** "
-            f"· {len(sample)} comparable matches"
+            f"**{home_name} {hh}–{ah} {away_name}**"
+        )
+        st.caption(
+            f"{len(sample)} comparable historical matches"
         )
 
         if len(sample) < 100:
             st.warning(
-                "Small historical sample. Prices may be unstable."
+                "Small historical sample. "
+                "Prices may be unstable."
             )
 
         st.subheader("🥅 First goal after halftime")
@@ -1134,26 +1217,28 @@ with tab_ht:
         n = sum(counts.values())
 
         if n:
-            st.dataframe(
-                pd.DataFrame([
-                    {
-                        "Outcome": label,
-                        "Probability": f"{counts[k] / n:.1%}",
-                        "Fair odds": (
+            for k, label in [
+                ("home", f"{home_name} scores next"),
+                ("away", f"{away_name} scores next"),
+                ("none", "No second-half goal")
+            ]:
+                with st.container(border=True):
+                    st.markdown(f"**{label}**")
+                    left, right = st.columns(2)
+                    left.metric(
+                        "Probability",
+                        f"{counts[k] / n:.1%}"
+                    )
+                    right.metric(
+                        "Historical odds",
+                        (
                             f"{n / counts[k]:.2f}"
                             if counts[k] else "—"
-                        ),
-                        "Count": counts[k]
-                    }
-                    for k, label in [
-                        ("home", f"{home_name} scores next"),
-                        ("away", f"{away_name} scores next"),
-                        ("none", "No second-half goal")
-                    ]
-                ]),
-                hide_index=True,
-                width="stretch"
-            )
+                        )
+                    )
+                    st.caption(
+                        f"{counts[k]} of {n} verified matches"
+                    )
 
             st.caption(
                 f"{n} verified goal sequences; "
@@ -1162,24 +1247,28 @@ with tab_ht:
 
             if n < 100:
                 st.warning(
-                    "Next-goal sample below 100 verified sequences."
+                    "Next-goal sample below 100."
                 )
 
             if hh != ah:
-                trailing = "home" if hh < ah else "away"
-                txg = hx if trailing == "home" else ax
+                trailing = (
+                    "home" if hh < ah else "away"
+                )
+                txg = (
+                    hx if trailing == "home" else ax
+                )
                 if txg >= .20:
                     st.info(
-                        "Automatic flag: trailing team HT xG "
-                        f"{txg:.2f} ≥ 0.20. "
-                        "Trailing team scored first in the second half "
+                        "Automatic flag: trailing team "
+                        f"HT xG {txg:.2f} ≥ 0.20. "
+                        "Trailing team scored first in 2H "
                         f"{counts[trailing]}/{n} times "
                         f"({counts[trailing] / n:.1%}). "
-                        "Historical frequency, not a proven edge."
+                        "Not a proven betting edge."
                     )
         else:
             st.warning(
-                "No verified goal sequences in this sample."
+                "No verified goal sequences."
             )
 
         st.subheader(
@@ -1196,60 +1285,57 @@ with tab_ht:
 
                 if adjusted:
                     probs, strength_index, rated_n = adjusted
-                    rows = []
 
                     for key, label in [
-                        ("home", f"{home_name} next"),
-                        ("away", f"{away_name} next"),
-                        ("none", "No 2H goal")
+                        ("home", f"{home_name} scores next"),
+                        ("away", f"{away_name} scores next"),
+                        ("none", "No second-half goal")
                     ]:
-                        rows.append({
-                            "Outcome": label,
-                            "Historical probability": (
-                                f"{counts[key] / n:.1%}"
-                            ),
-                            "Historical fair odds": (
-                                f"{n / counts[key]:.2f}"
-                                if counts[key] else "—"
-                            ),
-                            "Adjusted probability": (
-                                f"{probs[key]:.1%}"
-                            ),
-                            "Adjusted fair odds": (
+                        with st.container(border=True):
+                            st.markdown(f"**{label}**")
+                            left, right = st.columns(2)
+                            left.metric(
+                                "Historical odds",
+                                (
+                                    f"{n / counts[key]:.2f}"
+                                    if counts[key] else "—"
+                                )
+                            )
+                            right.metric(
+                                "Adjusted odds",
                                 f"{1 / probs[key]:.2f}"
                             )
-                        })
+                            st.caption(
+                                "Historical probability: "
+                                f"{counts[key] / n:.1%} | "
+                                "Adjusted probability: "
+                                f"{probs[key]:.1%}"
+                            )
 
-                    st.dataframe(
-                        pd.DataFrame(rows),
-                        hide_index=True,
-                        width="stretch"
-                    )
                     st.caption(
-                        f"Lagged strength balance: "
+                        "Lagged strength balance: "
                         f"{strength_index:+.2f}; "
-                        f"{rated_n} strength-rated historical matches. "
-                        "Positive balance favours the home side."
+                        f"{rated_n} strength-rated matches. "
+                        "Positive favours the home side."
                     )
                 else:
                     st.info(
-                        f"Strength-adjusted prices unavailable: {reason} "
-                        "Historical prices above remain available."
+                        "Strength-adjusted prices unavailable: "
+                        f"{reason}"
                     )
-
             except Exception as exc:
                 st.warning(
                     f"Strength pricing unavailable: {exc}"
                 )
         else:
             st.info(
-                "Select two different teams and at least "
-                "30 verified comparable matches."
+                "Select two different teams and "
+                "at least 30 verified comparable matches."
             )
 
         st.caption(
-            "Strength uses only earlier xG records. "
-            "Adjusted prices are experimental."
+            "Experimental strength-adjusted prices. "
+            "No proven betting edge."
         )
 
         st.subheader(
@@ -1257,11 +1343,6 @@ with tab_ht:
         )
         if sample:
             show_halftime_markets(sample)
-
-        st.caption(
-            "Historical conditional frequencies, "
-            "not calibrated team-specific forecasts."
-        )
 
         show_halftime_backtest()
 
@@ -1285,19 +1366,15 @@ with tab_pre:
         teams = leagues[cid]
 
         if len(teams) >= 2:
-            c1, c2 = st.columns(2)
-            with c1:
-                home = st.selectbox(
-                    "Home team", teams, key="pre_home"
-                )
-            with c2:
-                away = st.selectbox(
-                    "Away team",
-                    teams,
-                    index=1,
-                    key="pre_away"
-                )
-
+            home = st.selectbox(
+                "Home team", teams, key="pre_home"
+            )
+            away = st.selectbox(
+                "Away team",
+                teams,
+                index=1,
+                key="pre_away"
+            )
             cutoff = st.date_input(
                 "Price fixture using data before",
                 date.today()
@@ -1342,8 +1419,7 @@ with tab_pre:
                         f'{priced["away_xg"]:.2f}'
                     )
                     st.caption(
-                        f"{rating.matches} training matches "
-                        f"across {len(rating.teams)} teams"
+                        f"{rating.matches} training matches"
                     )
 
                     markets = [
@@ -1356,24 +1432,22 @@ with tab_pre:
                         ("BTTS No", "btts_no")
                     ]
 
-                    st.dataframe(
-                        pd.DataFrame([
-                            {
-                                "Market": label,
-                                "Probability": (
-                                    f'{priced["probabilities"][key]:.1%}'
-                                ),
-                                "Fair odds": (
+                    for label, key in markets:
+                        with st.container(border=True):
+                            st.markdown(f"**{label}**")
+                            c1, c2 = st.columns(2)
+                            c1.metric(
+                                "Probability",
+                                f'{priced["probabilities"][key]:.1%}'
+                            )
+                            c2.metric(
+                                "Fair odds",
+                                (
                                     f'{priced["fair_odds"][key]:.2f}'
                                     if priced["fair_odds"][key]
                                     else "—"
                                 )
-                            }
-                            for label, key in markets
-                        ]),
-                        hide_index=True,
-                        width="stretch"
-                    )
+                            )
 
                     st.subheader("Asian pricing")
                     choices = {
@@ -1430,23 +1504,15 @@ with tab_pre:
                             f"{roi:+.2%}"
                         )
 
-                    with st.expander(
-                        "Correct-score prices"
-                    ):
-                        st.dataframe(
-                            pd.DataFrame([
-                                {
-                                    "Score": score,
-                                    "Probability": f"{p:.2%}",
-                                    "Fair odds": f"{1 / p:.2f}"
-                                }
-                                for score, p
-                                in priced["correct_scores"].items()
-                                if p > 0
-                            ]),
-                            hide_index=True,
-                            width="stretch"
-                        )
+                    with st.expander("Correct-score prices"):
+                        for score, p in priced[
+                            "correct_scores"
+                        ].items():
+                            if p > 0:
+                                st.write(
+                                    f"{score}: {1 / p:.2f} "
+                                    f"({p:.2%})"
+                                )
 
                     st.caption(
                         "Experimental model prices. "
@@ -1459,8 +1525,10 @@ with tab_test:
         "Pre-match historical accuracy backtest"
     )
     st.caption(
-        "Expanding training history. Complete calendar months only."
+        "Expanding training history. "
+        "Complete calendar months only."
     )
+
     months = st.selectbox(
         "Recent complete months",
         [3, 6, 9, 12],
@@ -1493,45 +1561,36 @@ with tab_test:
             )
 
     if "pre_result" in st.session_state:
-        predictions, audit, valid = st.session_state["pre_result"]
+        predictions, audit, valid = (
+            st.session_state["pre_result"]
+        )
         st.caption(
             f"{valid:,} valid historical records"
         )
 
         if predictions.empty:
             st.warning(
-                "No out-of-sample predictions in this window."
+                "No out-of-sample predictions."
             )
         else:
             st.success(
                 f"{len(predictions):,} out-of-sample predictions"
             )
-            st.subheader("Overall accuracy")
-            st.dataframe(
-                pd.DataFrame([
-                    prematch_summary(predictions)
-                ]),
-                hide_index=True,
-                width="stretch"
-            )
 
-            st.subheader("By league")
-            st.dataframe(
-                pd.DataFrame([
-                    dict(
-                        League=name,
-                        **prematch_summary(part)
-                    )
-                    for name, part
-                    in predictions.groupby("League")
-                ]),
-                hide_index=True,
-                width="stretch"
-            )
+            overall = prematch_summary(predictions)
+            st.markdown("**Overall accuracy**")
+            for name, value in overall.items():
+                st.write(f"{name}: **{value}**")
 
-            st.subheader(
-                "Probability calibration"
-            )
+            st.markdown("**By league**")
+            for name, part in predictions.groupby("League"):
+                with st.expander(name):
+                    for metric, value in prematch_summary(
+                        part
+                    ).items():
+                        st.write(f"{metric}: {value}")
+
+            st.subheader("Probability calibration")
             market = st.selectbox(
                 "Calibration market",
                 ["Over 2.5 goals", "BTTS Yes"]
@@ -1542,7 +1601,6 @@ with tab_test:
                 else ("model_btts", "actual_btts")
             )
 
-            bins = []
             for i in range(10):
                 low = i / 10
                 high = (i + 1) / 10
@@ -1554,22 +1612,13 @@ with tab_test:
                     )
                 ]
                 if len(part):
-                    bins.append({
-                        "Band": f"{low:.0%}–{high:.0%}",
-                        "N": len(part),
-                        "Predicted": round(
-                            float(part[pcol].mean()), 3
-                        ),
-                        "Actual": round(
-                            float(part[ycol].mean()), 3
-                        )
-                    })
+                    st.write(
+                        f"**{low:.0%}–{high:.0%}** "
+                        f"| N={len(part)} "
+                        f"| Predicted={part[pcol].mean():.1%} "
+                        f"| Actual={part[ycol].mean():.1%}"
+                    )
 
-            st.dataframe(
-                pd.DataFrame(bins),
-                hide_index=True,
-                width="stretch"
-            )
             st.download_button(
                 "Download backtest predictions",
                 predictions.to_csv(index=False),
@@ -1577,14 +1626,13 @@ with tab_test:
                 mime="text/csv"
             )
 
-        st.subheader(
-            "Coverage and exclusions"
-        )
-        st.dataframe(
-            audit,
-            hide_index=True,
-            width="stretch"
-        )
+        st.subheader("Coverage and exclusions")
+        for r in audit.to_dict("records"):
+            st.write(
+                f'{r["League"]}: '
+                f'{r["Test matches"]} tested, '
+                f'{r["Not priced"]} not priced'
+            )
 
     st.info(
         "Prediction accuracy is not betting profitability. "
@@ -1593,6 +1641,6 @@ with tab_test:
 
 st.divider()
 st.caption(
-    "PRO STARLIZARD V5.5 · Read-only Supabase · "
-    "Halftime-first · Lagged team-strength experiment"
+    "PRO STARLIZARD V5.6 · Read-only Supabase · "
+    "Mobile-friendly halftime pricing"
 )
