@@ -1,0 +1,147 @@
+
+name: Test Supabase Pricing Connection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-supabase-pricing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Get repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install numpy pandas supabase
+
+      - name: Test Supabase historical xG and pricing
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          python - <<'PY'
+          import os
+          import math
+          import numpy as np
+          from datetime import date
+          from supabase import create_client
+
+          from starlizard_pricing_engine import (
+              load_historical_xg,
+              fit_ratings,
+              price_fixture,
+              asian_market,
+          )
+
+          url = os.environ.get("SUPABASE_URL")
+          key = os.environ.get("SUPABASE_SECRET_KEY")
+
+          if not url or not key:
+              raise RuntimeError("Supabase secrets are missing")
+
+          db = create_client(url, key)
+
+          competition = "comp_3039"
+          cutoff = date.today().isoformat()
+
+          print("Connecting to Supabase...")
+          print("Competition: English Premier League")
+          print("Training cutoff:", cutoff)
+
+          history = load_historical_xg(
+              db,
+              competition_id=competition,
+              before=cutoff,
+          )
+
+          print("Valid historical xG matches:", len(history))
+
+          if len(history) < 60:
+              raise RuntimeError(
+                  "Insufficient historical xG records"
+              )
+
+          ratings = fit_ratings(
+              history,
+              competition_id=competition,
+              before=cutoff,
+          )
+
+          print("Teams in rating network:", len(ratings.teams))
+
+          preferred_home = "Newcastle United"
+          preferred_away = "Everton"
+
+          if (
+              preferred_home in ratings.teams
+              and preferred_away in ratings.teams
+          ):
+              home = preferred_home
+              away = preferred_away
+          else:
+              print(
+                  "Preferred teams unavailable; "
+                  "using first two historical teams."
+              )
+              home, away = ratings.teams[:2]
+
+          result = price_fixture(ratings, home, away)
+
+          print()
+          print("FIXTURE:", home, "v", away)
+          print("Home projected xG:", round(result["home_xg"], 3))
+          print("Away projected xG:", round(result["away_xg"], 3))
+          print("Training matches:", result["training_matches"])
+
+          print()
+          print("MARKET FAIR ODDS")
+
+          for market, odds in result["fair_odds"].items():
+              print(
+                  market,
+                  round(odds, 3) if odds is not None else "N/A",
+              )
+
+          matrix = result["matrix"]
+
+          for market, line in [
+              ("home_handicap", -0.5),
+              ("away_handicap", 0.5),
+              ("over_goals", 2.5),
+              ("under_goals", 2.5),
+          ]:
+              priced = asian_market(matrix, market, line)
+              print(
+                  market,
+                  line,
+                  "fair odds:",
+                  round(priced["fair_odds"], 3)
+                  if priced["fair_odds"] is not None
+                  else "N/A",
+              )
+
+          assert np.isclose(matrix.sum(), 1.0)
+          assert np.isclose(
+              result["probabilities"]["home"]
+              + result["probabilities"]["draw"]
+              + result["probabilities"]["away"],
+              1.0,
+          )
+
+          assert math.isfinite(result["home_xg"])
+          assert math.isfinite(result["away_xg"])
+
+          print()
+          print("SUPABASE PRICING CONNECTION TEST PASSED")
+          PY
