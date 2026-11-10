@@ -4,7 +4,15 @@ import pandas as pd
 from datetime import date
 from supabase import create_client
 from starlizard_live_fixtures import render_live_fixtures
-from starlizard_halftime_markets_v57 import render_halftime_markets
+
+# ==================================================
+# PRO STARLIZARD — STABLE RECOVERY DASHBOARD
+#
+# V5.7 deliberately disconnected while we diagnose
+# the Streamlit memory limit.
+#
+# No database records are modified.
+# ==================================================
 
 st.set_page_config(
     page_title="PRO STARLIZARD",
@@ -15,30 +23,36 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-.stApp {background:#0b1220;color:#e8eef8}
+.stApp {
+    background:#0b1220;
+    color:#e8eef8;
+}
 .block-container {
     padding-top:4.5rem!important;
     padding-bottom:2rem;
-    max-width:1100px
+    max-width:1100px;
 }
-h1,h2,h3 {color:#f8fafc!important}
-label,[data-testid="stWidgetLabel"],
+h1,h2,h3 {
+    color:#f8fafc!important;
+}
+label,
+[data-testid="stWidgetLabel"],
 [data-testid="stWidgetLabel"] p {
     color:#e8eef8!important;
-    font-weight:600!important
+    font-weight:600!important;
 }
 div[data-testid="stMetric"] {
     background:#172338;
     border:1px solid #293a53;
     border-radius:12px;
-    padding:12px
+    padding:12px;
 }
 div[data-testid="stMetricValue"],
 div[data-testid="stMetricValue"] *,
 div[data-testid="stMetricLabel"],
 div[data-testid="stMetricLabel"] * {
     color:#f8fafc!important;
-    opacity:1!important
+    opacity:1!important;
 }
 div.stButton>button {
     width:100%;
@@ -46,30 +60,36 @@ div.stButton>button {
     border-radius:12px;
     font-size:1rem;
     font-weight:700;
-    border:1px solid #41536c
+    border:1px solid #41536c;
 }
 div.stButton>button[kind="primary"] {
     background:#b91c38;
     border-color:#ef4766;
-    color:white
+    color:white;
 }
 div.stButton>button[kind="secondary"] {
     background:#172338;
-    color:#f8fafc
+    color:#f8fafc;
 }
-div.stButton>button p {color:inherit!important}
+div.stButton>button p {
+    color:inherit!important;
+}
 [data-testid="stImage"] img {
     object-fit:contain!important;
-    height:auto!important
+    height:auto!important;
 }
 @media(max-width:640px) {
     .block-container {
         padding-top:4rem!important;
         padding-left:1rem;
-        padding-right:1rem
+        padding-right:1rem;
     }
-    h1 {font-size:1.8rem!important}
-    h2 {font-size:1.4rem!important}
+    h1 {
+        font-size:1.8rem!important;
+    }
+    h2 {
+        font-size:1.4rem!important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -117,6 +137,10 @@ METRICS = [
 SAMPLE_OPTIONS = [5, 10, 15, 20, 25]
 
 
+# ==================================================
+# SUPABASE
+# ==================================================
+
 @st.cache_resource
 def get_supabase():
     return create_client(
@@ -133,42 +157,58 @@ def get_database_stats():
         ("Historical xG records", "historical_xg", None, None),
         (
             "Match event records collected",
-            "historical_match_events", None, None
+            "historical_match_events",
+            None,
+            None,
         ),
         (
             "Match statistics received",
-            "historical_match_events", "stats_status", 200
+            "historical_match_events",
+            "stats_status",
+            200,
         ),
         (
             "Goal/event timelines received",
-            "historical_match_events", "timeline_status", 200
+            "historical_match_events",
+            "timeline_status",
+            200,
         ),
         (
             "Corners matched",
-            "historical_match_events", "corners_match", True
+            "historical_match_events",
+            "corners_match",
+            True,
         ),
         (
             "Yellow cards matched",
-            "historical_match_events", "yellow_cards_match", True
+            "historical_match_events",
+            "yellow_cards_match",
+            True,
         ),
         (
             "Red cards matched",
-            "historical_match_events", "red_cards_match", True
+            "historical_match_events",
+            "red_cards_match",
+            True,
         ),
     ]
 
-    results, errors = {}, {}
+    results = {}
+    errors = {}
 
     for label, table, column, value in checks:
         try:
             query = db.table(table).select(
-                "match_id", count="exact"
+                "match_id",
+                count="exact",
             )
 
             if column is not None:
                 query = query.eq(column, value)
 
-            results[label] = query.limit(1).execute().count
+            results[label] = (
+                query.limit(1).execute().count
+            )
 
         except Exception as exc:
             results[label] = None
@@ -205,7 +245,11 @@ def numeric(value):
             return None
 
         result = float(value)
-        return result if pd.notna(result) else None
+
+        if pd.notna(result):
+            return result
+
+        return None
 
     except (TypeError, ValueError):
         return None
@@ -217,6 +261,10 @@ def has_score(row):
         and numeric(row.get("away_goals")) is not None
     )
 
+
+# ==================================================
+# HISTORICAL MATCHES
+# ==================================================
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_matches(team, count, as_of, venue="All"):
@@ -242,6 +290,7 @@ def get_matches(team, count, as_of, venue="All"):
             .limit(max(150, count * 4))
             .execute()
         )
+
         records.extend(response.data or [])
 
     unique = {
@@ -259,7 +308,8 @@ def get_matches(team, count, as_of, venue="All"):
         reverse=True,
     )
 
-    completed, incomplete = [], []
+    completed = []
+    incomplete = []
 
     for row in ordered:
         if len(completed) >= count:
@@ -275,10 +325,20 @@ def get_matches(team, count, as_of, venue="All"):
 
 def build_dataframe(team, matches):
     columns = [
-        "Date", "League", "Venue", "Opponent",
-        "GF", "GA", "HT GF", "HT GA",
-        "2H GF", "2H GA",
-        "xGF", "xGA", "HT xGF", "HT xGA",
+        "Date",
+        "League",
+        "Venue",
+        "Opponent",
+        "GF",
+        "GA",
+        "HT GF",
+        "HT GA",
+        "2H GF",
+        "2H GA",
+        "xGF",
+        "xGA",
+        "HT xGF",
+        "HT xGA",
         "Result",
     ]
 
@@ -293,10 +353,25 @@ def build_dataframe(team, matches):
                 numeric(match.get(a if home else h)),
             )
 
-        gf, ga = pair("home_goals", "away_goals")
-        hgf, hga = pair("home_ht_goals", "away_ht_goals")
-        xgf, xga = pair("home_xg", "away_xg")
-        hxgf, hxga = pair("home_ht_xg", "away_ht_xg")
+        gf, ga = pair(
+            "home_goals",
+            "away_goals",
+        )
+
+        hgf, hga = pair(
+            "home_ht_goals",
+            "away_ht_goals",
+        )
+
+        xgf, xga = pair(
+            "home_xg",
+            "away_xg",
+        )
+
+        hxgf, hxga = pair(
+            "home_ht_xg",
+            "away_ht_xg",
+        )
 
         shgf = (
             gf - hgf
@@ -311,20 +386,24 @@ def build_dataframe(team, matches):
         )
 
         result = (
-            "W" if gf > ga
-            else "L" if gf < ga
+            "W"
+            if gf > ga
+            else "L"
+            if gf < ga
             else "D"
         )
 
         rows.append({
             "Date": match.get("match_date"),
             "League": LEAGUES.get(
-                match.get("competition_id"), "Unknown"
+                match.get("competition_id"),
+                "Unknown",
             ),
             "Venue": "Home" if home else "Away",
             "Opponent": (
                 match.get("away_team")
-                if home else match.get("home_team")
+                if home
+                else match.get("home_team")
             ),
             "GF": gf,
             "GA": ga,
@@ -339,22 +418,34 @@ def build_dataframe(team, matches):
             "Result": result,
         })
 
-    return pd.DataFrame(rows, columns=columns)
+    return pd.DataFrame(
+        rows,
+        columns=columns,
+    )
 
 
 def average(df, column):
     if df.empty:
         return None
 
-    vals = pd.to_numeric(
-        df[column], errors="coerce"
+    values = pd.to_numeric(
+        df[column],
+        errors="coerce",
     ).dropna()
 
-    return float(vals.mean()) if len(vals) else None
+    return (
+        float(values.mean())
+        if len(values)
+        else None
+    )
 
 
 def fmt(value):
-    return f"{value:.2f}" if value is not None else "—"
+    return (
+        f"{value:.2f}"
+        if value is not None
+        else "—"
+    )
 
 
 def record_text(df):
@@ -382,15 +473,21 @@ def form_badges(df):
     cells = "".join(
         (
             f'<span style="display:inline-block;'
-            f'background:{colors[r]};color:white;'
-            f'border-radius:6px;padding:6px 10px;'
+            f'background:{colors[r]};'
+            f'color:white;'
+            f'border-radius:6px;'
+            f'padding:6px 10px;'
             f'margin:3px 3px 3px 0;'
             f'font-weight:700">{r}</span>'
         )
         for r in df["Result"].tolist()
     )
 
-    st.markdown(cells, unsafe_allow_html=True)
+    st.markdown(
+        cells,
+        unsafe_allow_html=True,
+    )
+
     st.caption(
         "Most recent first · "
         "Green win · Blue draw · Red loss"
@@ -399,32 +496,49 @@ def form_badges(df):
 
 def styled_matches(df):
     if df.empty:
-        st.info("No completed league matches found.")
+        st.info(
+            "No completed league matches found."
+        )
         return
 
     def colour_result(value):
         return {
-            "W": "background-color:#15803d;"
-                 "color:white;font-weight:bold",
-            "D": "background-color:#2563eb;"
-                 "color:white;font-weight:bold",
-            "L": "background-color:#b91c1c;"
-                 "color:white;font-weight:bold",
+            "W": (
+                "background-color:#15803d;"
+                "color:white;font-weight:bold"
+            ),
+            "D": (
+                "background-color:#2563eb;"
+                "color:white;font-weight:bold"
+            ),
+            "L": (
+                "background-color:#b91c1c;"
+                "color:white;font-weight:bold"
+            ),
         }.get(value, "")
 
     display = df.copy()
 
-    for c in [
-        "GF", "GA", "HT GF", "HT GA",
-        "2H GF", "2H GA",
+    for column in [
+        "GF",
+        "GA",
+        "HT GF",
+        "HT GA",
+        "2H GF",
+        "2H GA",
     ]:
-        display[c] = display[c].map(
-            lambda v: int(v) if pd.notna(v) else None
+        display[column] = display[column].map(
+            lambda value: (
+                int(value)
+                if pd.notna(value)
+                else None
+            )
         )
 
     st.dataframe(
         display.style.map(
-            colour_result, subset=["Result"]
+            colour_result,
+            subset=["Result"],
         ),
         hide_index=True,
         width="stretch",
@@ -432,7 +546,10 @@ def styled_matches(df):
 
 
 def comparison_table(
-    home_name, away_name, home_df, away_df
+    home_name,
+    away_name,
+    home_df,
+    away_df,
 ):
     rows = []
 
@@ -443,7 +560,8 @@ def comparison_table(
                 return "—"
 
             values = pd.to_numeric(
-                df[column], errors="coerce"
+                df[column],
+                errors="coerce",
             ).dropna()
 
             if len(values):
@@ -465,22 +583,30 @@ def comparison_table(
         hide_index=True,
         width="stretch",
         column_config={
-            "Statistic": st.column_config.TextColumn(
-                "Statistic"
+            "Statistic": (
+                st.column_config.TextColumn(
+                    "Statistic"
+                )
             ),
-            "Home team": st.column_config.TextColumn(
-                home_name
+            "Home team": (
+                st.column_config.TextColumn(
+                    home_name
+                )
             ),
-            "Away team": st.column_config.TextColumn(
-                away_name
+            "Away team": (
+                st.column_config.TextColumn(
+                    away_name
+                )
             ),
         },
     )
 
 
-def market_observation(df, market):
-    """Count observed market hits and eligible matches."""
+# ==================================================
+# HISTORICAL BETTING ANGLE SCREENING
+# ==================================================
 
+def market_observation(df, market):
     if df.empty:
         return 0, 0
 
@@ -588,21 +714,25 @@ def market_observation(df, market):
 
 
 def betting_angles(
-    home_df, away_df, home_name, away_name
+    home_df,
+    away_df,
+    home_name,
+    away_name,
 ):
     st.header("Potential betting angles")
 
     st.caption(
         "Historical screening only — "
-        "no bookmaker odds, no calibrated probabilities, "
-        "and no claim of positive expected value."
+        "no bookmaker odds, no calibrated "
+        "probabilities, and no claim "
+        "of positive expected value."
     )
 
     if len(home_df) < 5 or len(away_df) < 5:
         st.info(
-            "At least five completed home and "
-            "five completed away league matches "
-            "are required."
+            "At least five completed home "
+            "and five completed away league "
+            "matches are required."
         )
         return
 
@@ -629,10 +759,13 @@ def betting_angles(
 
     for market in markets:
         h, hn = market_observation(
-            home_df, market
+            home_df,
+            market,
         )
+
         a, an = market_observation(
-            away_df, market
+            away_df,
+            market,
         )
 
         if hn < 5 or an < 5:
@@ -647,7 +780,11 @@ def betting_angles(
         suggestions.append((
             min(hp, ap),
             (h + a) / (hn + an),
-            market, h, hn, a, an,
+            market,
+            h,
+            hn,
+            a,
+            an,
         ))
 
     suggestions.sort(reverse=True)
@@ -656,17 +793,28 @@ def betting_angles(
         st.info(
             "No market met the screening rule: "
             "at least 60% in each venue sample. "
-            "This does not mean there are no possible bets."
+            "This does not mean there are "
+            "no possible bets."
         )
         return
 
     st.caption(
         "Each team's venue sample must show "
-        "the outcome in at least 60% of eligible matches. "
-        "Ranked by the weaker observed rate."
+        "the outcome in at least 60% of "
+        "eligible matches. Ranked by the "
+        "weaker observed rate."
     )
 
-    for _, pooled, market, h, hn, a, an in suggestions[:3]:
+    for (
+        _,
+        pooled,
+        market,
+        h,
+        hn,
+        a,
+        an,
+    ) in suggestions[:3]:
+
         with st.container(border=True):
             st.markdown(f"**{market}**")
 
@@ -690,17 +838,24 @@ def betting_angles(
 
             st.caption(
                 f"Combined historical frequency: "
-                f"{h + a}/{hn + an} ({pooled:.0%}). "
-                "Not a predicted probability or fair price."
+                f"{h + a}/{hn + an} "
+                f"({pooled:.0%}). "
+                "Not a predicted probability "
+                "or fair price."
             )
 
     st.info(
-        "These are research leads, not betting "
-        "recommendations. Markets are correlated, "
-        "opponent strength is not adjusted, and "
-        "market odds are essential for assessing value."
+        "These are research leads, not "
+        "betting recommendations. Markets "
+        "are correlated, opponent strength "
+        "is not adjusted, and market odds "
+        "are essential for assessing value."
     )
 
+
+# ==================================================
+# TWO-TEAM COMPARISON
+# ==================================================
 
 def show_comparison(
     home_team,
@@ -711,36 +866,70 @@ def show_comparison(
     as_of,
 ):
     if home_team == away_team:
-        st.warning("Choose two different teams.")
+        st.warning(
+            "Choose two different teams."
+        )
         return
 
     with st.spinner(
         "Loading historical league records..."
     ):
         home_all, home_all_missing = get_matches(
-            home_team, overall_count, as_of, "All"
-        )
-        away_all, away_all_missing = get_matches(
-            away_team, overall_count, as_of, "All"
-        )
-        home_venue, home_venue_missing = get_matches(
-            home_team, home_count, as_of, "Home"
-        )
-        away_venue, away_venue_missing = get_matches(
-            away_team, away_count, as_of, "Away"
+            home_team,
+            overall_count,
+            as_of,
+            "All",
         )
 
-    hadf = build_dataframe(home_team, home_all)
-    aadf = build_dataframe(away_team, away_all)
-    hvdf = build_dataframe(home_team, home_venue)
-    avdf = build_dataframe(away_team, away_venue)
+        away_all, away_all_missing = get_matches(
+            away_team,
+            overall_count,
+            as_of,
+            "All",
+        )
+
+        home_venue, home_venue_missing = get_matches(
+            home_team,
+            home_count,
+            as_of,
+            "Home",
+        )
+
+        away_venue, away_venue_missing = get_matches(
+            away_team,
+            away_count,
+            as_of,
+            "Away",
+        )
+
+    hadf = build_dataframe(
+        home_team,
+        home_all,
+    )
+
+    aadf = build_dataframe(
+        away_team,
+        away_all,
+    )
+
+    hvdf = build_dataframe(
+        home_team,
+        home_venue,
+    )
+
+    avdf = build_dataframe(
+        away_team,
+        away_venue,
+    )
 
     st.success(
         "Domestic league comparison loaded."
     )
+
     st.caption(
-        "League-only records; cup and European "
-        "fixtures excluded. Latest matches first."
+        "League-only records; cup and "
+        "European fixtures excluded. "
+        "Latest matches first."
     )
 
     st.header("Home versus away form")
@@ -764,11 +953,17 @@ def show_comparison(
         form_badges(avdf)
 
     comparison_table(
-        home_team, away_team, hvdf, avdf
+        home_team,
+        away_team,
+        hvdf,
+        avdf,
     )
 
     betting_angles(
-        hvdf, avdf, home_team, away_team
+        hvdf,
+        avdf,
+        home_team,
+        away_team,
     )
 
     st.header("Attack versus defence")
@@ -781,7 +976,9 @@ def show_comparison(
     st.dataframe(
         pd.DataFrame([
             {
-                "Comparison": f"{home_team} attack",
+                "Comparison": (
+                    f"{home_team} attack"
+                ),
                 "Attacking xG": fmt(
                     average(hvdf, "xGF")
                 ),
@@ -790,7 +987,9 @@ def show_comparison(
                 ),
             },
             {
-                "Comparison": f"{away_team} attack",
+                "Comparison": (
+                    f"{away_team} attack"
+                ),
                 "Attacking xG": fmt(
                     average(avdf, "xGF")
                 ),
@@ -810,17 +1009,24 @@ def show_comparison(
         c1, c2 = st.columns(2)
 
         with c1:
-            st.markdown(f"**{home_team}**")
+            st.markdown(
+                f"**{home_team}**"
+            )
             st.write(record_text(hadf))
             form_badges(hadf)
 
         with c2:
-            st.markdown(f"**{away_team}**")
+            st.markdown(
+                f"**{away_team}**"
+            )
             st.write(record_text(aadf))
             form_badges(aadf)
 
         comparison_table(
-            home_team, away_team, hadf, aadf
+            home_team,
+            away_team,
+            hadf,
+            aadf,
         )
 
     st.header("Match-by-match records")
@@ -900,16 +1106,16 @@ def show_comparison(
         )
 
     st.caption(
-        "Averages exclude missing metric values. "
-        "Historical rates are not opponent-adjusted "
-        "and may not reflect current squads "
-        "or team strength."
+        "Averages exclude missing metric "
+        "values. Historical rates are not "
+        "opponent-adjusted and may not "
+        "reflect current squads or strength."
     )
 
 
-# =============================================
-# MAIN NAVIGATION — FOUR PAGES
-# =============================================
+# ==================================================
+# NAVIGATION
+# ==================================================
 
 if "active_page" not in st.session_state:
     st.session_state.active_page = "Match Pricing"
@@ -928,7 +1134,11 @@ for page, icon in [
         f"{icon}  {page}",
         key=f"nav_{page}",
         width="stretch",
-        type="primary" if active else "secondary",
+        type=(
+            "primary"
+            if active
+            else "secondary"
+        ),
     ):
         st.session_state.active_page = page
         st.rerun()
@@ -936,39 +1146,37 @@ for page, icon in [
 st.divider()
 
 
-# =============================================
-# PAGE 1 — MATCH PRICING V5.7
-# =============================================
+# ==================================================
+# PAGE 1 — MATCH PRICING
+# ==================================================
 
 if st.session_state.active_page == "Match Pricing":
 
     st.header("Match Pricing")
 
     st.caption(
-        "PRO STARLIZARD pricing terminal | "
-        "V5.7 historical halftime corners and cards"
+        "PRO STARLIZARD — stable recovery mode"
+    )
+
+    st.warning(
+        "V5.7 halftime corners and cards pricing "
+        "is temporarily disconnected while "
+        "we investigate the Streamlit "
+        "memory limit."
     )
 
     st.info(
-        "V5.7 is connected below. "
-        "Enter the halftime score, xG, corners "
-        "and yellow cards to calculate historical "
-        "conditional market prices."
-    )
-
-    render_halftime_markets(get_supabase())
-
-    st.caption(
-        "The separate V5.6 dashboard still contains "
-        "the pre-match, next-goal and backtesting "
-        "models. Those will be integrated here "
-        "in a later update."
+        "Your existing V5.6 pricing engine "
+        "and historical database have not "
+        "been deleted. We will reconnect "
+        "the pricing tools after resolving "
+        "the memory issue."
     )
 
 
-# =============================================
+# ==================================================
 # PAGE 2 — HISTORICAL RESEARCH
-# =============================================
+# ==================================================
 
 elif (
     st.session_state.active_page
@@ -996,11 +1204,14 @@ elif (
     if len(home_search) >= 3:
         if "%" in home_search or "_" in home_search:
             st.warning(
-                "Please avoid % and _ in team searches."
+                "Please avoid % and _ "
+                "in team searches."
             )
         else:
             try:
-                opts = find_team_names(home_search)
+                opts = find_team_names(
+                    home_search
+                )
 
                 if opts:
                     home_team = st.selectbox(
@@ -1031,11 +1242,14 @@ elif (
     if len(away_search) >= 3:
         if "%" in away_search or "_" in away_search:
             st.warning(
-                "Please avoid % and _ in team searches."
+                "Please avoid % and _ "
+                "in team searches."
             )
         else:
             try:
-                opts = find_team_names(away_search)
+                opts = find_team_names(
+                    away_search
+                )
 
                 if opts:
                     away_team = st.selectbox(
@@ -1103,7 +1317,9 @@ elif (
         width="stretch",
         disabled=not ready,
     ):
-        st.session_state["comparison_selection"] = (
+        st.session_state[
+            "comparison_selection"
+        ] = (
             home_team,
             away_team,
             home_count,
@@ -1137,14 +1353,15 @@ elif (
             )
 
     st.caption(
-        "Historical event-based corners and cards "
-        "are now available under Match Pricing."
+        "Corners, cards and event timelines "
+        "will be reconnected after the "
+        "memory issue is resolved."
     )
 
 
-# =============================================
+# ==================================================
 # PAGE 3 — LIVE FIXTURES
-# =============================================
+# ==================================================
 
 elif (
     st.session_state.active_page
@@ -1158,9 +1375,9 @@ elif (
     )
 
 
-# =============================================
+# ==================================================
 # PAGE 4 — DATABASE HEALTH
-# =============================================
+# ==================================================
 
 elif (
     st.session_state.active_page
@@ -1187,18 +1404,19 @@ elif (
             results, errors = get_database_stats()
 
         passed = sum(
-            v is not None
-            for v in results.values()
+            value is not None
+            for value in results.values()
         )
 
         if passed == 7:
             st.success(
-                "All seven database checks succeeded."
+                "All seven database "
+                "checks succeeded."
             )
         else:
             st.warning(
-                f"{passed} of 7 "
-                "database checks succeeded."
+                f"{passed} of 7 database "
+                "checks succeeded."
             )
 
         groups = [
@@ -1255,11 +1473,15 @@ elif (
                 f"{100 * verified / total:.1f}%",
             )
 
-        st.subheader("Database Diagnostics")
+        st.subheader(
+            "Database Diagnostics"
+        )
 
         if errors:
             for label, kind in errors.items():
-                st.error(f"{label}: {kind}")
+                st.error(
+                    f"{label}: {kind}"
+                )
         else:
             st.success(
                 "No database query errors detected."
@@ -1279,11 +1501,16 @@ elif (
         )
 
 
+# ==================================================
+# FOOTER
+# ==================================================
+
 st.divider()
 
 st.caption(
-    "PRO STARLIZARD V5.7 | Research and model "
-    "estimates only. No automated betting."
+    "PRO STARLIZARD | Stable recovery mode | "
+    "Research and model estimates only. "
+    "No automated betting."
 )
 
 st.caption(
