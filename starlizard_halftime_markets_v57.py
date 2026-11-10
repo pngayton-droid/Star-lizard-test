@@ -1,416 +1,161 @@
 
+"""PRO STARLIZARD V5.7 — bounded-memory halftime corners/cards research.
+
+Read-only Supabase. Historical frequencies are descriptive, not calibrated forecasts.
 """
-PRO STARLIZARD V5.7
-Halftime corners and yellow-card pricing.
-
-New, independent module.
-Does not modify V5.6, existing database tables,
-historical research or live fixture modules.
-
-Uses VERIFIED historical first-half market totals.
-Historical conditional frequencies are NOT
-calibrated betting probabilities.
-"""
-
 from datetime import date
-
-import pandas as pd
+import math
 import streamlit as st
 
-from starlizard_unified_pricing import (
-    load_table,
-    build_matches,
-    comparable_matches,
-)
-
-
+PAGE_SIZE = 200
+MAX_CANDIDATES = 3000
 MIN_SAMPLE = 30
 
 
-@st.cache_resource(ttl=3600, show_spinner=False)
-def load_market_history(_db):
-    xg = load_table(
-        _db,
-        "historical_xg",
-        "match_id,match_date,competition_id,"
-        "home_ht_goals,away_ht_goals,"
-        "home_goals,away_goals,"
-        "home_ht_xg,away_ht_xg",
-    )
-
-    events = load_table(
-        _db,
-        "historical_match_events",
-        "match_id,stats_data",
-    )
-
-    return build_matches(xg, events)
-
-
-def market_records(matches, attribute):
-    """
-    Only accept internally consistent market records.
-    """
-    result = []
-
-    for match in matches:
-        data = getattr(match, attribute)
-
-        if not data.get("valid"):
-            continue
-
-        first = data.get("first_half")
-        second = data.get("second_half")
-        total = data.get("all")
-
-        if any(x is None for x in (first, second, total)):
-            continue
-
-        result.append({
-            "match": match,
-            "first": int(first),
-            "second": int(second),
-            "total": int(total),
-        })
-
-    return result
-
-
-def select_similar(records, halftime_total, tolerance):
-    """
-    Match the observed first-half market total.
-
-    No fallback to unmatched matches: that would
-    silently remove the requested conditioning.
-    """
-    return [
-        row for row in records
-        if abs(row["first"] - halftime_total) <= tolerance
-    ]
-
-
-def estimate_over(records, line, period):
-    if not records:
+def _num(value):
+    if isinstance(value, bool):
+        return None
+    try:
+        n = float(value)
+        return n if math.isfinite(n) else None
+    except (ValueError, TypeError):
         return None
 
-    wins = sum(
-        row[period] > line
-        for row in records
-    )
 
+def _count(value):
+    n = _num(value)
+    return int(n) if n is not None and n >= 0 and n.is_integer() else None
+
+
+def _market(stats, name):
+    try:
+        periods = stats['overview'][name]
+        out = {}
+        for period in ('all', 'first_half', 'second_half'):
+            h = _count(periods[period]['home'])
+            a = _count(periods[period]['away'])
+            if h is None or a is None:
+                return None
+            out[period] = h + a
+        if out['all'] != out['first_half'] + out['second_half']:
+            return None
+        return out
+    except (KeyError, TypeError, AttributeError):
+        return None
+
+
+def _get_candidates(db, ht_home, ht_away, home_xg, away_xg, tolerance, cutoff):
+    """Read at most MAX_CANDIDATES matching xG rows, no raw event JSON."""
+    candidates = []
+    offset = 0
+    while len(candidates) < MAX_CANDIDATES:
+        limit = min(PAGE_SIZE, MAX_CANDIDATES - len(candidates))
+        q = (db.table('historical_xg')
+             .select('match_id,match_date,home_ht_xg,away_ht_xg')
+             .eq('home_ht_goals', ht_home)
+             .eq('away_ht_goals', ht_away)
+             .gte('home_ht_xg', max(0, home_xg - tolerance))
+             .lte('home_ht_xg', home_xg + tolerance)
+             .gte('away_ht_xg', max(0, away_xg - tolerance))
+             .lte('away_ht_xg', away_xg + tolerance)
+             .lt('match_date', cutoff)
+             .order('match_date', desc=True)
+             .order('match_id')
+             .range(offset, offset + limit - 1))
+        batch = q.execute().data or []
+        if not batch:
+            break
+        candidates.extend(batch)
+        offset += len(batch)
+        if len(batch) < limit:
+            break
+    return candidates
+
+
+def _collect(db, candidates, corner_total, corner_tol, yellow_total, yellow_tol):
+    """Fetch event JSON in bounded chunks and retain only small numeric summaries."""
+    corners, yellows = [], []
+    received = 0
+    for i in range(0, len(candidates), PAGE_SIZE):
+        ids = [str(x['match_id']) for x in candidates[i:i + PAGE_SIZE] if x.get('match_id')]
+        if not ids:
+            continue
+        rows = (db.table('historical_match_events')
+                .select('match_id,stats_data')
+                .in_('match_id', ids)
+                .execute().data or [])
+        received += len(rows)
+        for row in rows:
+            stats = row.get('stats_data') or {}
+            c = _market(stats, 'corner_kicks')
+            if c is not None and abs(c['first_half'] - corner_total) <= corner_tol:
+                corners.append((c['second_half'], c['all']))
+            y = _market(stats, 'yellow_cards')
+            if y is not None and abs(y['first_half'] - yellow_total) <= yellow_tol:
+                yellows.append((y['second_half'], y['all']))
+        del rows
+    return corners, yellows, received
+
+
+def _card(label, records, index, line):
     n = len(records)
-    p = wins / n
-
-    return {
-        "wins": wins,
-        "sample": n,
-        "probability": p,
-        "fair_odds": 1 / p if p > 0 else None,
-    }
-
-
-def compact_market(label, result):
     with st.container(border=True):
-        st.markdown(f"**{label}**")
-
-        if result is None:
-            st.caption("No verified observations")
-            return
-
-        n = result["sample"]
-
+        st.markdown(f'**{label}**')
         if n < MIN_SAMPLE:
-            st.warning(
-                f"Only {n} comparable matches. "
-                "Price withheld."
-            )
+            st.caption(f'{n} matches — price withheld (minimum {MIN_SAMPLE})')
             return
-
+        wins = sum(row[index] > line for row in records)
+        probability = wins / n
         a, b = st.columns(2)
-
-        a.metric(
-            "Historical frequency",
-            f'{result["probability"]:.1%}',
-        )
-
-        b.metric(
-            "Indicative fair odds",
-            (
-                f'{result["fair_odds"]:.2f}'
-                if result["fair_odds"] is not None
-                else "—"
-            ),
-        )
-
-        st.caption(
-            f'{result["wins"]}/{n} historical hits'
-        )
+        a.metric('Historical rate', f'{probability:.1%}')
+        b.metric('Inverse frequency', f'{1 / probability:.2f}' if probability else '—')
+        st.caption(f'{wins}/{n} historical matches')
 
 
-def display_market_section(
-    matches,
-    attribute,
-    heading,
-    first_half_total,
-    tolerance,
-    second_half_lines,
-    full_time_lines,
-):
-    st.subheader(heading)
-
-    valid = market_records(matches, attribute)
-
-    selected = select_similar(
-        valid,
-        first_half_total,
-        tolerance,
-    )
-
-    st.caption(
-        f"{len(selected)} matching historical records "
-        f"from {len(valid)} verified market records."
-    )
-
-    if len(selected) < MIN_SAMPLE:
-        st.warning(
-            "Insufficient matched observations. "
-            "Try widening the first-half tolerance "
-            "or the xG comparison tolerance."
-        )
-
-    st.markdown("**Second-half markets**")
-
-    for line in second_half_lines:
-        result = estimate_over(
-            selected,
-            line,
-            "second",
-        )
-
-        compact_market(
-            f"Over {line:.1f} second-half "
-            + (
-                "corners"
-                if attribute == "corners"
-                else "yellow cards"
-            ),
-            result,
-        )
-
-    st.markdown("**Full-match markets**")
-
-    for line in full_time_lines:
-        result = estimate_over(
-            selected,
-            line,
-            "total",
-        )
-
-        compact_market(
-            f"Over {line:.1f} full-match "
-            + (
-                "corners"
-                if attribute == "corners"
-                else "yellow cards"
-            ),
-            result,
-        )
+def _section(title, records, second_lines, full_lines, unit):
+    st.subheader(title)
+    st.caption(f'{len(records)} verified comparable {unit} records')
+    st.markdown('**Second-half totals**')
+    for line in second_lines:
+        _card(f'Over {line:.1f} second-half {unit}', records, 0, line)
+    st.markdown('**Full-match totals (from halftime)**')
+    for line in full_lines:
+        _card(f'Over {line:.1f} full-match {unit}', records, 1, line)
 
 
 def render_halftime_markets(db):
-    st.header("🦎 V5.7 Halftime Market Pricing")
-
-    st.caption(
-        "Historical comparisons conditioned on "
-        "halftime score, xG, corners and cards."
-    )
-
-    try:
-        with st.spinner("Loading verified historical data..."):
-            matches, rejected = load_market_history(db)
-    except Exception as exc:
-        st.error(
-            f"Could not load historical data: {exc}"
-        )
+    st.header('🦎 V5.7 Halftime Corners & Cards')
+    st.caption('Bounded historical lookup; no full-database download or persistent dataset cache.')
+    c1, c2 = st.columns(2)
+    with c1:
+        hh = st.number_input('Home HT goals', 0, 15, 0, key='v57_hh')
+        hx = st.number_input('Home HT xG', 0.0, 10.0, 0.85, 0.05, key='v57_hx')
+        hc = st.number_input('Home HT corners', 0, 30, 3, key='v57_hc')
+        hy = st.number_input('Home HT yellows', 0, 20, 1, key='v57_hy')
+    with c2:
+        ah = st.number_input('Away HT goals', 0, 15, 1, key='v57_ah')
+        ax = st.number_input('Away HT xG', 0.0, 10.0, 0.35, 0.05, key='v57_ax')
+        ac = st.number_input('Away HT corners', 0, 30, 2, key='v57_ac')
+        ay = st.number_input('Away HT yellows', 0, 20, 2, key='v57_ay')
+    with st.expander('Matching settings'):
+        xt = st.slider('HT xG tolerance', 0.10, 1.00, 0.30, 0.05, key='v57_xt')
+        ct = st.slider('HT corner tolerance', 0, 5, 2, key='v57_ct')
+        yt = st.slider('HT yellow tolerance', 0, 4, 1, key='v57_yt')
+        cutoff = st.date_input('Fixture date', value=date.today(), max_value=date.today(), key='v57_cutoff')
+    st.caption('Corner/card matching uses combined home + away first-half totals, not team-specific splits.')
+    if not st.button('Calculate historical market rates', type='primary', use_container_width=True, key='v57_run'):
+        st.info('Enter halftime observations, then tap Calculate. No historical data is loaded until then.')
         return
-
-    st.caption(
-        f"{len(matches):,} score-valid historical matches."
-    )
-
-    st.markdown("**Halftime score**")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        home_goals = st.number_input(
-            "Home HT goals",
-            min_value=0,
-            max_value=15,
-            value=0,
-            key="v57_hg",
-        )
-
-        home_xg = st.number_input(
-            "Home HT xG",
-            min_value=0.0,
-            max_value=10.0,
-            value=0.85,
-            step=0.05,
-            key="v57_hxg",
-        )
-
-    with c2:
-        away_goals = st.number_input(
-            "Away HT goals",
-            min_value=0,
-            max_value=15,
-            value=1,
-            key="v57_ag",
-        )
-
-        away_xg = st.number_input(
-            "Away HT xG",
-            min_value=0.0,
-            max_value=10.0,
-            value=0.35,
-            step=0.05,
-            key="v57_axg",
-        )
-
-    st.markdown("**Halftime corners**")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        home_corners = st.number_input(
-            "Home corners",
-            min_value=0,
-            max_value=30,
-            value=3,
-            key="v57_hc",
-        )
-
-    with c2:
-        away_corners = st.number_input(
-            "Away corners",
-            min_value=0,
-            max_value=30,
-            value=2,
-            key="v57_ac",
-        )
-
-    st.markdown("**Halftime yellow cards**")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        home_yellows = st.number_input(
-            "Home yellows",
-            min_value=0,
-            max_value=20,
-            value=1,
-            key="v57_hy",
-        )
-
-    with c2:
-        away_yellows = st.number_input(
-            "Away yellows",
-            min_value=0,
-            max_value=20,
-            value=2,
-            key="v57_ay",
-        )
-
-    with st.expander("Historical matching settings"):
-        xg_tolerance = st.slider(
-            "Halftime xG tolerance",
-            min_value=0.10,
-            max_value=1.00,
-            value=0.30,
-            step=0.05,
-            key="v57_xgt",
-        )
-
-        corner_tolerance = st.slider(
-            "Halftime corner tolerance",
-            min_value=0,
-            max_value=5,
-            value=2,
-            key="v57_ct",
-        )
-
-        yellow_tolerance = st.slider(
-            "Halftime yellow-card tolerance",
-            min_value=0,
-            max_value=4,
-            value=1,
-            key="v57_yt",
-        )
-
-        fixture_date = st.date_input(
-            "Fixture date",
-            value=date.today(),
-            key="v57_date",
-        )
-
-    sample = comparable_matches(
-        matches,
-        ht_home=int(home_goals),
-        ht_away=int(away_goals),
-        home_xg=float(home_xg),
-        away_xg=float(away_xg),
-        tolerance=float(xg_tolerance),
-        before_date=fixture_date.isoformat(),
-    )
-
-    st.divider()
-
-    st.metric(
-        "Score and xG comparables",
-        len(sample),
-    )
-
-    st.caption(
-        "Corner and card filters are applied "
-        "separately to this sample. "
-        "This avoids unnecessarily filtering "
-        "corner prices by yellow cards, "
-        "or card prices by corners."
-    )
-
-    display_market_section(
-        matches=sample,
-        attribute="corners",
-        heading="🚩 Corner fair prices",
-        first_half_total=(
-            int(home_corners) + int(away_corners)
-        ),
-        tolerance=corner_tolerance,
-        second_half_lines=[3.5, 4.5, 5.5, 6.5],
-        full_time_lines=[7.5, 8.5, 9.5, 10.5, 11.5],
-    )
-
-    st.divider()
-
-    display_market_section(
-        matches=sample,
-        attribute="yellows",
-        heading="🟨 Yellow-card fair prices",
-        first_half_total=(
-            int(home_yellows) + int(away_yellows)
-        ),
-        tolerance=yellow_tolerance,
-        second_half_lines=[1.5, 2.5, 3.5, 4.5],
-        full_time_lines=[3.5, 4.5, 5.5, 6.5],
-    )
-
-    st.divider()
-
-    st.info(
-        "These are historical conditional frequencies, "
-        "not validated live betting probabilities. "
-        "No bookmaker margin, referee adjustment, "
-        "team-specific corner/card adjustment, "
-        "or market-odds comparison is applied."
-    )
+    try:
+        with st.spinner('Querying comparable matches in bounded batches...'):
+            candidates = _get_candidates(db, int(hh), int(ah), float(hx), float(ax), float(xt), cutoff.isoformat())
+            corners, yellows, received = _collect(db, candidates, int(hc + ac), int(ct), int(hy + ay), int(yt))
+    except Exception as exc:
+        st.error(f'Historical lookup failed: {type(exc).__name__}: {exc}')
+        return
+    st.caption(f'{len(candidates)} score/xG candidates; {received} event records fetched. Maximum {MAX_CANDIDATES} candidates; most recent first.')
+    if len(candidates) == MAX_CANDIDATES:
+        st.warning('Candidate cap reached. Results reflect only the latest matching records, not the entire history.')
+    _section('🚩 Corners', corners, [3.5, 4.5, 5.5, 6.5], [7.5, 8.5, 9.5, 10.5, 11.5], 'corners')
+    _section('🟨 Yellow cards', yellows, [1.5, 2.5, 3.5, 4.5], [3.5, 4.5, 5.5, 6.5], 'yellow cards')
+    st.info('Descriptive historical frequencies only. Not validated live probabilities, bookmaker card points, or demonstrated betting value.')
