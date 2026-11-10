@@ -1,15 +1,8 @@
 
-"""PRO STARLIZARD V5 — Unified Pricing and Backtesting.
-
-Read-only Supabase.
-Existing pricing engines are not modified.
-Chronological, out-of-sample evaluation.
-"""
-
+"""PRO STARLIZARD V5.1: halftime-first dashboard, read-only historical pricing."""
 import os
 import math
 from datetime import date
-from html import escape
 
 import numpy as np
 import pandas as pd
@@ -17,34 +10,23 @@ import streamlit as st
 from supabase import create_client
 
 from starlizard_pricing_engine import (
-    load_historical_xg,
-    clean_history,
-    fit_ratings,
-    price_fixture,
-    asian_market,
+    fit_ratings, price_fixture, asian_market, load_historical_xg
 )
-
 from starlizard_unified_pricing import (
-    load_table,
-    build_matches,
-    comparable_matches,
-    price_market,
-    home_scores_second_half,
-    away_scores_second_half,
-    home_wins_second_half,
-    over_goals,
-    market_over,
+    load_table, build_matches, comparable_matches,
+    price_market, home_scores_second_half,
+    away_scores_second_half, home_wins_second_half,
+    over_goals, market_over
 )
-
 
 st.set_page_config(
     page_title="PRO STARLIZARD",
     page_icon="🦎",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed"
 )
 
-LEAGUE_NAMES = {
+LEAGUES = {
     "comp_3039": "Premier League",
     "comp_8321": "Championship",
     "comp_4643": "Bundesliga",
@@ -53,11 +35,10 @@ LEAGUE_NAMES = {
 }
 
 
-def league_label(cid):
+def label(cid):
     return (
-        f"{LEAGUE_NAMES[cid]} ({cid})"
-        if cid in LEAGUE_NAMES
-        else str(cid)
+        f"{LEAGUES[cid]} ({cid})"
+        if cid in LEAGUES else str(cid)
     )
 
 
@@ -65,141 +46,210 @@ st.markdown(
     """
 <style>
 .block-container {
-    max-width: 1050px;
-    padding: 0.8rem 0.6rem 2rem;
+    max-width:1050px;
+    padding:.8rem .6rem 2rem;
 }
 h1 {font-size:1.5rem!important}
 h2,h3 {font-size:1.1rem!important}
-.sl-table {
-    width:100%;
-    table-layout:fixed;
-    border-collapse:collapse;
-    font-size:12px;
-}
-.sl-table th,.sl-table td {
-    padding:7px 3px;
-    border-bottom:1px solid rgba(128,128,128,.25);
-    overflow-wrap:break-word;
-}
-.sl-table th:first-child,
-.sl-table td:first-child {
-    width:51%;
-    text-align:left;
-}
-.sl-table th:not(:first-child),
-.sl-table td:not(:first-child) {
-    text-align:right;
-}
-.sl-section td {
-    font-weight:700;
-    background:rgba(128,128,128,.10);
-}
 </style>
 """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
 
 
 @st.cache_resource
 def database():
-    url = (
-        st.secrets.get("SUPABASE_URL")
-        or os.getenv("SUPABASE_URL")
-    )
-    key = (
-        st.secrets.get("SUPABASE_SECRET_KEY")
-        or os.getenv("SUPABASE_SECRET_KEY")
-    )
+    url = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+    key = st.secrets.get("SUPABASE_SECRET_KEY") or os.getenv("SUPABASE_SECRET_KEY")
     if not url or not key:
         raise RuntimeError("Missing Supabase credentials")
     return create_client(url, key)
 
 
 @st.cache_data(ttl=3600)
-def fixture_catalogue():
+def catalogue():
     rows = load_table(
-        database(),
-        "historical_xg",
-        "match_id,competition_id,match_date,"
-        "home_team,away_team",
+        database(), "historical_xg",
+        "match_id,competition_id,match_date,home_team,away_team"
     )
     result = {}
     for row in rows:
         cid = str(row.get("competition_id") or "").strip()
-        h = str(row.get("home_team") or "").strip()
-        a = str(row.get("away_team") or "").strip()
-        if cid and h and a and h != a:
-            result.setdefault(cid, set()).update((h, a))
+        home = str(row.get("home_team") or "").strip()
+        away = str(row.get("away_team") or "").strip()
+        if cid and home and away and home != away:
+            result.setdefault(cid, set()).update((home, away))
     return {
-        cid: sorted(teams)
-        for cid, teams in sorted(result.items())
+        key: sorted(value)
+        for key, value in sorted(result.items())
     }
 
 
 @st.cache_data(ttl=3600)
-def trained_ratings(cid, cutoff, half_life, ridge):
-    history = load_historical_xg(
-        database(), cid, cutoff
-    )
+def ratings_for(cid, cutoff, half_life, ridge):
+    history = load_historical_xg(database(), cid, cutoff)
     return fit_ratings(
-        history,
-        cid,
-        cutoff,
+        history, cid, cutoff,
         half_life_days=half_life,
         ridge=ridge,
-        minimum_matches=60,
+        minimum_matches=60
     )
 
 
-@st.cache_data(ttl=3600)
-def historical_matches():
+@st.cache_data(
+    ttl=3600,
+    show_spinner="Loading historical halftime records..."
+)
+def halftime_data():
     xg = load_table(
         database(),
         "historical_xg",
-        "match_id,match_date,competition_id,"
-        "home_ht_goals,away_ht_goals,"
-        "home_goals,away_goals,"
-        "home_ht_xg,away_ht_xg",
+        "match_id,match_date,competition_id,home_team,away_team,"
+        "home_ht_goals,away_ht_goals,home_goals,away_goals,"
+        "home_ht_xg,away_ht_xg"
     )
+
     events = load_table(
         database(),
         "historical_match_events",
-        "match_id,stats_data",
+        "match_id,stats_data,timeline_data"
     )
-    return build_matches(xg, events)
+
+    matches, rejected = build_matches(xg, events)
+
+    metadata = {
+        str(row["match_id"]): row
+        for row in xg if row.get("match_id")
+    }
+
+    timelines = {
+        str(row["match_id"]): row.get("timeline_data")
+        for row in events if row.get("match_id")
+    }
+
+    return matches, rejected, metadata, timelines
 
 
-def compact_table(rows):
-    parts = [
-        '<table class="sl-table"><thead><tr>',
-        "<th>Market</th><th>Prob.</th>",
-        "<th>Fair</th><th>N</th>",
-        "</tr></thead><tbody>",
-    ]
-    for label, probability, fair, sample in rows:
-        if probability is None and fair is None and sample is None:
-            parts.append(
-                '<tr class="sl-section"><td colspan="4">'
-                + escape(str(label))
-                + "</td></tr>"
-            )
+def number_int(value):
+    if isinstance(value, bool):
+        return None
+    try:
+        number = float(value)
+        if math.isfinite(number) and number >= 0 and number.is_integer():
+            return int(number)
+    except (TypeError, ValueError):
+        pass
+    return None
+
+
+def parse_goal_sequence(match, meta, timeline):
+    """Verify goal attribution and find the first second-half scorer."""
+
+    if not isinstance(timeline, dict):
+        return None
+
+    if timeline.get("coverage") != "full":
+        return None
+
+    events = timeline.get("events")
+    if not isinstance(events, list):
+        return None
+
+    if not all(isinstance(event, dict) for event in events):
+        return None
+
+    home = str(meta.get("home_team") or "")
+    away = str(meta.get("away_team") or "")
+
+    if not home or not away or home == away:
+        return None
+
+    counted = {
+        "first_half": [0, 0],
+        "second_half": [0, 0]
+    }
+    second = []
+
+    for event in events:
+        kind = event.get("type")
+
+        if kind not in ("goal", "penalty_scored", "own_goal"):
             continue
 
-        p = "—" if probability is None else f"{probability:.1%}"
-        f = "—" if fair is None else f"{fair:.2f}"
-        n = "—" if sample is None else str(sample)
+        period = event.get("period")
+        if period not in counted:
+            return None
 
-        parts.append(
-            f"<tr><td>{escape(str(label))}</td>"
-            f"<td>{p}</td><td><b>{f}</b></td>"
-            f"<td>{n}</td></tr>"
+        team = event.get("team")
+        team_name = team.get("name") if isinstance(team, dict) else None
+
+        if team_name not in (home, away):
+            return None
+
+        scorer = 0 if team_name == home else 1
+
+        if kind == "own_goal":
+            scorer = 1 - scorer
+
+        minute = number_int(event.get("minute"))
+        extra = number_int(
+            event.get("extra_time", 0)
+            if event.get("extra_time") is not None else 0
         )
 
-    parts.append("</tbody></table>")
-    st.markdown("\n".join(parts), unsafe_allow_html=True)
+        if minute is None or extra is None:
+            return None
+
+        counted[period][scorer] += 1
+
+        if period == "second_half":
+            second.append((minute, extra, scorer))
+
+    if counted["first_half"] != [match.ht_home, match.ht_away]:
+        return None
+
+    if counted["second_half"] != [
+        match.ft_home - match.ht_home,
+        match.ft_away - match.ht_away
+    ]:
+        return None
+
+    if not second:
+        return "none"
+
+    second.sort(key=lambda item: (item[0], item[1]))
+    first = second[0]
+
+    # Reject ambiguous first-goal ordering.
+    if any(
+        event[:2] == first[:2] and event[2] != first[2]
+        for event in second[1:]
+    ):
+        return None
+
+    return "home" if first[2] == 0 else "away"
 
 
-def historical_market_rows(matches):
+def next_goal_rates(sample, metadata, timelines):
+    counts = {"home": 0, "away": 0, "none": 0}
+    invalid = 0
+
+    for match in sample:
+        outcome = parse_goal_sequence(
+            match,
+            metadata.get(match.match_id, {}),
+            timelines.get(match.match_id)
+        )
+
+        if outcome is None:
+            invalid += 1
+        else:
+            counts[outcome] += 1
+
+    return counts, invalid
+
+
+def market_rows(sample):
     groups = [
         (
             "⚽ Second-half goals",
@@ -210,222 +260,207 @@ def historical_market_rows(matches):
                 ("Over 0.5 goals 2H", over_goals(0.5)),
                 ("Over 1.5 goals 2H", over_goals(1.5)),
                 ("Over 2.5 goals 2H", over_goals(2.5)),
-            ],
+            ]
         ),
         (
             "🚩 Corners",
             [
-                ("Over 3.5 corners 2H", market_over("corners", "second_half", 3.5)),
-                ("Over 4.5 corners 2H", market_over("corners", "second_half", 4.5)),
-                ("Over 5.5 corners 2H", market_over("corners", "second_half", 5.5)),
-                ("Over 8.5 corners FT", market_over("corners", "all", 8.5)),
-                ("Over 9.5 corners FT", market_over("corners", "all", 9.5)),
-            ],
+                (
+                    f"Over {line:.1f} corners 2H",
+                    market_over("corners", "second_half", line)
+                )
+                for line in (3.5, 4.5, 5.5)
+            ] + [
+                (
+                    f"Over {line:.1f} corners FT",
+                    market_over("corners", "all", line)
+                )
+                for line in (8.5, 9.5)
+            ]
         ),
         (
             "🟨 Yellow cards",
             [
-                ("Over 1.5 yellows 2H", market_over("yellows", "second_half", 1.5)),
-                ("Over 2.5 yellows 2H", market_over("yellows", "second_half", 2.5)),
-                ("Over 3.5 yellows 2H", market_over("yellows", "second_half", 3.5)),
-                ("Over 3.5 yellows FT", market_over("yellows", "all", 3.5)),
-                ("Over 4.5 yellows FT", market_over("yellows", "all", 4.5)),
-            ],
-        ),
+                (
+                    f"Over {line:.1f} yellows 2H",
+                    market_over("yellows", "second_half", line)
+                )
+                for line in (1.5, 2.5, 3.5)
+            ] + [
+                (
+                    f"Over {line:.1f} yellows FT",
+                    market_over("yellows", "all", line)
+                )
+                for line in (3.5, 4.5)
+            ]
+        )
     ]
 
-    output = []
     for heading, markets in groups:
-        output.append((heading, None, None, None))
-        for label, predicate in markets:
-            result = price_market(matches, predicate)
-            if result is None:
-                output.append((label, None, None, 0))
-            else:
-                if not result["sufficient_sample"]:
-                    label += " ⚠️"
-                output.append((
-                    label,
-                    result["probability"],
-                    result["fair_odds"],
-                    result["sample"],
-                ))
-    return output
+        st.markdown(f"**{heading}**")
+        rows = []
+
+        for name, predicate in markets:
+            result = price_market(sample, predicate)
+
+            rows.append({
+                "Market": name + (
+                    " ⚠️"
+                    if result and not result["sufficient_sample"]
+                    else ""
+                ),
+                "Probability": (
+                    f"{result['probability']:.1%}" if result else "—"
+                ),
+                "Fair odds": (
+                    f"{result['fair_odds']:.2f}" if result else "—"
+                ),
+                "N": result["sample"] if result else 0
+            })
+
+        st.dataframe(
+            pd.DataFrame(rows),
+            hide_index=True,
+            use_container_width=True
+        )
 
 
 # ============================================================
-# BACKTEST ENGINE
+# EXISTING PRE-MATCH BACKTEST
 # ============================================================
 
-@st.cache_data(ttl=3600, show_spinner="Loading backtest records...")
-def backtest_history():
+@st.cache_data(ttl=3600)
+def test_data():
     rows = load_table(
         database(),
         "historical_xg",
-        "match_id,competition_id,match_date,"
-        "home_team,away_team,home_xg,away_xg,"
-        "home_goals,away_goals",
+        "match_id,competition_id,match_date,home_team,away_team,"
+        "home_xg,away_xg,home_goals,away_goals"
     )
 
-    df = pd.DataFrame(rows)
+    data = pd.DataFrame(rows)
+    original = len(data)
 
-    if df.empty:
-        return pd.DataFrame(), {
-            "loaded": 0,
-            "eligible": 0,
-        }
+    if data.empty:
+        return data, original
 
-    loaded = len(df)
-
-    required = [
+    columns = [
         "match_id", "competition_id", "match_date",
         "home_team", "away_team", "home_xg", "away_xg",
-        "home_goals", "away_goals",
+        "home_goals", "away_goals"
     ]
 
-    df = df.dropna(subset=required).copy()
-
-    df["match_date"] = pd.to_datetime(
-        df["match_date"], utc=True, errors="coerce"
+    data = data.dropna(subset=columns).copy()
+    data["match_date"] = pd.to_datetime(
+        data["match_date"], errors="coerce", utc=True
     )
 
-    for col in [
-        "home_xg", "away_xg",
-        "home_goals", "away_goals",
-    ]:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
+    for col in ("home_xg", "away_xg", "home_goals", "away_goals"):
+        data[col] = pd.to_numeric(data[col], errors="coerce")
 
-    df = df.dropna(subset=required)
+    data = data.dropna(subset=columns)
 
-    for col in ["home_team", "away_team", "competition_id"]:
-        df[col] = df[col].astype(str).str.strip()
+    for col in ("home_team", "away_team", "competition_id"):
+        data[col] = data[col].astype(str).str.strip()
 
-    df = df[
-        (df.home_team != "")
-        & (df.away_team != "")
-        & (df.home_team != df.away_team)
-        & (df.competition_id != "")
-        & (df.home_xg >= 0)
-        & (df.away_xg >= 0)
-        & np.isfinite(df.home_xg)
-        & np.isfinite(df.away_xg)
-        & np.isfinite(df.home_goals)
-        & np.isfinite(df.away_goals)
-        & (df.home_goals >= 0)
-        & (df.away_goals >= 0)
-        & (df.home_goals % 1 == 0)
-        & (df.away_goals % 1 == 0)
-    ].copy()
+    data = data[
+        (data.home_team != "")
+        & (data.away_team != "")
+        & (data.home_team != data.away_team)
+        & (data.competition_id != "")
+    ]
 
-    df = (
-        df.drop_duplicates("match_id", keep="last")
+    for col in ("home_xg", "away_xg", "home_goals", "away_goals"):
+        data = data[
+            np.isfinite(data[col]) & (data[col] >= 0)
+        ]
+
+    for col in ("home_goals", "away_goals"):
+        data = data[data[col] % 1 == 0]
+
+    return (
+        data.drop_duplicates("match_id")
         .sort_values(["competition_id", "match_date", "match_id"])
-        .reset_index(drop=True)
+        .reset_index(drop=True),
+        original
     )
 
-    return df, {
-        "loaded": loaded,
-        "eligible": len(df),
-    }
 
-
-def binary_brier(probabilities, outcomes):
+def brier(probabilities, outcomes):
     return float(np.mean(
         (np.asarray(probabilities) - np.asarray(outcomes)) ** 2
     ))
 
 
-def binary_logloss(probabilities, outcomes):
-    p = np.clip(np.asarray(probabilities), 1e-12, 1 - 1e-12)
-    y = np.asarray(outcomes)
-    return float(np.mean(
-        -y * np.log(p) - (1 - y) * np.log(1 - p)
-    ))
+def summary(frame):
+    def multi(prefix):
+        probabilities = frame[
+            [
+                f"{prefix}_home",
+                f"{prefix}_draw",
+                f"{prefix}_away"
+            ]
+        ].to_numpy(float)
 
+        outcomes = frame.outcome.to_numpy(int)
+        actual = np.eye(3)[outcomes]
 
-def multiclass_scores(frame, prefix):
-    probs = frame[
-        [f"{prefix}_home", f"{prefix}_draw", f"{prefix}_away"]
-    ].to_numpy(dtype=float)
+        brier_score = float(np.mean(
+            np.sum((probabilities - actual) ** 2, axis=1)
+        ))
 
-    outcomes = frame["outcome"].to_numpy(dtype=int)
-    actual = np.eye(3)[outcomes]
+        log_loss = float(np.mean(
+            -np.log(
+                np.clip(
+                    probabilities[np.arange(len(probabilities)), outcomes],
+                    1e-12, 1
+                )
+            )
+        ))
 
-    brier = float(np.mean(np.sum((probs - actual) ** 2, axis=1)))
-    logloss = float(np.mean(
-        -np.log(np.clip(probs[np.arange(len(probs)), outcomes], 1e-12, 1))
-    ))
-    return brier, logloss
+        return brier_score, log_loss
 
-
-def score_summary(frame):
-    if frame.empty:
-        return None
-
-    model_brier, model_log = multiclass_scores(frame, "model")
-    base_brier, base_log = multiclass_scores(frame, "base")
+    model_brier, model_log = multi("model")
+    base_brier, base_log = multi("base")
 
     return {
         "Matches": len(frame),
         "1X2 Brier": round(model_brier, 4),
         "Baseline Brier": round(base_brier, 4),
-        "1X2 Log loss": round(model_log, 4),
+        "1X2 log loss": round(model_log, 4),
         "Baseline log loss": round(base_log, 4),
-        "O2.5 Brier": round(
-            binary_brier(frame.model_over, frame.actual_over), 4
+        "Over 2.5 Brier": round(
+            brier(frame.model_over, frame.actual_over), 4
         ),
-        "Baseline O2.5": round(
-            binary_brier(frame.base_over, frame.actual_over), 4
+        "Baseline Over 2.5": round(
+            brier(frame.base_over, frame.actual_over), 4
         ),
         "BTTS Brier": round(
-            binary_brier(frame.model_btts, frame.actual_btts), 4
+            brier(frame.model_btts, frame.actual_btts), 4
         ),
         "Baseline BTTS": round(
-            binary_brier(frame.base_btts, frame.actual_btts), 4
-        ),
-        "O2.5 Log loss": round(
-            binary_logloss(frame.model_over, frame.actual_over), 4
-        ),
-        "BTTS Log loss": round(
-            binary_logloss(frame.model_btts, frame.actual_btts), 4
-        ),
+            brier(frame.base_btts, frame.actual_btts), 4
+        )
     }
 
 
-def run_backtest(df, periods=6, half_life=180, ridge=10):
-    """Expanding-history monthly backtest.
-
-    For each competition, use its last `periods` complete
-    calendar months as test windows. Ratings and baseline
-    frequencies use matches strictly before each window.
-    """
+def run_test(data, months):
+    today = pd.Timestamp.now(tz="UTC").to_period("M")
+    last = today - 1
 
     predictions = []
     audit = []
+    competitions = sorted(data.competition_id.unique())
+    bar = st.progress(0)
 
-    if df.empty:
-        return pd.DataFrame(), pd.DataFrame()
-
-    today = pd.Timestamp.now(tz="UTC").normalize()
-    current_month = today.to_period("M")
-
-    # Only complete historical calendar months are tested.
-    last_complete = current_month - 1
-
-    competitions = sorted(df.competition_id.unique())
-
-    progress = st.progress(0, text="Running backtest...")
-
-    for ci, cid in enumerate(competitions):
-        league = df[df.competition_id == cid].copy()
-
-        total_predicted = 0
-        skipped_unseen = 0
-        skipped_training = 0
+    for index, cid in enumerate(competitions):
+        league = data[data.competition_id == cid]
         attempted = 0
+        insufficient = 0
+        skipped = 0
 
-        for step in range(periods):
-            month = last_complete - (periods - 1 - step)
+        for step in range(months):
+            month = last - (months - 1 - step)
 
             cutoff = pd.Timestamp(
                 month.start_time
@@ -435,11 +470,11 @@ def run_backtest(df, periods=6, half_life=180, ridge=10):
                 (month + 1).start_time
             ).tz_localize("UTC")
 
-            train = league[league.match_date < cutoff].copy()
+            train = league[league.match_date < cutoff]
             test = league[
                 (league.match_date >= cutoff)
                 & (league.match_date < end)
-            ].copy()
+            ]
 
             if test.empty:
                 continue
@@ -447,73 +482,60 @@ def run_backtest(df, periods=6, half_life=180, ridge=10):
             attempted += len(test)
 
             if len(train) < 60:
-                skipped_training += len(test)
+                insufficient += len(test)
                 continue
 
             before = cutoff.strftime("%Y-%m-%d")
 
-            training_columns = [
-                "match_id", "competition_id", "match_date",
-                "home_team", "away_team", "home_xg", "away_xg",
-            ]
-
             try:
                 ratings = fit_ratings(
-                    train[training_columns],
+                    train[
+                        [
+                            "match_id", "competition_id", "match_date",
+                            "home_team", "away_team", "home_xg", "away_xg"
+                        ]
+                    ],
                     cid,
                     before,
-                    half_life_days=half_life,
-                    ridge=ridge,
-                    minimum_matches=60,
+                    half_life_days=180,
+                    ridge=10,
+                    minimum_matches=60
                 )
             except (ValueError, np.linalg.LinAlgError):
-                skipped_training += len(test)
+                insufficient += len(test)
                 continue
-
-            # Smoothed historical-frequency baseline.
-            # Only earlier matches in the same competition.
-            home_wins = int(
-                (train.home_goals > train.away_goals).sum()
-            )
-            draws = int(
-                (train.home_goals == train.away_goals).sum()
-            )
-            away_wins = int(
-                (train.home_goals < train.away_goals).sum()
-            )
 
             n = len(train)
 
-            base_home = (home_wins + 1) / (n + 3)
-            base_draw = (draws + 1) / (n + 3)
-            base_away = (away_wins + 1) / (n + 3)
+            base = [
+                ((train.home_goals > train.away_goals).sum() + 1) / (n + 3),
+                ((train.home_goals == train.away_goals).sum() + 1) / (n + 3),
+                ((train.home_goals < train.away_goals).sum() + 1) / (n + 3)
+            ]
 
-            base_over = float(
-                ((train.home_goals + train.away_goals >= 3).sum() + 1)
-                / (n + 2)
-            )
+            base_over = (
+                (train.home_goals + train.away_goals >= 3).sum() + 1
+            ) / (n + 2)
 
-            base_btts = float(
-                (((train.home_goals > 0) & (train.away_goals > 0)).sum() + 1)
-                / (n + 2)
-            )
-
-            known = set(ratings.teams)
+            base_btts = (
+                ((train.home_goals > 0) & (train.away_goals > 0)).sum() + 1
+            ) / (n + 2)
 
             for row in test.itertuples(index=False):
-                if row.home_team not in known or row.away_team not in known:
-                    skipped_unseen += 1
+                if (
+                    row.home_team not in ratings.teams
+                    or row.away_team not in ratings.teams
+                ):
+                    skipped += 1
                     continue
 
                 try:
-                    priced = price_fixture(
+                    probabilities = price_fixture(
                         ratings, row.home_team, row.away_team
-                    )
+                    )["probabilities"]
                 except (ValueError, OverflowError):
-                    skipped_unseen += 1
+                    skipped += 1
                     continue
-
-                p = priced["probabilities"]
 
                 outcome = (
                     0 if row.home_goals > row.away_goals
@@ -522,163 +544,287 @@ def run_backtest(df, periods=6, half_life=180, ridge=10):
                 )
 
                 predictions.append({
-                    "competition_id": cid,
-                    "league": league_label(cid),
-                    "month": str(month),
+                    "League": label(cid),
                     "match_id": row.match_id,
-                    "match_date": row.match_date,
-                    "home_team": row.home_team,
-                    "away_team": row.away_team,
+                    "month": str(month),
                     "outcome": outcome,
-                    "model_home": p["home"],
-                    "model_draw": p["draw"],
-                    "model_away": p["away"],
-                    "base_home": base_home,
-                    "base_draw": base_draw,
-                    "base_away": base_away,
-                    "model_over": p["over_2_5"],
+                    "model_home": probabilities["home"],
+                    "model_draw": probabilities["draw"],
+                    "model_away": probabilities["away"],
+                    "base_home": base[0],
+                    "base_draw": base[1],
+                    "base_away": base[2],
+                    "model_over": probabilities["over_2_5"],
                     "base_over": base_over,
                     "actual_over": int(
                         row.home_goals + row.away_goals >= 3
                     ),
-                    "model_btts": p["btts_yes"],
+                    "model_btts": probabilities["btts_yes"],
                     "base_btts": base_btts,
                     "actual_btts": int(
                         row.home_goals > 0 and row.away_goals > 0
-                    ),
-                    "training_matches": ratings.matches,
+                    )
                 })
 
-                total_predicted += 1
-
         audit.append({
-            "League": league_label(cid),
-            "Eligible in test windows": attempted,
-            "Predicted": total_predicted,
-            "Insufficient training": skipped_training,
-            "Unseen teams / pricing failures": skipped_unseen,
+            "League": label(cid),
+            "Test window matches": attempted,
+            "Insufficient training": insufficient,
+            "Unseen/pricing failures": skipped
         })
 
-        progress.progress(
-            (ci + 1) / len(competitions),
-            text=f"Checked {ci + 1}/{len(competitions)} leagues",
-        )
+        bar.progress((index + 1) / len(competitions))
 
-    progress.empty()
-
+    bar.empty()
     return pd.DataFrame(predictions), pd.DataFrame(audit)
 
 
-def calibration_table(predictions, probability_col, outcome_col):
-    rows = []
-
-    for low in np.arange(0, 1, 0.1):
-        high = low + 0.1
-
-        if high >= 1:
-            part = predictions[
-                (predictions[probability_col] >= low)
-                & (predictions[probability_col] <= high)
-            ]
-        else:
-            part = predictions[
-                (predictions[probability_col] >= low)
-                & (predictions[probability_col] < high)
-            ]
-
-        if part.empty:
-            continue
-
-        rows.append({
-            "Predicted band": f"{low:.0%}–{high:.0%}",
-            "Matches": len(part),
-            "Average prediction": round(
-                float(part[probability_col].mean()), 3
-            ),
-            "Actual frequency": round(
-                float(part[outcome_col].mean()), 3
-            ),
-        })
-
-    return pd.DataFrame(rows)
-
-
 # ============================================================
-# DASHBOARD
+# MAIN DASHBOARD — HALFTIME FIRST
 # ============================================================
 
 st.title("🦎 PRO STARLIZARD")
-st.caption("Unified fixture pricing | V5")
+st.caption("Halftime-first unified pricing | V5.1")
 
-tab_pre, tab_ht, tab_test = st.tabs([
-    "⚽ Pre-match",
+tab_ht, tab_pre, tab_test = st.tabs([
     "⏱️ Halftime",
-    "📊 Backtest",
+    "⚽ Pre-match",
+    "📊 Backtest"
 ])
 
 
-with tab_pre:
-    st.subheader("Choose fixture")
+with tab_ht:
+    st.subheader("Halftime pricing — main dashboard")
 
     try:
-        catalogue = fixture_catalogue()
+        matches, rejected, metadata, timelines = halftime_data()
     except Exception as exc:
-        st.error(f"Fixture catalogue failed: {exc}")
-        catalogue = {}
+        st.error(f"Historical data failed: {exc}")
+        matches = []
 
-    if catalogue:
-        competition = st.selectbox(
-            "League",
-            list(catalogue),
-            format_func=league_label,
-            key="pre_comp",
+    if matches:
+        st.caption(
+            f"{len(matches):,} score-valid historical matches loaded"
         )
 
-        available = catalogue[competition]
+        c1, c2 = st.columns(2)
 
-        if len(available) >= 2:
+        with c1:
+            home_name = st.text_input(
+                "Home team label", "Home", key="ht_home_name"
+            )
+
+        with c2:
+            away_name = st.text_input(
+                "Away team label", "Away", key="ht_away_name"
+            )
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            hh = st.number_input(
+                f"{home_name} HT goals",
+                0, 10, 0, key="ht_home_goals"
+            )
+            hx = st.number_input(
+                f"{home_name} HT xG",
+                0.0, 10.0, 0.85, 0.05,
+                key="ht_home_xg"
+            )
+
+        with c2:
+            ah = st.number_input(
+                f"{away_name} HT goals",
+                0, 10, 1, key="ht_away_goals"
+            )
+            ax = st.number_input(
+                f"{away_name} HT xG",
+                0.0, 10.0, 0.35, 0.05,
+                key="ht_away_xg"
+            )
+
+        with st.expander("Historical filters"):
+            tolerance = st.slider(
+                "HT xG tolerance",
+                0.10, 1.00, 0.30, 0.05,
+                key="ht_tolerance"
+            )
+
+            league_filter = st.selectbox(
+                "League scope",
+                ["All leagues"] + sorted({
+                    match.competition_id for match in matches
+                }),
+                format_func=lambda value: (
+                    value if value == "All leagues" else label(value)
+                )
+            )
+
+        sample = comparable_matches(
+            matches,
+            int(hh),
+            int(ah),
+            float(hx),
+            float(ax),
+            tolerance=float(tolerance),
+            before_date=date.today().isoformat(),
+            competition_id=(
+                None if league_filter == "All leagues"
+                else league_filter
+            )
+        )
+
+        st.markdown(
+            f"**{home_name} {hh}–{ah} {away_name}** · "
+            f"{len(sample)} comparable matches"
+        )
+
+        if len(sample) < 100:
+            st.warning("Small historical sample. Prices may be unstable.")
+
+        st.subheader("🥅 First goal after halftime")
+
+        counts, invalid = next_goal_rates(
+            sample, metadata, timelines
+        )
+
+        n = sum(counts.values())
+
+        if n:
+            rows = []
+
+            for outcome, display in [
+                ("home", f"{home_name} scores next"),
+                ("away", f"{away_name} scores next"),
+                ("none", "No second-half goal")
+            ]:
+                probability = counts[outcome] / n
+
+                rows.append({
+                    "Outcome": display,
+                    "Probability": f"{probability:.1%}",
+                    "Fair odds": (
+                        f"{1 / probability:.2f}"
+                        if probability else "—"
+                    ),
+                    "Count": counts[outcome]
+                })
+
+            st.dataframe(
+                pd.DataFrame(rows),
+                hide_index=True,
+                use_container_width=True
+            )
+
+            st.caption(
+                f"{n} verified goal sequences; "
+                f"{invalid} excluded for missing, inconsistent "
+                "or ambiguous timelines. "
+                "Three outcomes total 100%."
+            )
+
+            if n < 100:
+                st.warning(
+                    "Next-goal sample below 100 verified sequences."
+                )
+
+            if hh != ah:
+                trailing = "home" if hh < ah else "away"
+                trailing_xg = hx if trailing == "home" else ax
+
+                if trailing_xg >= 0.20:
+                    probability = counts[trailing] / n
+
+                    st.info(
+                        "Automatic flag: trailing team has "
+                        f"HT xG {trailing_xg:.2f} (≥ 0.20). "
+                        "In this comparable sample, the trailing "
+                        "team scored the first second-half goal "
+                        f"{counts[trailing]}/{n} times "
+                        f"({probability:.1%}). "
+                        "This is a historical frequency, "
+                        "not a proven betting edge."
+                    )
+        else:
+            st.warning(
+                "No verified goal sequences in this sample. "
+                "No next-goal price shown."
+            )
+
+        st.subheader("Second-half goals, corners and cards")
+
+        if sample:
+            market_rows(sample)
+
+        st.caption(
+            "Historical conditional frequencies, not calibrated "
+            "team-specific forecasts. No real-time odds are fetched."
+        )
+
+
+# ============================================================
+# PRE-MATCH TAB — EXISTING ENGINE
+# ============================================================
+
+with tab_pre:
+    st.subheader("Pre-match pricing (unchanged engine)")
+
+    try:
+        leagues = catalogue()
+    except Exception as exc:
+        st.error(f"Catalogue failed: {exc}")
+        leagues = {}
+
+    if leagues:
+        cid = st.selectbox(
+            "League",
+            list(leagues),
+            format_func=label,
+            key="pre_comp"
+        )
+
+        teams = leagues[cid]
+
+        if len(teams) >= 2:
             c1, c2 = st.columns(2)
 
             with c1:
                 home = st.selectbox(
-                    "Home team", available, key="pre_home"
+                    "Home team", teams, key="pre_home"
                 )
 
             with c2:
                 away = st.selectbox(
-                    "Away team", available,
-                    index=1, key="pre_away"
+                    "Away team", teams, index=1, key="pre_away"
                 )
 
             cutoff = st.date_input(
                 "Price fixture using data before",
-                value=date.today(),
-                key="pre_cutoff",
+                date.today(),
+                key="pre_cutoff"
             )
 
             with st.expander("Rating settings"):
                 half_life = st.slider(
                     "Recency half-life (days)",
                     60, 365, 180, 5,
-                    key="pre_half_life",
+                    key="pre_half_life"
                 )
+
                 ridge = st.slider(
                     "Rating shrinkage",
                     2.0, 30.0, 10.0, 1.0,
-                    key="pre_ridge",
+                    key="pre_ridge"
                 )
 
             if home == away:
                 st.warning("Choose two different teams.")
             else:
                 try:
-                    ratings = trained_ratings(
-                        competition,
-                        cutoff.isoformat(),
-                        half_life,
-                        ridge,
+                    rating = ratings_for(
+                        cid, cutoff.isoformat(), half_life, ridge
                     )
-                    priced = price_fixture(ratings, home, away)
+                    priced = price_fixture(rating, home, away)
                 except Exception as exc:
                     st.warning(f"Could not price fixture: {exc}")
                     priced = None
@@ -687,83 +833,93 @@ with tab_pre:
                     st.markdown(f"**{home} v {away}**")
 
                     c1, c2 = st.columns(2)
+
                     c1.metric(
-                        "Home expected goals",
-                        f"{priced['home_xg']:.2f}",
+                        "Home xG", f"{priced['home_xg']:.2f}"
                     )
                     c2.metric(
-                        "Away expected goals",
-                        f"{priced['away_xg']:.2f}",
+                        "Away xG", f"{priced['away_xg']:.2f}"
                     )
 
                     st.caption(
-                        f"{ratings.matches} training matches "
-                        f"across {len(ratings.teams)} teams"
+                        f"{rating.matches} training matches "
+                        f"across {len(rating.teams)} teams"
                     )
 
-                    p = priced["probabilities"]
-                    odds = priced["fair_odds"]
-
-                    labels = [
+                    keys = [
                         ("Home win", "home"),
                         ("Draw", "draw"),
                         ("Away win", "away"),
-                        ("Over 2.5 goals", "over_2_5"),
-                        ("Under 2.5 goals", "under_2_5"),
+                        ("Over 2.5", "over_2_5"),
+                        ("Under 2.5", "under_2_5"),
                         ("BTTS Yes", "btts_yes"),
-                        ("BTTS No", "btts_no"),
+                        ("BTTS No", "btts_no")
                     ]
 
-                    st.subheader("Pre-match fair odds")
-
-                    compact_table([
-                        (label, p[key], odds[key], None)
-                        for label, key in labels
-                    ])
+                    st.dataframe(
+                        pd.DataFrame([
+                            {
+                                "Market": name,
+                                "Probability": (
+                                    f"{priced['probabilities'][key]:.1%}"
+                                ),
+                                "Fair odds": (
+                                    f"{priced['fair_odds'][key]:.2f}"
+                                )
+                            }
+                            for name, key in keys
+                        ]),
+                        hide_index=True,
+                        use_container_width=True
+                    )
 
                     st.subheader("Asian pricing")
 
-                    market_options = {
+                    choices = {
                         "Home handicap": "home_handicap",
                         "Away handicap": "away_handicap",
                         "Over goals": "over_goals",
-                        "Under goals": "under_goals",
+                        "Under goals": "under_goals"
                     }
 
-                    market_name = st.selectbox(
+                    choice = st.selectbox(
                         "Asian market",
-                        list(market_options),
-                        key="asian_market",
+                        list(choices),
+                        key="asian_market"
                     )
 
-                    is_handicap = "handicap" in market_name
+                    handicap = "handicap" in choice
 
-                    if is_handicap:
-                        lines = [i / 4 for i in range(-12, 13)]
-                        default_line = 0.0
-                    else:
-                        lines = [i / 4 for i in range(2, 25)]
-                        default_line = 2.5
+                    lines = (
+                        [i / 4 for i in range(-12, 13)]
+                        if handicap
+                        else [i / 4 for i in range(2, 25)]
+                    )
 
                     line = st.selectbox(
                         "Asian line",
                         lines,
-                        index=lines.index(default_line),
-                        key="asian_line",
+                        index=lines.index(
+                            0.0 if handicap else 2.5
+                        ),
+                        key="asian_line"
                     )
 
                     asian = asian_market(
                         priced["matrix"],
-                        market_options[market_name],
-                        line,
+                        choices[choice],
+                        line
                     )
 
-                    fair = asian["fair_odds"]
-
-                    if fair is None:
-                        st.warning("No finite fair price.")
+                    if asian["fair_odds"] is None:
+                        st.warning(
+                            "No finite fair odds for this line."
+                        )
                     else:
-                        st.metric("Asian fair odds", f"{fair:.3f}")
+                        st.metric(
+                            "Asian fair odds",
+                            f"{asian['fair_odds']:.3f}"
+                        )
 
                         quote = st.number_input(
                             "Bookmaker decimal odds",
@@ -771,7 +927,7 @@ with tab_pre:
                             max_value=100.0,
                             value=1.95,
                             step=0.01,
-                            key="asian_quote",
+                            key="asian_quote"
                         )
 
                         roi = (
@@ -781,229 +937,117 @@ with tab_pre:
 
                         st.metric(
                             "Model-implied ROI",
-                            f"{roi:+.2%}",
+                            f"{roi:+.2%}"
                         )
 
                     with st.expander("Correct-score prices"):
-                        compact_table([
-                            (
-                                score,
-                                probability,
-                                1 / probability,
-                                None,
-                            )
-                            for score, probability
-                            in priced["correct_scores"].items()
-                            if probability > 0
-                        ])
+                        st.dataframe(
+                            pd.DataFrame([
+                                {
+                                    "Score": score,
+                                    "Probability": f"{p:.2%}",
+                                    "Fair odds": f"{1 / p:.2f}"
+                                }
+                                for score, p in
+                                priced["correct_scores"].items()
+                                if p > 0
+                            ]),
+                            hide_index=True,
+                            use_container_width=True
+                        )
 
                     st.caption(
-                        "Experimental probabilities. "
-                        "Model-implied ROI is not proven profit."
+                        "Experimental prices; model-implied ROI "
+                        "is not proven betting profit."
                     )
         else:
-            st.warning("Not enough teams in this competition.")
-    else:
-        st.warning("No usable competitions found.")
+            st.warning("Not enough teams in this league.")
 
 
-with tab_ht:
-    st.subheader("Historical halftime pricing")
-
-    try:
-        matches, rejected = historical_matches()
-    except Exception as exc:
-        st.error(f"Historical data failed: {exc}")
-        matches = []
-
-    if matches:
-        st.caption(f"{len(matches):,} historical matches loaded")
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            ht_home_name = st.text_input(
-                "Home", value="Home", key="ht_home_name"
-            )
-
-        with c2:
-            ht_away_name = st.text_input(
-                "Away", value="Away", key="ht_away_name"
-            )
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-            ht_home = st.number_input(
-                f"{ht_home_name} HT goals",
-                0, 10, 0, key="ht_home_goals",
-            )
-            ht_home_xg = st.number_input(
-                f"{ht_home_name} HT xG",
-                0.0, 10.0, 0.85, 0.05,
-                key="ht_home_xg",
-            )
-
-        with c2:
-            ht_away = st.number_input(
-                f"{ht_away_name} HT goals",
-                0, 10, 1, key="ht_away_goals",
-            )
-            ht_away_xg = st.number_input(
-                f"{ht_away_name} HT xG",
-                0.0, 10.0, 0.35, 0.05,
-                key="ht_away_xg",
-            )
-
-        with st.expander("Advanced historical filters"):
-            tolerance = st.slider(
-                "xG similarity",
-                0.10, 1.00, 0.30, 0.05,
-                key="ht_tolerance",
-            )
-
-        sample = comparable_matches(
-            matches,
-            ht_home=int(ht_home),
-            ht_away=int(ht_away),
-            home_xg=float(ht_home_xg),
-            away_xg=float(ht_away_xg),
-            tolerance=float(tolerance),
-            before_date=date.today().isoformat(),
-        )
-
-        st.markdown(
-            f"**{ht_home_name} {ht_home}–{ht_away} "
-            f"{ht_away_name}** · "
-            f"**{len(sample)} comparable matches**"
-        )
-
-        if len(sample) < 100:
-            st.warning("Small historical sample.")
-
-        if sample:
-            compact_table(historical_market_rows(sample))
-
-        st.caption(
-            "Historical conditional frequencies. "
-            "N = valid observations. "
-            "⚠️ = fewer than 100 observations."
-        )
-
+# ============================================================
+# BACKTEST TAB — EXISTING PRE-MATCH MODEL
+# ============================================================
 
 with tab_test:
-    st.subheader("Historical accuracy backtest")
-
-    st.write(
-        "Tests the existing pre-match model against "
-        "completed matches it was not trained on."
-    )
+    st.subheader("Pre-match historical accuracy backtest")
 
     st.caption(
-        "Each test month uses ratings trained strictly "
-        "before that month. All available competitions "
-        "are considered. Only complete months are tested."
+        "Existing model; expanding training history; "
+        "complete calendar months only. "
+        "Lower scores are better."
     )
 
-    periods = st.selectbox(
-        "Number of recent complete months",
+    months = st.selectbox(
+        "Recent complete months",
         [3, 6, 9, 12],
         index=1,
-        key="test_periods",
-    )
-
-    st.caption(
-        "Default model settings: 180-day recency "
-        "half-life, 10.0 shrinkage."
+        key="test_periods"
     )
 
     if st.button(
         "Run historical accuracy test",
         type="primary",
-        key="run_backtest",
+        key="run_backtest"
     ):
         try:
-            with st.spinner("Preparing historical data..."):
-                history, quality = backtest_history()
+            history, loaded = test_data()
 
-            st.session_state["backtest_quality"] = quality
+            predictions, audit = (
+                run_test(history, months)
+                if not history.empty
+                else (pd.DataFrame(), pd.DataFrame())
+            )
 
-            if history.empty:
-                st.error("No usable backtest records.")
-            else:
-                predictions, audit = run_backtest(
-                    history,
-                    periods=periods,
-                    half_life=180,
-                    ridge=10,
-                )
-
-                st.session_state["backtest_predictions"] = predictions
-                st.session_state["backtest_audit"] = audit
-                st.session_state["backtest_periods"] = periods
+            st.session_state["test_result"] = (
+                predictions, audit, len(history), loaded, months
+            )
 
         except Exception as exc:
             st.error(f"Backtest failed: {exc}")
 
-    if "backtest_quality" in st.session_state:
-        quality = st.session_state["backtest_quality"]
-
-        st.caption(
-            f"Database records: {quality['loaded']:,} · "
-            f"Valid xG and final-score records: "
-            f"{quality['eligible']:,}"
+    if "test_result" in st.session_state:
+        predictions, audit, valid, loaded, months_done = (
+            st.session_state["test_result"]
         )
 
-    if "backtest_predictions" in st.session_state:
-        predictions = st.session_state["backtest_predictions"]
-        audit = st.session_state["backtest_audit"]
+        st.caption(
+            f"{loaded:,} database rows; "
+            f"{valid:,} valid xG and final-score records; "
+            f"{months_done} months selected"
+        )
 
         if predictions.empty:
             st.warning(
-                "No matches could be predicted in the "
-                "selected test windows. Check the coverage table."
+                "No out-of-sample predictions in this test window."
             )
         else:
             st.success(
-                f"Completed: {len(predictions):,} "
-                "out-of-sample predictions."
+                f"{len(predictions):,} out-of-sample predictions"
             )
 
-            summary = score_summary(predictions)
+            st.subheader("Overall accuracy")
 
-            st.subheader("Overall results")
             st.dataframe(
-                pd.DataFrame([summary]),
+                pd.DataFrame([summary(predictions)]),
                 hide_index=True,
-                use_container_width=True,
+                use_container_width=True
             )
 
-            st.caption(
-                "Lower Brier scores and log loss are better. "
-                "The baseline uses earlier match-result "
-                "frequencies from each league."
-            )
-
-            st.subheader("Results by league")
+            st.subheader("By league")
 
             league_rows = []
 
-            for league, part in predictions.groupby("league"):
-                row = score_summary(part)
-                row["League"] = league
-                league_rows.append(row)
-
-            league_table = pd.DataFrame(league_rows)
-
-            league_table = league_table[
-                ["League"] +
-                [c for c in league_table.columns if c != "League"]
-            ].sort_values("Matches", ascending=False)
+            for league, part in predictions.groupby("League"):
+                item = summary(part)
+                item["League"] = league
+                league_rows.append(item)
 
             st.dataframe(
-                league_table,
+                pd.DataFrame(league_rows).sort_values(
+                    "Matches", ascending=False
+                ),
                 hide_index=True,
-                use_container_width=True,
+                use_container_width=True
             )
 
             st.subheader("Probability calibration")
@@ -1011,39 +1055,52 @@ with tab_test:
             market = st.selectbox(
                 "Calibration market",
                 ["Over 2.5 goals", "BTTS Yes"],
-                key="calibration_market",
+                key="calibration_market"
             )
 
             if market == "Over 2.5 goals":
-                probability_col = "model_over"
-                outcome_col = "actual_over"
+                pcol, ycol = "model_over", "actual_over"
             else:
-                probability_col = "model_btts"
-                outcome_col = "actual_btts"
+                pcol, ycol = "model_btts", "actual_btts"
 
-            calibration = calibration_table(
-                predictions,
-                probability_col,
-                outcome_col,
-            )
+            bins = []
+
+            for index in range(10):
+                low = index / 10
+                high = (index + 1) / 10
+
+                part = predictions[
+                    (predictions[pcol] >= low)
+                    & (
+                        (predictions[pcol] < high)
+                        if index < 9
+                        else (predictions[pcol] <= high)
+                    )
+                ]
+
+                if len(part):
+                    bins.append({
+                        "Band": f"{low:.0%}–{high:.0%}",
+                        "N": len(part),
+                        "Predicted": round(
+                            float(part[pcol].mean()), 3
+                        ),
+                        "Actual": round(
+                            float(part[ycol].mean()), 3
+                        )
+                    })
 
             st.dataframe(
-                calibration,
+                pd.DataFrame(bins),
                 hide_index=True,
-                use_container_width=True,
-            )
-
-            st.caption(
-                "For a well-calibrated model, predictions "
-                "averaging 60% should occur about 60% "
-                "of the time. Small bins are less reliable."
+                use_container_width=True
             )
 
             st.download_button(
-                "Download all backtest predictions",
+                "Download backtest predictions",
                 predictions.to_csv(index=False),
                 file_name="starlizard_backtest_predictions.csv",
-                mime="text/csv",
+                mime="text/csv"
             )
 
         st.subheader("Coverage and exclusions")
@@ -1051,27 +1108,16 @@ with tab_test:
         st.dataframe(
             audit,
             hide_index=True,
-            use_container_width=True,
-        )
-
-        st.caption(
-            "Insufficient training: fewer than 60 earlier "
-            "matches or model fitting failure. "
-            "Unseen teams: teams absent from the earlier "
-            "training history, plus pricing failures."
+            use_container_width=True
         )
 
     st.info(
-        "This test evaluates prediction quality, not "
-        "betting profitability. Genuine historical odds "
-        "are needed to measure returns or bookmaker edge."
+        "Prediction accuracy is not betting profitability. "
+        "Genuine historical odds are needed for returns testing."
     )
 
 
 st.divider()
-
 st.caption(
-    "PRO STARLIZARD V5 · "
-    "Read-only Supabase · "
-    "Chronological backtesting"
+    "PRO STARLIZARD V5.1 · Read-only Supabase · Halftime-first"
 )
