@@ -1,4 +1,24 @@
 
+"""
+PRO STARLIZARD V5.7
+Live Fixtures + Automatic Halftime Pricing
++ Historical Match Audit
+
+Uses TheStatsAPI and read-only Supabase.
+
+Features:
+- Automatic UK-date fixture discovery
+- Match details and statistics
+- Verified first-half inputs
+- Historical corners and cards pricing
+- Individual historical match audit
+- Audit CSV downloads
+- Results retained across Streamlit reruns
+
+Historical frequencies are not calibrated
+fair odds or demonstrated betting edges.
+"""
+
 import math
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -12,8 +32,10 @@ from starlizard_halftime_markets_v57 import (
     candidates_query,
     collect,
     market_table,
+    render_audit,
     MIN_SAMPLE,
 )
+
 
 API_BASE = "https://api.thestatsapi.com/api"
 UK = ZoneInfo("Europe/London")
@@ -25,6 +47,8 @@ KEY_NAMES = (
     "THESTATS_API_KEY",
     "STATSAPI_KEY",
 )
+
+LIVE_RESULTS_KEY = "lf_historical_audit_results"
 
 
 # ==========================================
@@ -57,6 +81,7 @@ def api_request(key, path, params=None):
         }
 
     response.raise_for_status()
+
     body = response.json()
 
     return {
@@ -70,7 +95,7 @@ def api_request(key, path, params=None):
 
 
 # ==========================================
-# FIXTURE DATA
+# FIXTURE DISCOVERY
 # ==========================================
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -96,9 +121,7 @@ def fixtures_for_day(key, day):
         response.raise_for_status()
         payload = response.json()
 
-        rows.extend(
-            payload.get("data") or []
-        )
+        rows.extend(payload.get("data") or [])
 
         pages = int(
             (payload.get("meta") or {}).get(
@@ -130,7 +153,7 @@ def match_payload(key, match_id, kind):
 
 
 # ==========================================
-# MATCH HELPERS
+# GENERAL HELPERS
 # ==========================================
 
 def kickoff(item):
@@ -196,25 +219,24 @@ def numeric(value):
     try:
         result = float(value)
 
-        return (
-            result
-            if math.isfinite(result)
-            else None
-        )
+        if math.isfinite(result):
+            return result
+
+        return None
 
     except (TypeError, ValueError):
         return None
 
 
 def count(value):
-    n = numeric(value)
+    value = numeric(value)
 
     if (
-        n is not None
-        and n >= 0
-        and n.is_integer()
+        value is not None
+        and value >= 0
+        and value.is_integer()
     ):
-        return int(n)
+        return int(value)
 
     return None
 
@@ -236,17 +258,10 @@ def pair(block):
 
 
 # ==========================================
-# FIRST-HALF STATISTICS
+# VERIFIED FIRST-HALF STATISTICS
 # ==========================================
 
 def period_pair(container, field):
-    """
-    Only explicitly named first-half
-    statistics qualify.
-
-    Never substitute full-time totals.
-    """
-
     if not isinstance(container, dict):
         return None
 
@@ -279,9 +294,7 @@ def period_pair(container, field):
             "1h",
             "1st_half",
         ):
-            values = pair(
-                item.get(period)
-            )
+            values = pair(item.get(period))
 
             if values is not None:
                 return values
@@ -291,15 +304,12 @@ def period_pair(container, field):
 
 def halftime_score(details, snapshot):
     """
-    Read verified halftime fields.
+    TheStatsAPI confirmed fields:
+    score.half_time_home
+    score.half_time_away
 
-    IMPORTANT:
-    TheStatsAPI match score objects use:
-    half_time_home
-    half_time_away
-
-    Never use the full-time score
-    as a halftime score.
+    Never substitute the current
+    or full-time score.
     """
 
     for root in (details, snapshot):
@@ -317,7 +327,6 @@ def halftime_score(details, snapshot):
             if not isinstance(source, dict):
                 continue
 
-            # Confirmed TheStatsAPI field names
             for home_key, away_key in (
                 (
                     "half_time_home",
@@ -332,22 +341,12 @@ def halftime_score(details, snapshot):
                     "away_halftime_goals",
                 ),
             ):
-                h = count(
-                    source.get(home_key)
-                )
+                h = count(source.get(home_key))
+                a = count(source.get(away_key))
 
-                a = count(
-                    source.get(away_key)
-                )
-
-                if (
-                    h is not None
-                    and a is not None
-                ):
+                if h is not None and a is not None:
                     return h, a
 
-            # Other explicitly named
-            # halftime score structures
             for name in (
                 "half_time",
                 "halftime",
@@ -355,18 +354,13 @@ def halftime_score(details, snapshot):
                 "halfTime",
                 "first_half",
             ):
-                values = pair(
-                    source.get(name)
-                )
+                values = pair(source.get(name))
 
                 if values is not None:
                     h = count(values[0])
                     a = count(values[1])
 
-                    if (
-                        h is not None
-                        and a is not None
-                    ):
+                    if h is not None and a is not None:
                         return h, a
 
     return None
@@ -381,32 +375,14 @@ def extract_ht(details, snapshot):
     }
 
     for label, field, converter in (
-        (
-            "xg",
-            "expected_goals",
-            numeric,
-        ),
-        (
-            "corners",
-            "corner_kicks",
-            count,
-        ),
-        (
-            "yellows",
-            "yellow_cards",
-            count,
-        ),
+        ("xg", "expected_goals", numeric),
+        ("corners", "corner_kicks", count),
+        ("yellows", "yellow_cards", count),
     ):
-        raw = period_pair(
-            snapshot,
-            field,
-        )
+        raw = period_pair(snapshot, field)
 
         if raw is None:
-            raw = period_pair(
-                details,
-                field,
-            )
+            raw = period_pair(details, field)
 
         if raw is None:
             values[label] = None
@@ -421,11 +397,7 @@ def extract_ht(details, snapshot):
             and home >= 0
             and away >= 0
         ):
-            values[label] = (
-                home,
-                away,
-            )
-
+            values[label] = (home, away)
         else:
             values[label] = None
 
@@ -433,7 +405,7 @@ def extract_ht(details, snapshot):
 
 
 # ==========================================
-# SUPABASE
+# DATABASE CONNECTION
 # ==========================================
 
 @st.cache_resource
@@ -445,13 +417,33 @@ def get_db():
 
 
 # ==========================================
-# AUTOMATIC HALFTIME PRICING
+# AUTOMATIC PRICING + AUDIT
 # ==========================================
 
-def show_prices(values, match_day):
+def show_prices(values, match_day, match_id):
     st.markdown(
         "### 🦎 Automatic halftime pricing"
     )
+
+    signature = (
+        str(match_id),
+        match_day.isoformat(),
+        repr(values),
+    )
+
+    saved = st.session_state.get(
+        LIVE_RESULTS_KEY
+    )
+
+    if (
+        saved is not None
+        and saved.get("signature") != signature
+    ):
+        st.session_state.pop(
+            LIVE_RESULTS_KEY,
+            None,
+        )
+        saved = None
 
     missing = [
         name
@@ -461,18 +453,16 @@ def show_prices(values, match_day):
 
     if missing:
         st.warning(
-            "Cannot calculate safely. "
-            "Missing: "
+            "Cannot calculate safely. Missing: "
             + ", ".join(missing)
             + "."
         )
 
         st.caption(
-            "The app will not substitute "
-            "full-time or current live "
-            "totals for halftime figures."
+            "Full-time and current live totals "
+            "are never substituted for "
+            "first-half figures."
         )
-
         return
 
     hh, ah = values["score"]
@@ -480,9 +470,7 @@ def show_prices(values, match_day):
     hc, ac = values["corners"]
     hy, ay = values["yellows"]
 
-    st.success(
-        "First-half inputs available."
-    )
+    st.success("First-half inputs available.")
 
     st.caption(
         f"HT {hh}-{ah} · "
@@ -498,143 +486,163 @@ def show_prices(values, match_day):
         "yellows ±1 combined."
     )
 
-    if not st.button(
+    calculate = st.button(
         "📊 Calculate halftime markets",
         type="primary",
         use_container_width=True,
         key="lf_price",
-    ):
+    )
+
+    if calculate:
+        st.session_state.pop(
+            LIVE_RESULTS_KEY,
+            None,
+        )
+
+        try:
+            with st.spinner(
+                "Calculating prices and "
+                "collecting audit records..."
+            ):
+                db = get_db()
+
+                candidates, capped = (
+                    candidates_query(
+                        db,
+                        hh,
+                        ah,
+                        hx,
+                        ax,
+                        0.30,
+                        match_day.isoformat(),
+                    )
+                )
+
+                records, fetched, audit = collect(
+                    db,
+                    candidates,
+                    hc,
+                    ac,
+                    2,
+                    hy,
+                    ay,
+                    1,
+                    False,
+                    return_audit=True,
+                )
+
+            saved = {
+                "signature": signature,
+                "records": records,
+                "audit": audit,
+                "candidates": len(candidates),
+                "fetched": fetched,
+                "capped": capped,
+            }
+
+            st.session_state[
+                LIVE_RESULTS_KEY
+            ] = saved
+
+        except Exception as exc:
+            st.error(
+                "Historical calculation failed: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            return
+
+    if saved is None:
         return
 
-    try:
-        with st.spinner(
-            "Checking comparable "
-            "historical matches..."
-        ):
-            db = get_db()
+    records = saved["records"]
 
-            candidates, capped = (
-                candidates_query(
-                    db,
-                    hh,
-                    ah,
-                    hx,
-                    ax,
-                    0.30,
-                    match_day.isoformat(),
-                )
+    st.caption(
+        f"{saved['candidates']} "
+        "score/xG candidates · "
+        f"{saved['fetched']} "
+        "event records returned"
+    )
+
+    if saved["capped"]:
+        st.warning(
+            "The 3,000-match safety cap "
+            "was reached. The sample is "
+            "restricted to the latest matches."
+        )
+
+    for title, key, second_lines, full_lines in (
+        (
+            "🚩 Corners",
+            "corners",
+            [3.5, 4.5, 5.5, 6.5],
+            [
+                7.5, 8.5, 9.5,
+                10.5, 11.5,
+            ],
+        ),
+        (
+            "🟨 Yellow cards",
+            "yellows",
+            [1.5, 2.5, 3.5, 4.5],
+            [3.5, 4.5, 5.5, 6.5],
+        ),
+    ):
+        sample = records[key]
+
+        st.markdown(
+            f"**{title} · "
+            f"{len(sample)} comparable records**"
+        )
+
+        if len(sample) < MIN_SAMPLE:
+            st.info(
+                "Insufficient verified sample "
+                "for pricing."
             )
+            continue
 
-            records, fetched = collect(
-                db,
-                candidates,
-                hc,
-                ac,
-                2,
-                hy,
-                ay,
+        st.caption("Second half")
+
+        st.dataframe(
+            market_table(
+                sample,
+                second_lines,
+                0,
+            ),
+            hide_index=True,
+            use_container_width=True,
+        )
+
+        st.caption("Full match")
+
+        st.dataframe(
+            market_table(
+                sample,
+                full_lines,
                 1,
-                False,
-            )
-
-        st.caption(
-            f"{len(candidates)} "
-            "score/xG candidates · "
-            f"{fetched} event records returned"
-        )
-
-        if capped:
-            st.warning(
-                "Safety cap reached: "
-                "sample restricted to "
-                "the latest 3,000 matches."
-            )
-
-        for (
-            title,
-            key,
-            second_lines,
-            full_lines,
-        ) in (
-            (
-                "🚩 Corners",
-                "corners",
-                [3.5, 4.5, 5.5, 6.5],
-                [
-                    7.5,
-                    8.5,
-                    9.5,
-                    10.5,
-                    11.5,
-                ],
             ),
-            (
-                "🟨 Yellow cards",
-                "yellows",
-                [1.5, 2.5, 3.5, 4.5],
-                [3.5, 4.5, 5.5, 6.5],
-            ),
-        ):
-            sample = records[key]
-
-            st.markdown(
-                f"**{title} · "
-                f"{len(sample)} "
-                "comparable records**"
-            )
-
-            if len(sample) < MIN_SAMPLE:
-                st.info(
-                    "Insufficient verified "
-                    "sample for pricing."
-                )
-                continue
-
-            st.caption("Second half")
-
-            st.dataframe(
-                market_table(
-                    sample,
-                    second_lines,
-                    0,
-                ),
-                hide_index=True,
-                use_container_width=True,
-            )
-
-            st.caption("Full match")
-
-            st.dataframe(
-                market_table(
-                    sample,
-                    full_lines,
-                    1,
-                ),
-                hide_index=True,
-                use_container_width=True,
-            )
-
-        st.caption(
-            "Inverse historical frequencies "
-            "only. Not calibrated fair prices "
-            "or evidence of betting value."
+            hide_index=True,
+            use_container_width=True,
         )
 
-    except Exception as exc:
-        st.error(
-            "Historical pricing failed: "
-            f"{type(exc).__name__}: {exc}"
-        )
+    st.caption(
+        "Inverse historical frequencies "
+        "only. Not calibrated fair prices "
+        "or evidence of betting value."
+    )
+
+    # New audit section uses the same
+    # historical records as the prices.
+    render_audit(
+        saved.get("audit", [])
+    )
 
 
 # ==========================================
 # HISTORICAL TEAM MATCHING
 # ==========================================
 
-def exact_match(
-    api_name,
-    find_team_names,
-):
+def exact_match(api_name, find_team_names):
     matches = find_team_names(
         api_name[:5]
     )
@@ -653,7 +661,7 @@ def exact_match(
 
 
 # ==========================================
-# MAIN LIVE FIXTURES PAGE
+# LIVE FIXTURES PAGE
 # ==========================================
 
 def render_live_fixtures(
@@ -665,7 +673,8 @@ def render_live_fixtures(
 
     st.caption(
         "Select a fixture to inspect "
-        "its statistics and halftime pricing."
+        "its statistics, halftime markets "
+        "and historical match audit."
     )
 
     key = get_key()
@@ -703,15 +712,11 @@ def render_live_fixtures(
         match_payload.clear()
 
     if not chosen:
-        st.info(
-            "Choose at least one league."
-        )
+        st.info("Choose at least one league.")
         return
 
     try:
-        with st.spinner(
-            "Fetching fixtures..."
-        ):
+        with st.spinner("Fetching fixtures..."):
             found = []
 
             for query_day in (
@@ -753,9 +758,7 @@ def render_live_fixtures(
             and start.date() == day
             and item.get("id")
         ):
-            by_id[
-                str(item["id"])
-            ] = item
+            by_id[str(item["id"])] = item
 
     matches = sorted(
         by_id.values(),
@@ -778,16 +781,12 @@ def render_live_fixtures(
         "Select a match",
         list(by_id),
         format_func=lambda mid: (
-            fixture_label(
-                by_id[mid]
-            )
+            fixture_label(by_id[mid])
         ),
         key="lf_match_id",
     )
 
-    selected = by_id[
-        selected_id
-    ]
+    selected = by_id[selected_id]
 
     home_api = team_name(
         selected,
@@ -809,9 +808,7 @@ def render_live_fixtures(
             for code, name in leagues.items()
             if str(code)
             == str(
-                selected.get(
-                    "competition_id"
-                )
+                selected.get("competition_id")
             )
         ),
         "League",
@@ -820,7 +817,7 @@ def render_live_fixtures(
     st.caption(league_name)
 
     # ======================================
-    # FETCH MATCH AND STATISTICS
+    # FETCH DETAILS AND STATISTICS
     # ======================================
 
     try:
@@ -844,16 +841,11 @@ def render_live_fixtures(
                 "live",
             )
 
-            live_stats = live_response[
-                "data"
-            ]
+            live_stats = live_response["data"]
 
             historical_response = None
 
-            if not isinstance(
-                live_stats,
-                dict,
-            ):
+            if not isinstance(live_stats, dict):
                 historical_response = (
                     match_payload(
                         key,
@@ -864,14 +856,9 @@ def render_live_fixtures(
 
             snapshot = (
                 live_stats
-                if isinstance(
-                    live_stats,
-                    dict,
-                )
+                if isinstance(live_stats, dict)
                 else (
-                    historical_response[
-                        "data"
-                    ]
+                    historical_response["data"]
                     if historical_response
                     else None
                 )
@@ -895,8 +882,6 @@ def render_live_fixtures(
     if live_response["status"] == 409:
         st.info(
             "Live statistics returned 409. "
-            "This can happen when a match "
-            "is no longer live. "
             "Checking historical statistics."
         )
 
@@ -906,22 +891,16 @@ def render_live_fixtures(
         in (404, 409)
     ):
         st.info(
-            "Historical statistics are not "
-            "available from this endpoint "
-            "for this match."
+            "Historical statistics are "
+            "not available for this match."
         )
 
     # ======================================
     # MATCH STATISTICS
     # ======================================
 
-    if isinstance(
-        snapshot,
-        dict,
-    ):
-        meta = (
-            snapshot.get("meta") or {}
-        )
+    if isinstance(snapshot, dict):
+        meta = snapshot.get("meta") or {}
 
         st.caption(
             "Feed minute: "
@@ -936,10 +915,7 @@ def render_live_fixtures(
             or {}
         )
 
-        if isinstance(
-            stats,
-            dict,
-        ):
+        if isinstance(stats, dict):
             rows = []
 
             for label, field in (
@@ -956,16 +932,11 @@ def render_live_fixtures(
                 ("Red cards", "red_cards"),
                 ("xG", "expected_goals"),
             ):
-                item = (
-                    stats.get(field) or {}
-                )
+                item = stats.get(field) or {}
 
                 values = (
                     pair(item.get("all"))
-                    if isinstance(
-                        item,
-                        dict,
-                    )
+                    if isinstance(item, dict)
                     else None
                 )
 
@@ -984,7 +955,7 @@ def render_live_fixtures(
                 )
 
     # ======================================
-    # HALFTIME PRICING
+    # AUTOMATIC PRICING + AUDIT
     # ======================================
 
     values = extract_ht(
@@ -995,6 +966,7 @@ def render_live_fixtures(
     show_prices(
         values,
         day,
+        selected_id,
     )
 
     # ======================================
@@ -1028,7 +1000,7 @@ def render_live_fixtures(
             )
 
         st.markdown(
-            "#### 🎯 Actual match score object"
+            "#### Actual match score object"
         )
 
         st.json(
@@ -1050,7 +1022,7 @@ def render_live_fixtures(
         )
 
         st.json(
-            snapshot.get("meta") or {}
+            (snapshot.get("meta") or {})
             if isinstance(snapshot, dict)
             else {}
         )
@@ -1077,9 +1049,13 @@ def render_live_fixtures(
             "Available first-half fields:",
             {
                 name: value is not None
-                for name, value
-                in values.items()
+                for name, value in values.items()
             },
+        )
+
+        st.caption(
+            "Diagnostic fields do not "
+            "display the API key."
         )
 
     # ======================================
@@ -1107,16 +1083,14 @@ def render_live_fixtures(
     except Exception as exc:
         st.error(
             "Historical team lookup failed: "
-            f"{type(exc).__name__}"
+            f"{type(exc).__name__}: {exc}"
         )
         return
 
     if home is None:
         choice = st.selectbox(
             "Home database team",
-            [
-                "Select a team"
-            ] + home_options,
+            ["Select a team"] + home_options,
             key="lf_home_map",
         )
 
@@ -1129,9 +1103,7 @@ def render_live_fixtures(
     if away is None:
         choice = st.selectbox(
             "Away database team",
-            [
-                "Select a team"
-            ] + away_options,
+            ["Select a team"] + away_options,
             key="lf_away_map",
         )
 
@@ -1182,9 +1154,7 @@ def render_live_fixtures(
         ] = selection
 
     if (
-        st.session_state.get(
-            "lf_selection"
-        )
+        st.session_state.get("lf_selection")
         == selection
     ):
         try:
@@ -1195,9 +1165,7 @@ def render_live_fixtures(
                 away_count,
                 20,
                 (
-                    day - timedelta(
-                        days=1
-                    )
+                    day - timedelta(days=1)
                 ).isoformat(),
             )
 
