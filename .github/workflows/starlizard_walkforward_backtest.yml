@@ -31,6 +31,6 @@ jobs:
           BACKTEST_START: '2025-08-01'
           BACKTEST_END: '2026-11-10'
           BACKTEST_MIN_TRAIN: '100'
-          BACKTEST_MAX_DATES: '12'
+          BACKTEST_MAX_DATES: '120'
         run: |
           python -u starlizard_walkforward_backtest.py
