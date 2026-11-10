@@ -291,8 +291,15 @@ def period_pair(container, field):
 
 def halftime_score(details, snapshot):
     """
-    Never confuse a current or
-    full-time score with halftime.
+    Read verified halftime fields.
+
+    IMPORTANT:
+    TheStatsAPI match score objects use:
+    half_time_home
+    half_time_away
+
+    Never use the full-time score
+    as a halftime score.
     """
 
     for root in (details, snapshot):
@@ -310,28 +317,12 @@ def halftime_score(details, snapshot):
             if not isinstance(source, dict):
                 continue
 
-            for name in (
-                "half_time",
-                "halftime",
-                "ht",
-                "halfTime",
-                "first_half",
-            ):
-                values = pair(
-                    source.get(name)
-                )
-
-                if values is not None:
-                    h = count(values[0])
-                    a = count(values[1])
-
-                    if (
-                        h is not None
-                        and a is not None
-                    ):
-                        return h, a
-
+            # Confirmed TheStatsAPI field names
             for home_key, away_key in (
+                (
+                    "half_time_home",
+                    "half_time_away",
+                ),
                 (
                     "home_ht_goals",
                     "away_ht_goals",
@@ -354,6 +345,29 @@ def halftime_score(details, snapshot):
                     and a is not None
                 ):
                     return h, a
+
+            # Other explicitly named
+            # halftime score structures
+            for name in (
+                "half_time",
+                "halftime",
+                "ht",
+                "halfTime",
+                "first_half",
+            ):
+                values = pair(
+                    source.get(name)
+                )
+
+                if values is not None:
+                    h = count(values[0])
+                    a = count(values[1])
+
+                    if (
+                        h is not None
+                        and a is not None
+                    ):
+                        return h, a
 
     return None
 
@@ -984,7 +998,7 @@ def render_live_fixtures(
     )
 
     # ======================================
-    # ENHANCED FEED DIAGNOSTICS
+    # FEED DIAGNOSTICS
     # ======================================
 
     with st.expander(
@@ -1066,12 +1080,6 @@ def render_live_fixtures(
                 for name, value
                 in values.items()
             },
-        )
-
-        st.caption(
-            "Score objects are displayed "
-            "for debugging. No API key "
-            "is displayed."
         )
 
     # ======================================
