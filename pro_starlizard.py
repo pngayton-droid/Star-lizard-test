@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import date
 from supabase import create_client
 from starlizard_live_fixtures import render_live_fixtures
+from starlizard_halftime_markets_v57 import render_halftime_markets
 
 st.set_page_config(
     page_title="PRO STARLIZARD",
@@ -130,18 +131,30 @@ def get_database_stats():
 
     checks = [
         ("Historical xG records", "historical_xg", None, None),
-        ("Match event records collected",
-         "historical_match_events", None, None),
-        ("Match statistics received",
-         "historical_match_events", "stats_status", 200),
-        ("Goal/event timelines received",
-         "historical_match_events", "timeline_status", 200),
-        ("Corners matched",
-         "historical_match_events", "corners_match", True),
-        ("Yellow cards matched",
-         "historical_match_events", "yellow_cards_match", True),
-        ("Red cards matched",
-         "historical_match_events", "red_cards_match", True),
+        (
+            "Match event records collected",
+            "historical_match_events", None, None
+        ),
+        (
+            "Match statistics received",
+            "historical_match_events", "stats_status", 200
+        ),
+        (
+            "Goal/event timelines received",
+            "historical_match_events", "timeline_status", 200
+        ),
+        (
+            "Corners matched",
+            "historical_match_events", "corners_match", True
+        ),
+        (
+            "Yellow cards matched",
+            "historical_match_events", "yellow_cards_match", True
+        ),
+        (
+            "Red cards matched",
+            "historical_match_events", "red_cards_match", True
+        ),
     ]
 
     results, errors = {}, {}
@@ -924,7 +937,7 @@ st.divider()
 
 
 # =============================================
-# PAGE 1 — MATCH PRICING
+# PAGE 1 — MATCH PRICING V5.7
 # =============================================
 
 if st.session_state.active_page == "Match Pricing":
@@ -932,39 +945,24 @@ if st.session_state.active_page == "Match Pricing":
     st.header("Match Pricing")
 
     st.caption(
-        "Pre-match and in-play football "
-        "pricing terminal"
-    )
-
-    st.text_input(
-        "Home team",
-        placeholder="Enter home team",
-    )
-
-    st.text_input(
-        "Away team",
-        placeholder="Enter away team",
-    )
-
-    st.selectbox(
-        "Select market",
-        [
-            "Match Goals",
-            "Second-Half Goals",
-            "Match Corners",
-            "Second-Half Corners",
-            "Cards",
-            "Asian Handicap",
-            "Asian Goal Totals",
-            "Correct Score",
-            "Next Goal",
-            "Both Teams To Score",
-        ],
+        "PRO STARLIZARD pricing terminal | "
+        "V5.7 historical halftime corners and cards"
     )
 
     st.info(
-        "Pricing engine not connected yet. "
-        "This is our dashboard preview."
+        "V5.7 is connected below. "
+        "Enter the halftime score, xG, corners "
+        "and yellow cards to calculate historical "
+        "conditional market prices."
+    )
+
+    render_halftime_markets(get_supabase())
+
+    st.caption(
+        "The separate V5.6 dashboard still contains "
+        "the pre-match, next-goal and backtesting "
+        "models. Those will be integrated here "
+        "in a later update."
     )
 
 
@@ -1139,14 +1137,13 @@ elif (
             )
 
     st.caption(
-        "Corners, cards and event timelines "
-        "will be added after verified historical "
-        "event data is integrated."
+        "Historical event-based corners and cards "
+        "are now available under Match Pricing."
     )
 
 
 # =============================================
-# PAGE 3 — LIVE FIXTURES (NEW)
+# PAGE 3 — LIVE FIXTURES
 # =============================================
 
 elif (
@@ -1285,7 +1282,7 @@ elif (
 st.divider()
 
 st.caption(
-    "PRO STARLIZARD | Research and model "
+    "PRO STARLIZARD V5.7 | Research and model "
     "estimates only. No automated betting."
 )
 
