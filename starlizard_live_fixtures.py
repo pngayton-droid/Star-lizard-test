@@ -110,8 +110,8 @@ def fixtures_for_day(key, day):
             return rows
 
     raise RuntimeError(
-        "Fixture results exceeded the "
-        "20-page safety limit."
+        "Fixture results exceeded "
+        "the 20-page safety limit."
     )
 
 
@@ -241,10 +241,10 @@ def pair(block):
 
 def period_pair(container, field):
     """
-    Only explicitly identified first-half
+    Only explicitly named first-half
     statistics qualify.
 
-    Never substitute full-match totals.
+    Never substitute full-time totals.
     """
 
     if not isinstance(container, dict):
@@ -291,8 +291,8 @@ def period_pair(container, field):
 
 def halftime_score(details, snapshot):
     """
-    Never confuse a current or full-time
-    score with the halftime score.
+    Never confuse a current or
+    full-time score with halftime.
     """
 
     for root in (details, snapshot):
@@ -439,15 +439,8 @@ def show_prices(values, match_day):
         "### 🦎 Automatic halftime pricing"
     )
 
-    labels = {
-        "score": "halftime score",
-        "xg": "first-half xG",
-        "corners": "first-half corners",
-        "yellows": "first-half yellow cards",
-    }
-
     missing = [
-        labels[name]
+        name
         for name, value in values.items()
         if value is None
     ]
@@ -539,8 +532,8 @@ def show_prices(values, match_day):
         if capped:
             st.warning(
                 "Safety cap reached: "
-                "sample restricted to the "
-                "latest 3,000 matches."
+                "sample restricted to "
+                "the latest 3,000 matches."
             )
 
         for (
@@ -609,9 +602,8 @@ def show_prices(values, match_day):
 
         st.caption(
             "Inverse historical frequencies "
-            "only. These are not calibrated "
-            "fair prices or evidence of "
-            "betting value."
+            "only. Not calibrated fair prices "
+            "or evidence of betting value."
         )
 
     except Exception as exc:
@@ -622,7 +614,7 @@ def show_prices(values, match_day):
 
 
 # ==========================================
-# HISTORICAL TEAM NAME MATCHING
+# HISTORICAL TEAM MATCHING
 # ==========================================
 
 def exact_match(
@@ -886,10 +878,6 @@ def render_live_fixtures(
 
         historical_response = None
 
-    # ======================================
-    # ENDPOINT STATUS
-    # ======================================
-
     if live_response["status"] == 409:
         st.info(
             "Live statistics returned 409. "
@@ -996,7 +984,7 @@ def render_live_fixtures(
     )
 
     # ======================================
-    # FEED DIAGNOSTICS
+    # ENHANCED FEED DIAGNOSTICS
     # ======================================
 
     with st.expander(
@@ -1025,14 +1013,39 @@ def render_live_fixtures(
                 ),
             )
 
+        st.markdown(
+            "#### 🎯 Actual match score object"
+        )
+
+        st.json(
+            details.get("score")
+            if isinstance(details, dict)
+            else None
+        )
+
+        st.markdown(
+            "#### Fixture-list score object"
+        )
+
+        st.json(
+            selected.get("score")
+        )
+
+        st.markdown(
+            "#### Statistics metadata"
+        )
+
+        st.json(
+            snapshot.get("meta") or {}
+            if isinstance(snapshot, dict)
+            else {}
+        )
+
         st.write(
             "Match detail keys:",
             (
                 list(details)
-                if isinstance(
-                    details,
-                    dict,
-                )
+                if isinstance(details, dict)
                 else []
             ),
         )
@@ -1041,10 +1054,7 @@ def render_live_fixtures(
             "Statistics keys:",
             (
                 list(snapshot)
-                if isinstance(
-                    snapshot,
-                    dict,
-                )
+                if isinstance(snapshot, dict)
                 else []
             ),
         )
@@ -1059,9 +1069,9 @@ def render_live_fixtures(
         )
 
         st.caption(
-            "These field names help identify "
-            "API response differences without "
-            "exposing your API key."
+            "Score objects are displayed "
+            "for debugging. No API key "
+            "is displayed."
         )
 
     # ======================================
