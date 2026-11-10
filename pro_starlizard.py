@@ -3,15 +3,17 @@ import streamlit as st
 import pandas as pd
 from datetime import date
 from supabase import create_client
+
 from starlizard_live_fixtures import render_live_fixtures
+from starlizard_halftime_markets_v57 import render_halftime_markets
 
 # ==================================================
-# PRO STARLIZARD — STABLE RECOVERY DASHBOARD
+# PRO STARLIZARD — MAIN DASHBOARD
 #
-# V5.7 deliberately disconnected while we diagnose
-# the Streamlit memory limit.
+# V5.7 memory-efficient halftime markets integrated.
+# Historical calculations run only when requested.
 #
-# No database records are modified.
+# All database operations are read-only.
 # ==================================================
 
 st.set_page_config(
@@ -138,7 +140,7 @@ SAMPLE_OPTIONS = [5, 10, 15, 20, 25]
 
 
 # ==================================================
-# SUPABASE
+# SUPABASE CONNECTION
 # ==================================================
 
 @st.cache_resource
@@ -154,7 +156,12 @@ def get_database_stats():
     db = get_supabase()
 
     checks = [
-        ("Historical xG records", "historical_xg", None, None),
+        (
+            "Historical xG records",
+            "historical_xg",
+            None,
+            None,
+        ),
         (
             "Match event records collected",
             "historical_match_events",
@@ -263,7 +270,7 @@ def has_score(row):
 
 
 # ==================================================
-# HISTORICAL MATCHES
+# HISTORICAL MATCH RETRIEVAL
 # ==================================================
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -1155,23 +1162,17 @@ if st.session_state.active_page == "Match Pricing":
     st.header("Match Pricing")
 
     st.caption(
-        "PRO STARLIZARD — stable recovery mode"
-    )
-
-    st.warning(
-        "V5.7 halftime corners and cards pricing "
-        "is temporarily disconnected while "
-        "we investigate the Streamlit "
-        "memory limit."
+        "PRO STARLIZARD | V5.7 historical "
+        "halftime corners and cards"
     )
 
     st.info(
-        "Your existing V5.6 pricing engine "
-        "and historical database have not "
-        "been deleted. We will reconnect "
-        "the pricing tools after resolving "
-        "the memory issue."
+        "Enter the halftime score, xG, corners "
+        "and yellow cards, then press Calculate "
+        "to retrieve comparable historical matches."
     )
+
+    render_halftime_markets(get_supabase())
 
 
 # ==================================================
@@ -1353,9 +1354,8 @@ elif (
             )
 
     st.caption(
-        "Corners, cards and event timelines "
-        "will be reconnected after the "
-        "memory issue is resolved."
+        "Historical team research remains "
+        "separate from V5.7 halftime pricing."
     )
 
 
@@ -1508,7 +1508,7 @@ elif (
 st.divider()
 
 st.caption(
-    "PRO STARLIZARD | Stable recovery mode | "
+    "PRO STARLIZARD | V5.7 integrated | "
     "Research and model estimates only. "
     "No automated betting."
 )
