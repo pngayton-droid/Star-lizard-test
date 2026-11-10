@@ -1,0 +1,103 @@
+
+name: Test PRO STARLIZARD Pricing Engine
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-pricing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install numpy pandas
+
+      - name: Check Python syntax
+        run: |
+          python -m py_compile starlizard_pricing_engine.py
+
+      - name: Test pricing mathematics
+        run: |
+          python - <<'PY'
+          import math
+          import numpy as np
+
+          from starlizard_pricing_engine import (
+              poisson_distribution,
+              score_matrix,
+              standard_markets,
+              asian_settlement,
+              asian_market,
+          )
+
+          # Poisson probabilities must sum to 100%.
+          p = poisson_distribution(1.5)
+          assert np.isclose(p.sum(), 1.0)
+
+          # Full score matrix must sum to 100%.
+          matrix = score_matrix(1.5, 1.2)
+          assert np.isclose(matrix.sum(), 1.0)
+
+          # Home/draw/away must total 100%.
+          markets = standard_markets(matrix)
+          assert np.isclose(
+              markets["home"]
+              + markets["draw"]
+              + markets["away"],
+              1.0,
+          )
+
+          # Complementary markets must total 100%.
+          assert np.isclose(
+              markets["over_2_5"]
+              + markets["under_2_5"],
+              1.0,
+          )
+
+          assert np.isclose(
+              markets["btts_yes"]
+              + markets["btts_no"],
+              1.0,
+          )
+
+          # Asian handicap settlement examples.
+          assert asian_settlement(0, 0.0) == 0.0
+          assert asian_settlement(0, -0.25) == -0.5
+          assert asian_settlement(0, 0.25) == 0.5
+          assert asian_settlement(1, -0.75) == 0.5
+          assert asian_settlement(-1, 0.75) == -0.5
+
+          # Fair odds should produce zero theoretical ROI.
+          for market, line in [
+              ("home_handicap", -0.25),
+              ("away_handicap", 0.5),
+              ("over_goals", 2.5),
+              ("under_goals", 2.25),
+          ]:
+              result = asian_market(matrix, market, line)
+              fair = result["fair_odds"]
+
+              assert fair is not None
+              assert math.isfinite(fair)
+
+              roi = (
+                  result["win_units"] * (fair - 1)
+                  - result["loss_units"]
+              )
+
+              assert abs(roi) < 1e-10
+
+          print("ALL PRICING MATHEMATICS TESTS PASSED")
+          PY
