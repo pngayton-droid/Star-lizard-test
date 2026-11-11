@@ -37,7 +37,7 @@ def key(v):
     return re.sub("[^a-z0-9]", "", s.lower())
 
 def payload(r, numeric_prefixes, excluded=()):
-    return {k: numeric(v) if k.startswith(numeric_prefixes) else v
+    return {k: numeric(v) if k.startswith(numeric_prefixes) and k != "ht_xg_timing_convention" else v
             for k, v in r.items() if k not in excluded and v != ""}
 
 def football(r):
