@@ -1179,45 +1179,44 @@ def show_comparison(
 if "active_page" not in st.session_state:
     st.session_state.active_page = "Home"
 
-st.subheader("⚽ Match centre")
-st.caption("Choose a fixture to view its actual match state and available halftime research.")
-if st.button("🔴 Live Fixtures — Select a Match", type="primary", key="nav_live_main", width="stretch"):
-    st.session_state.active_page = "Live Fixtures"
-    st.rerun()
+if st.session_state.active_page == "Home":
+    st.subheader("⚽ Match centre")
+    st.caption("Choose a fixture to view its actual match state and available halftime research.")
+    if st.button("🔴 Live Fixtures — Select a Match", type="primary", key="nav_live_main", width="stretch"):
+        st.session_state.active_page = "Live Fixtures"
+        st.rerun()
 
-with st.expander("Other dashboard tools", expanded=False):
-    for page, label in [
-        ("Historical Research", "📊 Team historical comparison"),
-        ("Database Health", "🗄️ Database health"),
-        ("Match Pricing", "✍️ Manual halftime research"),
-    ]:
-        if st.button(label, key=f"nav_extra_{page}", width="stretch"):
-            st.session_state.active_page = page
-            st.rerun()
+    with st.expander("Other dashboard tools", expanded=False):
+        for page, label in [
+            ("Historical Research", "📊 Team historical comparison"),
+            ("Database Health", "🗄️ Database health"),
+            ("Match Pricing", "✍️ Manual halftime research"),
+        ]:
+            if st.button(label, key=f"nav_extra_{page}", width="stretch"):
+                st.session_state.active_page = page
+                st.rerun()
 
-if st.session_state.active_page != "Home":
+    st.divider()
+    st.subheader("🧠 Models & research")
+    st.caption("Choose a specialist model or research workspace. These tools remain available without cluttering the main screen.")
+    model_pages = [
+        ("⚽ Fixture pricing", "pages/Live_Fixture_Bridge.py", "Fixture-based goals and Asian-market research"),
+        ("🧠 Half-time pricing lab", "pages/Halftime_Pricing_Lab.py", "Half-time pricing scenarios and research"),
+        ("🔎 Half-time intelligence", "pages/Halftime_Intelligence.py", "Second-half and next-goal historical patterns"),
+        ("📈 Model intelligence", "pages/Model_Intelligence.py", "Archive coverage, model readiness and saved findings"),
+        ("🦎 Automatic pattern scanner", "pages/Automatic_Pattern_Scanner.py", "Explore statistically screened historical patterns"),
+        ("🗃️ Historical archive", "pages/Archive_Historical_Research.py", "Inspect linked historical match data"),
+    ]
+    for label, destination, description in model_pages:
+        st.page_link(destination, label=label, use_container_width=True)
+        st.caption(description)
+        st.write("")
+
+else:
     if st.button("🏠 Back to dashboard", key="nav_home", width="stretch"):
         st.session_state.active_page = "Home"
         st.rerun()
-
-st.divider()
-
-st.subheader("🧠 Models & research")
-st.caption("Choose a specialist model or research workspace. These tools remain available without cluttering the main screen.")
-model_pages = [
-    ("⚽ Fixture pricing", "pages/Live_Fixture_Bridge.py", "Fixture-based goals and Asian-market research"),
-    ("🧠 Half-time pricing lab", "pages/Halftime_Pricing_Lab.py", "Half-time pricing scenarios and research"),
-    ("🔎 Half-time intelligence", "pages/Halftime_Intelligence.py", "Second-half and next-goal historical patterns"),
-    ("📈 Model intelligence", "pages/Model_Intelligence.py", "Archive coverage, model readiness and saved findings"),
-    ("🦎 Automatic pattern scanner", "pages/Automatic_Pattern_Scanner.py", "Explore statistically screened historical patterns"),
-    ("🗃️ Historical archive", "pages/Archive_Historical_Research.py", "Inspect linked historical match data"),
-]
-for label, destination, description in model_pages:
-    st.page_link(destination, label=label, use_container_width=True)
-    st.caption(description)
-    st.write("")
-
-st.divider()
+    st.divider()
 
 
 # ==================================================
