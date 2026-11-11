@@ -198,12 +198,12 @@ with st.expander("🔬 Check actual statistics availability"):
             })
             if halted:
                 break
-        st.session_state["bridge_stats_audit"] = {
+        st.session_state["bridge_stats_audit_results"] = {
             "date": day.isoformat(),
             "rows": audit_rows,
             "halted": halted,
         }
-    saved_audit = st.session_state.get("bridge_stats_audit")
+    saved_audit = st.session_state.get("bridge_stats_audit_results")
     if saved_audit and saved_audit["date"] == day.isoformat():
         rows = saved_audit["rows"]
         st.metric("Fixtures with API statistics", sum(x["Statistics"] == "Available" for x in rows))
