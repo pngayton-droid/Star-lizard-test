@@ -19,6 +19,9 @@ market=st.selectbox("Historical outcome to investigate",list(OUTCOMES))
 tolerance=st.slider("xG matching tolerance (each team)",0.1,1.5,0.5,0.1)
 comp=st.text_input("Optional StatsAPI competition ID (blank = all historical leagues)",placeholder="comp_3039")
 st.caption("Exact halftime score and approximate home/away xG. Earlier 70% of match dates used for estimation, later 30% reported separately.")
+current_inputs=(int(home_score),int(away_score),float(home_xg),float(away_xg),market,float(tolerance),comp.strip())
+if st.session_state.get("ht_snapshot_inputs")!=current_inputs:
+    st.session_state.pop("ht_snapshot_result",None)
 if st.button("Calculate halftime historical estimate",type="primary"):
     try:
         data=halftime_sample(comp.strip() or None)
@@ -31,6 +34,7 @@ if st.button("Calculate halftime historical estimate",type="primary"):
             st.caption("Broaden xG tolerance or choose a more common halftime score to inspect more matches.")
         else:
             st.session_state["ht_snapshot_result"]=result
+            st.session_state["ht_snapshot_inputs"]=current_inputs
             st.session_state["ht_snapshot_market"]=market
     except Exception as exc:
         st.error("Unable to calculate the halftime research estimate.")
@@ -43,13 +47,13 @@ if result and result.get("status")=="Research estimate available":
     y.metric("Later-period frequency",f'{100*result["later_rate"]:.1f}%')
     z.metric("Descriptive 95% interval",f'{100*result["lower"]:.1f}–{100*result["upper"]:.1f}%')
     st.caption(f'Earlier: {result["train_hits"]}/{result["train_n"]}; later: {result["later_hits"]}/{result["later_n"]}; date split: {result["cutoff"]}.')
-    st.caption("Results remain on screen after editing inputs until recalculated; they describe the last submitted snapshot.")
+    st.caption("Results are cleared when halftime inputs change; recalculate for the new situation.")
     st.subheader("Optional real market quote")
     odds=st.number_input("Actual decimal odds (enter manually)",1.01,1000.0,2.0,0.05)
     fee=st.number_input("Commission on net winnings (%)",0.0,30.0,0.0,0.5)
     threshold=quote_break_even(odds,fee)
     st.metric("Market break-even probability",f"{100*threshold:.2f}%")
-    st.write(f'Historical estimate minus break-even: **{100*(result["train_rate"]-threshold):+.1f} percentage points**')
+    st.write(f'Uncalibrated historical frequency minus break-even: **{100*(result["train_rate"]-threshold):+.1f} percentage points**')
     st.warning("A difference from the market break-even rate is NOT a proven value opportunity. Historical state matching does not incorporate fixture strength, lineup, live events, bookmaker margin or prospective calibration.")
 st.subheader("Next steps")
 st.caption("Combine this historical conditional prior with a calibrated pre-match strength model, real halftime match data, verified next-goal ordering, and timestamped market odds.")
