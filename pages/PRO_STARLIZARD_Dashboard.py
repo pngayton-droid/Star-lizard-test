@@ -228,7 +228,8 @@ if ready and recent_rows:
         b=baseline(f,recent_rows)
         if b: choices.append((f,b))
     if choices:
-        index=st.selectbox("Fixture for halftime scenario",range(len(choices)),
+        preferred=next((i for i,(f,_) in enumerate(choices) if show and f==show[fixture_index]),0)
+        index=st.selectbox("Fixture for halftime scenario",range(len(choices)),index=preferred,
             format_func=lambda i:fixture_label(choices[i][0]))
         selected,prior=choices[index]
         st.write(f'Pre-match venue xG baseline: **{prior["home_xg"]:.2f} – {prior["away_xg"]:.2f}**')
