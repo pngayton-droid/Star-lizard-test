@@ -14,6 +14,7 @@ from fixture_goals_baseline import baseline
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
+from halftime_next_goal_research import labelled_next_goal_rows,trailing_first_summary
 
 st.set_page_config(page_title="PRO STARLIZARD Dashboard",layout="wide")
 st.title("🦎 PRO STARLIZARD")
@@ -176,6 +177,25 @@ if ready and recent_rows:
         st.info("No venue-ready fixture has a matching recent-xG baseline.")
 else:
     st.info("Halftime workspace needs a venue-ready fixture and recent-xG data.")
+st.divider()
+st.subheader("Verified-label next-goal research")
+st.caption("Historical trailing-team first scorer in the second half. Only records explicitly labelled true or false are counted; NULL records are excluded because their meaning has not been verified.")
+with st.expander("Explore trailing-team next-goal history"):
+    xg_floor=st.slider("Trailing team's HT xG minimum",0.0,2.0,0.2,0.05,key="ng_xg")
+    deficit=st.selectbox("Halftime deficit",[1,2,3],key="ng_deficit")
+    side=st.selectbox("Trailing team location",["both","home","away"],key="ng_side")
+    if st.button("Analyse labelled next-goal history"):
+        try:
+            records=labelled_next_goal_rows()
+            result=trailing_first_summary(records,xg_floor,deficit,side)
+            st.metric("Explicitly labelled qualifying matches",result["n"])
+            if result["n"]:
+                st.metric("Trailing team first 2H scorer (labelled sample)",f'{result["rate"]*100:.1f}%')
+                st.caption(f'{result["hits"]}/{result["n"]} labelled outcomes. This is NOT the unconditional chance of scoring first: excluded NULLs may include goalless halves, and label verification/selection bias remains outstanding.')
+            else:
+                st.info("No labelled observations match these filters.")
+        except Exception as exc:
+            st.error("Next-goal research temporarily unavailable: "+type(exc).__name__)
 st.divider()
 st.subheader("Model build status")
 st.write("**Working:** fixture discovery, historical coverage, venue sample checks, halftime outcome research, conditional scenario estimates.")
