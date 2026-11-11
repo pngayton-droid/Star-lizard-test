@@ -108,8 +108,6 @@ def three_way_holdout_scores(rows,min_xg=0.2,deficit=1,side="both",train_fractio
     later_rates={k:later[k]/later["n"] for k in keys}
     brier=sum(later_rates[k]*sum((probabilities[j]-(1.0 if j==k else 0.0))**2 for j in keys) for k in keys)
     logloss=-sum(later_rates[k]*math.log(probabilities[k]) for k in keys)
-    baseline={k:(later[k]+smoothing)/(later["n"]+3*smoothing) for k in keys}
-    # In-sample later baseline is descriptive only, not a deployable competitor.
     return {"status":"ok","cutoff":split["cutoff"],"train_n":train["n"],
             "later_n":later["n"],"earlier_probabilities":probabilities,
             "later_rates":later_rates,"brier":brier,"log_loss":logloss}
