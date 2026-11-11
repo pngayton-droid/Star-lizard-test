@@ -102,6 +102,19 @@ div[data-testid="stPageLink"] a p,
 div[data-testid="stPageLink"] a span {
     color:#f8fafc!important;
 }
+/* Sidebar navigation is compact; main-page model buttons stay large. */
+section[data-testid="stSidebar"] div[data-testid="stPageLink"] a {
+    min-height:2.7rem!important;
+    padding:0.5rem 0.7rem!important;
+    border-radius:10px!important;
+    font-size:0.92rem!important;
+    font-weight:600!important;
+    justify-content:flex-start!important;
+    text-align:left!important;
+}
+section[data-testid="stSidebar"] div[data-testid="stPageLink"] {
+    margin-bottom:0!important;
+}
 [data-testid="stImage"] img {
     object-fit:contain!important;
     height:auto!important;
