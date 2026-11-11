@@ -39,6 +39,28 @@ if coverage_ok:
         classify_fixture(item,archive_summary)["status"]=="League covered" for item in fixtures))
 else:
     st.metric("League-covered fixtures","Unknown")
+with st.expander("Competition API lookup test"):
+    st.caption("One on-demand request to check how TheStatsAPI identifies competitions. No credentials displayed.")
+    ids=list(dict.fromkeys(str(item.get("competition_id")) for item in fixtures if item.get("competition_id")))
+    if ids and st.button("Test competition lookup"):
+        sample_id=ids[0]
+        try:
+            response=requests.get(API_BASE+"/football/competitions/"+sample_id,
+                headers={"Authorization":f"Bearer {key}"},timeout=20)
+            st.write("Lookup HTTP status:",response.status_code)
+            if response.ok:
+                payload=response.json()
+                data=payload.get("data") if isinstance(payload,dict) else None
+                if isinstance(data,dict):
+                    st.write("Competition name:",data.get("name"))
+                    st.write("Competition country:",data.get("country") or data.get("country_name"))
+                    st.write("Available competition fields:",list(data.keys()))
+                else:
+                    st.write("Response fields:",list(payload.keys()) if isinstance(payload,dict) else "Non-object response")
+            else:
+                st.info("The API may require a different competition lookup endpoint. No further requests were made.")
+        except Exception as exc:
+            st.warning("Lookup unavailable: "+type(exc).__name__)
 with st.expander("Competition matching diagnostics"):
     st.caption("Displays competition fields only; no API credentials or personal information.")
     if st.button("Inspect competition identifiers"):
