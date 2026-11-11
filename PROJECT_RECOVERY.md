@@ -116,3 +116,9 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - `pages/PRO_STARLIZARD_Dashboard.py` now renders forensic dossier and multi-market research pricing for **one selected fixture**, rather than all (up to 80) expanded fixture cards on each Streamlit rerun. Queue table and CSV export remain intact.
 - GitHub commits `0161e696c1c7dfb79af54c08eac8e44d08777810` and `fc68b309015a806e141aea61a26ee10b474a4ce5` (indentation correction).
 - Attempt to run tests via public GitHub raw downloads in local container was blocked by DNS; do not claim tests or deployment passed. Need GitHub Actions run evidence or connector-based source materialization for independent test execution.
+
+## Manual quote comparison — 2026-11-11
+- Added `fixture_quote_comparison.py` for user-entered decimal odds and optional commission; computes expected net ROI and break-even decimal from settlement stake fractions (including Asian quarter-line half wins/losses/pushes). No real market feed, calibration or value alert.
+- Integrated quote input and comparison into the selected fixture's pre-match dashboard pricing panel. Clearly warns that results are mechanical, uncalibrated scenarios.
+- Added `test_fixture_quote_comparison.py` (fair even-money, commission, pushes, half wins/losses, invalid inputs) and extended CI workflow.
+- Commits: `629c11b28c3bead5b9a6fdafb60e15f933f03107`, `abda4311ecf772c7b796d93bd2c507edbe0279f4`, `1581657e27bee2d1f7395777b29b5eb358e5701f`, `2278cd32ab6db231792561a483d37cd5e765ec43`. Test run and deployment still unverified.
