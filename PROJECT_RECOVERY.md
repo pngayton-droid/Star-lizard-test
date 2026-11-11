@@ -137,3 +137,7 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - Added `fixture_snapshot.py` pure schema-v2 research snapshot builder with UTC generation timestamp, fixture identity, provenance-labelled xG inputs, dossier, goals and Asian pricing, plus manually entered odds/commission and mechanical comparison. Explicitly warns venue summaries may be after selected date, so exports are **not point-in-time backtests**.
 - Dashboard exports complete JSON **after** calculating manual quote comparison rather than before. Added `test_fixture_snapshot.py` schema/serialization checks and CI paths.
 - Commits `912919a9c23603aeb9a4e6a1db8fda8900f1ae62`, `5d73b438ee9fbaf64906917fb1da63c440453d95`, `4b6b26bfc8ef464404c9d283887493c9bb0f5785`, `4e10a07dfe4d413c4df29451de4c53cd9ed46c60`. Test execution and deployment still unverified.
+
+## Historical leakage safeguard — 2026-11-11
+- Fixture JSON snapshots now explicitly compute `model.point_in_time_valid` by checking home/away venue summary latest dates against fixture date; future observations produce an extra warning and dashboard warning. This is only a preliminary leakage check, not a true point-in-time dataset reconstruction.
+- Added regression cases for future and valid dates. Commits `a70699023ecf0cd0cfc56dc1273311e83ec7b664`, `d4e7ca8f584e391a5e2ea8ec5d2f7f9b009cd1bd`, `fde2ef2544c306deecb3b1b82dabd725a03acf43`. CI execution and deployment remain unverified.
