@@ -11,7 +11,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
-      BACKUP_OUTPUT: ${{ runner.temp }}/starlizard-backup.zip.enc
+      BACKUP_OUTPUT: /tmp/starlizard-backup.zip.enc
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,6 +24,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: starlizard-encrypted-archive
-          path: ${{ runner.temp }}/starlizard-backup.zip.enc
+          path: /tmp/starlizard-backup.zip.enc
           if-no-files-found: error
           retention-days: 7
