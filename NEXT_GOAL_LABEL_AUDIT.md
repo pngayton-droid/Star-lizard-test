@@ -51,3 +51,11 @@ Of the 5,611 trailing-at-HT matches with a second-half scorer:
 - **All 5,611 first-scorer labels agree with reconstructed beneficiary.**
 
 Together with 1,337 no-second-half-goal matches verified against final scores, this reconciles all 6,948 trailing-at-HT three-way labels and event sequences for this dataset. The original 17 VAR suspect timelines and any match-level timing or duplicate anomaly audits remain separate outstanding checks. This is a data-integrity finding, not proof of predictive or betting value.
+
+## Broader half-goal integrity check — 2026-11-11
+
+Extended the score reconciliation from trailing-at-HT matches to **all 11,581** rows in `starlizard_next_goal_research`. Joining by `match_id` to timelines and by match date/home/away names to halftime score outcomes, counting `goal`, `own_goal`, `penalty_scored`:
+- First-half goal-count mismatches: **0 / 11,581**.
+- Second-half goal-count mismatches: **0 / 11,581**.
+- Across the complete `historical_match_events` event collection, duplicate scoring-event `sequence` groups within match and period: **0**.
+These are read-only integrity checks. They do not by themselves resolve the earlier 17 VAR-suspect cases or guarantee chronological correctness of all events. The match-date/team-name join should be replaced with a unique match-key join where available.
