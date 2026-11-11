@@ -1,6 +1,6 @@
 """Tests for explicitly labelled historical next-goal selection."""
 import unittest
-from halftime_next_goal_research import trailing_first_summary,trailing_three_way_summary,trailing_three_way_holdout
+from halftime_next_goal_research import trailing_first_summary,trailing_three_way_summary,trailing_three_way_holdout,three_way_holdout_scores
 
 class NextGoalResearchTests(unittest.TestCase):
     def test_filters_and_missing(self):
@@ -38,6 +38,22 @@ class NextGoalResearchTests(unittest.TestCase):
         self.assertEqual(trailing_three_way_holdout([{"match_date":"2025-01-01"}])["status"],"Insufficient distinct match dates")
         with self.assertRaises(ValueError):
             trailing_three_way_holdout([],train_fraction=1)
+    def test_probability_quality_chronological(self):
+        rows=[]
+        for i in range(40):
+            for month in (1,2):
+                rows.append(dict(match_date=f"2025-{month:02d}-{i%28+1:02d}",
+                    home_ht_goals=0,away_ht_goals=1,home_ht_xg=.4,away_ht_xg=.2,
+                    trailing_side="home",trailing_team_scored_first=[True,False,None][i%3]))
+        score=three_way_holdout_scores(rows,train_fraction=.5)
+        self.assertEqual(score["status"],"ok")
+        self.assertEqual(score["train_n"],40)
+        self.assertEqual(score["later_n"],40)
+        self.assertAlmostEqual(sum(score["earlier_probabilities"].values()),1.0)
+        self.assertGreater(score["brier"],0)
+        self.assertGreater(score["log_loss"],0)
+    def test_probability_quality_small_sample(self):
+        self.assertEqual(three_way_holdout_scores([])["status"],"Insufficient distinct match dates")
     def test_invalid(self):
         with self.assertRaises(ValueError):
             trailing_first_summary([],side="neutral")
