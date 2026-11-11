@@ -3,7 +3,7 @@ import requests
 import streamlit as st
 from archive_data_engine import _credentials
 
-@st.cache_data(ttl=1800,max_entries=2,show_spinner=False)
+@st.cache_data(ttl=300,max_entries=1,show_spinner=False)
 def halftime_sample(competition_id=None,limit=12000):
     url,key=_credentials()
     params={"select":"competition_id,match_date,home_ht_goals,away_ht_goals,home_ht_xg,away_ht_xg,home_goals,away_goals,home_second_half_goals,away_second_half_goals,trailing_side,trailing_ht_xg",
