@@ -39,3 +39,15 @@ All 1,337 NULL first-scorer outcomes correspond to verified no-second-half-goal 
 **Critical implementation rule:** When counting goals in timeline data, include `type IN ('goal','own_goal','penalty_scored')`. Do not treat `penalty_awarded`, `penalty_saved`, or `penalty_missed` as goals. Own goals must be attributed to the benefiting team when determining the next scorer.
 
 The earlier sections above are retained as an audit trail; this resolution takes precedence.
+
+## First-scorer attribution independently checked — 2026-11-11
+
+Read-only SQL joined research labels and timelines by `match_id`, selected the first second-half event of types `goal`, `own_goal`, `penalty_scored` ordered by numeric `sequence`, and attributed `own_goal` to the opposite team.
+
+Of the 5,611 trailing-at-HT matches with a second-half scorer:
+- First event `goal`: 4,994; label agreements 4,994, disagreements 0.
+- First event `penalty_scored`: 454; label agreements 454, disagreements 0.
+- First event `own_goal`: 163; label agreements 163, disagreements 0.
+- **All 5,611 first-scorer labels agree with reconstructed beneficiary.**
+
+Together with 1,337 no-second-half-goal matches verified against final scores, this reconciles all 6,948 trailing-at-HT three-way labels and event sequences for this dataset. The original 17 VAR suspect timelines and any match-level timing or duplicate anomaly audits remain separate outstanding checks. This is a data-integrity finding, not proof of predictive or betting value.
