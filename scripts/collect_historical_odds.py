@@ -29,7 +29,7 @@ def get_match_ids(db, limit):
     offset=0
     while len(ids)<limit:
         page=(db.table("historical_xg").select("match_id")
-              .order("match_id").range(offset,offset+999).execute().data or [])
+              .like("match_id","mt_%").order("match_date",desc=True).range(offset,offset+999).execute().data or [])
         if not page: break
         ids.extend(str(row["match_id"]) for row in page if row.get("match_id"))
         offset+=len(page)
@@ -45,7 +45,12 @@ def fetch_odds(session, match_id):
             continue
         if response.status_code in (404,204):
             return "unavailable",None,None
-        response.raise_for_status()
+        if response.status_code >= 400:
+            try:
+                error_text=str(response.json())[:250]
+            except ValueError:
+                error_text=response.text[:250]
+            raise RuntimeError(f"API HTTP {response.status_code}: {error_text}")
         payload=response.json()
         data=payload.get("data") if isinstance(payload,dict) else None
         if not data:
