@@ -1,11 +1,11 @@
 """Exploratory odds comparison for historically validated pattern segments.
 Not a calibrated pre-match pricing model or a betting recommendation.
 """
-import math
 import pandas as pd
 import streamlit as st
 from archive_data_engine import load_research
 from pattern_validation_engine import validate_patterns
+from pricing_comparison_engine import quote_comparison
 
 st.set_page_config(page_title="Research Pricing Bridge",layout="wide")
 st.title("🦎 Research Pricing Bridge")
@@ -48,13 +48,9 @@ record=available.iloc[chosen]
 n=int(record["holdout_n"])
 hits=int(record["holdout_segment_hits"])
 p=hits/n if n else 0
-# Wilson 95% interval; descriptive uncertainty, not full model uncertainty.
-z=1.959963984540054
-den=1+z*z/n if n else 1
-center=(p+z*z/(2*n))/den if n else 0
-radius=(z*math.sqrt(p*(1-p)/n+z*z/(4*n*n)))/den if n else 0
-low=max(0,center-radius)
-high=min(1,center+radius)
+metrics=quote_comparison(hits,n,2.0)
+low=metrics["lower_rate"]
+high=metrics["upper_rate"]
 
 a,b,c=st.columns(3)
 a.metric("Later-period outcomes",f"{hits:,} / {n:,}")
@@ -65,11 +61,10 @@ st.caption("Observed outcome rate in the historical segment. This is NOT a calib
 st.subheader("Compare with a market quote")
 quote=st.number_input("Decimal odds offered",min_value=1.01,max_value=1000.0,value=2.00,step=0.05)
 fee=st.number_input("Commission on net winnings (%)",min_value=0.0,max_value=30.0,value=0.0,step=0.5)
-# Exchange commission approximation: only net winnings charged, no other slippage.
-net_win=(quote-1)*(1-fee/100)
-break_even=1/(1+net_win)
-empirical_ev=p*net_win-(1-p)
-lower_ev=low*net_win-(1-low)
+metrics=quote_comparison(hits,n,quote,fee)
+break_even=metrics["break_even_rate"]
+empirical_ev=metrics["historical_return"]
+lower_ev=metrics["lower_bound_return"]
 d,e,f=st.columns(3)
 d.metric("Quote break-even probability",f"{100*break_even:.2f}%")
 e.metric("Historical-rate return estimate",f"{100*empirical_ev:+.2f}%")
