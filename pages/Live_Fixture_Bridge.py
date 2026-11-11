@@ -39,6 +39,28 @@ if coverage_ok:
         classify_fixture(item,archive_summary)["status"]=="League covered" for item in fixtures))
 else:
     st.metric("League-covered fixtures","Unknown")
+with st.expander("Competition matching diagnostics"):
+    st.caption("Displays competition fields only; no API credentials or personal information.")
+    if st.button("Inspect competition identifiers"):
+        st.write("Archive league codes:",archive_summary.league.tolist() if coverage_ok else "Unavailable")
+        samples=[]
+        seen=set()
+        for item in fixtures:
+            comp=item.get("competition")
+            comp_id=item.get("competition_id")
+            country=item.get("country")
+            marker=str((comp,comp_id,country))
+            if marker in seen:
+                continue
+            seen.add(marker)
+            samples.append({"competition":str(comp)[:160],
+                            "competition_id":str(comp_id)[:80],
+                            "country":str(country)[:80],
+                            "match_field_names":list(item.keys())[:30]})
+            if len(samples)>=15:
+                break
+        st.write("Sample competition identifiers:",samples)
+        st.caption("If competition is missing or an ID rather than a name, we must map official API competition IDs before filtering.")
 with st.expander("API coverage diagnostics"):
     st.caption("Checks the first API response without displaying credentials. Use this to distinguish limited source coverage from a pagination issue.")
     if st.button("Inspect fixture API pagination",key="inspect_fixture_pagination"):
