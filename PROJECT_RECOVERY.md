@@ -156,3 +156,8 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 
 ## Venue audit validation tightened — 2026-11-11
 - `fixture_input_audit.py` now requires finite and bounded xG values for both source venue summaries before marking a fixture pricing-eligible. Updated audit test fixtures with actual xG and added NaN rejection regression case. Commits `94442b220bbdea1f9de1e71d2d1d2152a6a0e295`, `4c1d23c0ba425bf1e66d5d2cc8b9c3352801780f`. Execution/deployment unverified.
+
+## TODAY-FIRST usable model focus — 2026-11-11
+- User explicitly prioritises a usable model today over weeks of extra features. Freeze new scope; concentrate on dashboard usability, existing data/pricing, and live deployment validation.
+- Dashboard defaults to showing all historically covered fixtures (or feed fixtures when none covered), not only venue-ready matches, so the screen is usable even when coverage is thin. Halftime fixture selector now defaults to the selected match when it has a usable baseline.
+- Commits `b2f3ea141257e0f977045cae9f3492df470fb274`, `97b7147b7a3391d666349dfa2ec4a7c262361808`. Need actual Streamlit deployment/runtime test before declaring ready.
