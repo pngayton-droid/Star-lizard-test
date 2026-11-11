@@ -132,3 +132,8 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 ## Exportable fixture research snapshot — 2026-11-11
 - Main dashboard selected fixture now offers downloadable versioned JSON containing fixture/date/competition, model identifier, baseline xG inputs and provenance, venue forensic dossier, 1X2/totals/BTTS/correct-score research probabilities and prices, selected Asian lines, and explicit model limitations.
 - JSON snapshot is research-only and does not include a live bookmaker quote. Commit `0a10d462af5aa8b1c92656ed4e33e28f4cb9b269`. Deployment and automated tests remain unverified.
+
+## Snapshot schema and reproducibility improvements — 2026-11-11
+- Added `fixture_snapshot.py` pure schema-v2 research snapshot builder with UTC generation timestamp, fixture identity, provenance-labelled xG inputs, dossier, goals and Asian pricing, plus manually entered odds/commission and mechanical comparison. Explicitly warns venue summaries may be after selected date, so exports are **not point-in-time backtests**.
+- Dashboard exports complete JSON **after** calculating manual quote comparison rather than before. Added `test_fixture_snapshot.py` schema/serialization checks and CI paths.
+- Commits `912919a9c23603aeb9a4e6a1db8fda8900f1ae62`, `5d73b438ee9fbaf64906917fb1da63c440453d95`, `4b6b26bfc8ef464404c9d283887493c9bb0f5785`, `4e10a07dfe4d413c4df29451de4c53cd9ed46c60`. Test execution and deployment still unverified.
