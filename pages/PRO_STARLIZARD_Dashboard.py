@@ -112,9 +112,12 @@ if show:
         file_name=f"starlizard_fixture_queue_{day.isoformat()}.csv",mime="text/csv")
 if not show:
     st.info("No matches match these filters. Switch off the venue-ready filter to inspect wider coverage.")
-for fixture in show[:80]:
+if show:
+    fixture_index=st.selectbox("Open fixture dossier",range(len(show)),
+        format_func=lambda i:fixture_label(show[i]),key="selected_dossier_fixture")
+    fixture=show[fixture_index]
     label=fixture_label(fixture)
-    with st.expander(label):
+    st.markdown(f"#### {label}")
         st.write("Competition ID:",str(fixture.get("competition_id") or "Unavailable"))
         st.write("Venue xG:",venue_readiness(fixture,team_rows).get("status") if team_rows else "Unavailable")
         if fixture in ready and recent_rows:
