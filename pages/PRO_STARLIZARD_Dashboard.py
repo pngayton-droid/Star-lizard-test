@@ -14,7 +14,7 @@ from fixture_goals_baseline import baseline
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
-from halftime_next_goal_research import labelled_next_goal_rows,trailing_three_way_summary,trailing_three_way_holdout
+from halftime_next_goal_research import labelled_next_goal_rows,trailing_three_way_summary,trailing_three_way_holdout,three_way_holdout_scores
 
 st.set_page_config(page_title="PRO STARLIZARD Dashboard",layout="wide")
 st.title("🦎 PRO STARLIZARD")
@@ -205,6 +205,15 @@ with st.expander("Explore trailing-team next-goal history"):
                         else:
                             st.write(f'{label}: no qualifying matches')
                     st.caption("This is a chronological descriptive comparison, not an odds-based betting backtest.")
+                    quality=three_way_holdout_scores(records,xg_floor,deficit,side)
+                    if quality["status"]=="ok":
+                        st.markdown("**Later-period probability quality**")
+                        lcol,rcol=st.columns(2)
+                        lcol.metric("Multiclass Brier (lower better)",f'{quality["brier"]:.3f}')
+                        rcol.metric("Log loss (lower better)",f'{quality["log_loss"]:.3f}')
+                        st.caption(f'Earlier rates frozen before {quality["cutoff"]}; evaluated against {quality["later_n"]} later qualifying matches. Smoothed historical frequencies, not a fixture-calibrated model or betting backtest.')
+                    else:
+                        st.caption("Probability scoring unavailable: "+quality["status"]+".")
                 else:
                     st.info("Not enough distinct match dates for a chronological comparison.")
             else:
