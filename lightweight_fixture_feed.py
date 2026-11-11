@@ -14,7 +14,7 @@ def get_key():
         if key: return str(key).strip()
     return None
 
-@st.cache_data(ttl=300,max_entries=4,show_spinner=False)
+@st.cache_data(ttl=60,max_entries=3,show_spinner=False)
 def fixtures_for_day(key,day):
     result=[]
     for page in range(1,21):
