@@ -150,3 +150,6 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - `fixture_goals_baseline.py` now rejects malformed, nonfinite, and out-of-range source xG values before combining them, rather than letting NaN pass the previous range check and contaminate Poisson pricing.
 - Added `test_fixture_goals_baseline.py` for normal inputs, NaN, infinity, malformed values, low samples and ambiguous team matching; CI includes the module and tests.
 - Commits `643dfc6740b90f826e53adf1312685846ade5ae5`, `6ad3e7912eb6acd8bdc3ea7e9eade866930eae7b`, `51e4d08c0ee041557274e73d1b01a416de304a8d`. Test execution/deployment not independently confirmed.
+
+## Data robustness — 2026-11-11
+- Hardened forensic venue dossier against malformed dates, missing fields and nonfinite xG, returning warnings rather than crashing fixture dashboard. Hardened venue baseline against malformed sample counts. Extended regression tests for both. Commits `54d33aeb2d6a3a2366b5003c4a100897cd9265f6`, `c57ba6dc83c965106ad478a44cbbe4f3889b2541`, `7e523dc9f3b00e669f1dac5a5afe2f93827575ed`, `cd85741c07b304939b56b01a584121e0ea727579`. Test execution still unverified.
