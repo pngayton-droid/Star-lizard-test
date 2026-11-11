@@ -65,6 +65,15 @@ class NextGoalResearchTests(unittest.TestCase):
         result=trailing_three_way_holdout(rows,train_fraction=.5)
         self.assertEqual(result["cutoff"],"2025-02-01")
         self.assertEqual(result["train"]["n"],1)
+    def test_cutoff_uses_qualifying_cohort_only(self):
+        rows=[
+            dict(match_date="2024-01-01",home_ht_goals=0,away_ht_goals=2,home_ht_xg=.4,away_ht_xg=.2,trailing_side="home",trailing_team_scored_first=True),
+            dict(match_date="2025-01-01",home_ht_goals=0,away_ht_goals=1,home_ht_xg=.4,away_ht_xg=.2,trailing_side="home",trailing_team_scored_first=True),
+            dict(match_date="2025-02-01",home_ht_goals=0,away_ht_goals=1,home_ht_xg=.4,away_ht_xg=.2,trailing_side="home",trailing_team_scored_first=False)]
+        result=trailing_three_way_holdout(rows,deficit=1,train_fraction=.5)
+        self.assertEqual(result["cutoff"],"2025-02-01")
+        self.assertEqual(result["train"]["n"],1)
+        self.assertEqual(result["later"]["n"],1)
     def test_invalid(self):
         with self.assertRaises(ValueError):
             trailing_first_summary([],side="neutral")
