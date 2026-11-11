@@ -76,6 +76,32 @@ div.stButton>button[kind="secondary"] {
 div.stButton>button p {
     color:inherit!important;
 }
+/* Make model navigation as touch-friendly as the main dashboard buttons. */
+div[data-testid="stPageLink"] a {
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    width:100%!important;
+    min-height:4.4rem!important;
+    padding:1rem!important;
+    background:#172338!important;
+    border:1px solid #41536c!important;
+    border-radius:15px!important;
+    color:#f8fafc!important;
+    text-decoration:none!important;
+    font-size:1.05rem!important;
+    font-weight:650!important;
+    text-align:center!important;
+}
+div[data-testid="stPageLink"] a:hover,
+div[data-testid="stPageLink"] a:focus-visible {
+    background:#223653!important;
+    border-color:#8fa6c6!important;
+}
+div[data-testid="stPageLink"] a p,
+div[data-testid="stPageLink"] a span {
+    color:#f8fafc!important;
+}
 [data-testid="stImage"] img {
     object-fit:contain!important;
     height:auto!important;
@@ -1165,6 +1191,7 @@ model_pages = [
 for label, destination, description in model_pages:
     st.page_link(destination, label=label, use_container_width=True)
     st.caption(description)
+    st.write("")
 
 st.divider()
 
