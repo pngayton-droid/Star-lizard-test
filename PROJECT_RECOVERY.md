@@ -64,3 +64,8 @@ Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Sta
 ## Holdout input guard — 2026-11-11
 - Chronological three-way research now rejects invalid trailing-side, halftime deficit, and minimum-xG filters before selecting split dates. Regression tests added.
 - GitHub source commits are confirmed; automated test execution and deployment remain unverified. Next engineering priorities: run CI, resolve 17 VAR suspects by match ID, and build out-of-time fixture-level calibration against odds.
+
+## Real chronological cohort result — 2026-11-11
+- Direct Supabase evaluation of trailing by exactly one HT goal, trailing HT xG >=0.20: earlier n=2,383 (trailing-first 1,024), later n=1,146 (trailing-first 513). Date cutoff 2025-05-25.
+- Earlier-trained conditional probabilities evaluated on later cohort: Brier 0.63355, log loss 1.04514. Earlier-only one-goal-deficit unconditional baseline: Brier 0.63637, log loss 1.04859. Small improvements +0.00283 Brier and +0.00344 log loss, not evidence of positive betting EV.
+- Full methodology and counts in `NEXT_GOAL_LABEL_AUDIT.md`. Do not overclaim: no live odds, commissions, or prospective selection, and VAR cases remain outstanding.
