@@ -14,7 +14,7 @@ from fixture_goals_baseline import baseline
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
-from halftime_next_goal_research import labelled_next_goal_rows,trailing_first_summary
+from halftime_next_goal_research import labelled_next_goal_rows,trailing_three_way_summary
 
 st.set_page_config(page_title="PRO STARLIZARD Dashboard",layout="wide")
 st.title("🦎 PRO STARLIZARD")
@@ -179,7 +179,7 @@ else:
     st.info("Halftime workspace needs a venue-ready fixture and recent-xG data.")
 st.divider()
 st.subheader("Verified-label next-goal research")
-st.caption("Historical trailing-team first scorer in the second half. Only records explicitly labelled true or false are counted; NULL records are excluded because their meaning has not been verified.")
+st.caption("Historical three-way first-scorer frequencies, including audited goalless halves. Sequence and VAR checks remain outstanding.")
 with st.expander("Explore trailing-team next-goal history"):
     xg_floor=st.slider("Trailing team's HT xG minimum",0.0,2.0,0.2,0.05,key="ng_xg")
     deficit=st.selectbox("Halftime deficit",[1,2,3],key="ng_deficit")
@@ -187,13 +187,15 @@ with st.expander("Explore trailing-team next-goal history"):
     if st.button("Analyse labelled next-goal history"):
         try:
             records=labelled_next_goal_rows()
-            result=trailing_first_summary(records,xg_floor,deficit,side)
-            st.metric("Explicitly labelled qualifying matches",result["n"])
+            result=trailing_three_way_summary(records,xg_floor,deficit,side)
+            st.metric("Qualifying historical matches",result["n"])
             if result["n"]:
-                st.metric("Trailing team first 2H scorer (labelled sample)",f'{result["rate"]*100:.1f}%')
-                st.caption(f'{result["hits"]}/{result["n"]} labelled outcomes. This is NOT the unconditional chance of scoring first: excluded NULLs may include goalless halves, and label verification/selection bias remains outstanding.')
+                st.write(f'Trailing team first: **{result["trailing_rate"]*100:.1f}%** ({result["trailing_first"]}/{result["n"]})')
+                st.write(f'Leading team first: **{result["leader_rate"]*100:.1f}%** ({result["leader_first"]}/{result["n"]})')
+                st.write(f'No second-half goal: **{result["no_goal_rate"]*100:.1f}%** ({result["no_goal"]}/{result["n"]})')
+                st.caption("Observed three-way frequencies only. Not fixture-calibrated fair odds; sequence/VAR checks still pending.")
             else:
-                st.info("No labelled observations match these filters.")
+                st.info("No observations match these filters.")
         except Exception as exc:
             st.error("Next-goal research temporarily unavailable: "+type(exc).__name__)
 st.divider()
