@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import streamlit as st
-from starlizard_live_fixtures import get_key, fixtures_for_day, fixture_label, kickoff, team_name, API_BASE
+from lightweight_fixture_feed import get_key, fixtures_for_day, fixture_label, kickoff, team_name, API_BASE
 import requests
 from archive_data_engine import load_coverage
 from fixture_coverage_engine import archive_league_summary, classify_fixture
