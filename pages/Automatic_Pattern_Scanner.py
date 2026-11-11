@@ -7,6 +7,15 @@ import streamlit as st
 from archive_data_engine import load_research
 
 st.set_page_config(page_title="Automatic Pattern Scanner", layout="wide")
+
+# Compact navigation: legacy and diagnostic pages remain available by direct URL.
+with st.sidebar:
+    st.markdown("### 🦎 PRO STARLIZARD")
+    st.page_link("pro_starlizard.py", label="🏠 Main dashboard", use_container_width=True)
+    st.page_link("pages/Live_Fixture_Bridge.py", label="⚽ Fixtures & pricing", use_container_width=True)
+    st.page_link("pages/Halftime_Pricing_Lab.py", label="🧠 Half-time pricing", use_container_width=True)
+    st.page_link("pages/Model_Intelligence.py", label="📈 Model intelligence", use_container_width=True)
+    st.page_link("pages/Automatic_Pattern_Scanner.py", label="🦎 Pattern scanner", use_container_width=True)
 st.title("🦎 Automatic Pattern Scanner")
 st.caption("Research-only discovery. Historical patterns are not betting edges without market prices, costs and out-of-sample validation.")
 
