@@ -780,11 +780,17 @@ def render_live_fixtures(
     selected_id = st.selectbox(
         "Select a match",
         list(by_id),
+        index=None,
+        placeholder="Choose a fixture to view its current match state",
         format_func=lambda mid: (
             fixture_label(by_id[mid])
         ),
         key="lf_match_id",
     )
+
+    if selected_id is None:
+        st.info("Select a fixture above to load its current statistics and halftime pricing.")
+        return
 
     selected = by_id[selected_id]
 
