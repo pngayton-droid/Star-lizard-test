@@ -13,6 +13,7 @@ from statsapi_team_coverage import team_venue_coverage
 from fixture_team_readiness import venue_readiness
 from statsapi_recent_venue_xg import recent_venue_xg
 from fixture_goals_baseline import baseline
+from fixture_market_pricing import price_goals
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
@@ -120,6 +121,22 @@ for fixture in show[:80]:
                 st.write(f'Pre-match baseline xG: home **{research["home_xg"]:.2f}**, away **{research["away_xg"]:.2f}**')
                 st.write(f'Mechanical pre-match Over 2.5 probability: **{research["over_2_5"]*100:.1f}%**')
                 st.caption(f'Home venue sample: {research["home_n"]}; away venue sample: {research["away_n"]}. Simple Poisson baseline, not calibrated fair odds.')
+                with st.container(border=True):
+                    st.markdown("**Pre-match research pricing**")
+                    prices=price_goals(research["home_xg"],research["away_xg"])
+                    market_labels={"home_win":"Home win","draw":"Draw","away_win":"Away win",
+                                   "over_1_5":"Over 1.5","under_1_5":"Under 1.5",
+                                   "over_2_5":"Over 2.5","under_2_5":"Under 2.5",
+                                   "btts_yes":"BTTS Yes","btts_no":"BTTS No"}
+                    st.dataframe([{"Market":market_labels[k],
+                                   "Probability":f"{prices['probabilities'][k]*100:.1f}%",
+                                   "Research decimal":f"{prices['decimal_prices'][k]:.2f}"}
+                                  for k in market_labels],hide_index=True,use_container_width=True)
+                    st.write("**Most likely correct scores**")
+                    st.dataframe([{"Score":s["score"],"Probability":f'{s["probability"]*100:.1f}%',
+                                   "Research decimal":f'{s["decimal_price"]:.2f}'}
+                                  for s in prices["top_scores"][:5]],hide_index=True,use_container_width=True)
+                    st.caption(f'Independent-Poisson research baseline. Unmodelled score-grid mass: {prices["missing_mass"]*100:.4f}%. Not calibrated; no actual market odds.')
         st.caption("Live halftime state and market odds: not yet connected. No value inference.")
 st.divider()
 st.subheader("Halftime match workspace")
