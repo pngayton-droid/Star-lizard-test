@@ -8,6 +8,7 @@ import io
 from zoneinfo import ZoneInfo
 import streamlit as st
 from lightweight_fixture_feed import get_key,fixtures_for_day,fixture_label
+from fixture_live_status import live_fixture_rows,fixture_status
 from statsapi_competition_coverage import statsapi_coverage
 from statsapi_team_coverage import team_venue_coverage
 from fixture_team_readiness import venue_readiness
@@ -71,12 +72,27 @@ today=datetime.now(ZoneInfo("Europe/London")).date()
 day=st.date_input("Fixture date (UK)",value=today,
     min_value=today-timedelta(days=7),max_value=today+timedelta(days=21))
 search=st.text_input("Find team or fixture",placeholder="Search fixtures")
+refresh=st.button("↻ Refresh live fixtures",key="refresh_fixture_feed")
+if refresh:
+    fixtures_for_day.clear(key,day.isoformat())
 try:
     fixtures=fixtures_for_day(key,day.isoformat())
 except Exception as exc:
     st.error("Fixture feed temporarily unavailable.")
     st.code(type(exc).__name__)
     st.stop()
+st.subheader("Live fixtures")
+live_matches=live_fixture_rows(fixtures)
+a,b=st.columns(2)
+a.metric("Live now (API status)",len(live_matches))
+b.metric("Fixtures on selected date",len(fixtures))
+st.caption("TheStatsAPI match statuses and scores, refreshed on demand or when the 60-second cache expires. This is not a streaming connection.")
+if live_matches:
+    st.dataframe([{"Match":fixture_label(f),"Status":str(f.get("status") or "Unknown"),
+                   "Competition ID":str(f.get("competition_id") or "")}
+                  for f in live_matches],hide_index=True,use_container_width=True)
+else:
+    st.info("No fixtures currently marked live by the API for this date. Scheduled fixtures are listed below.")
 try:
     competitions=statsapi_coverage()
 except Exception:
