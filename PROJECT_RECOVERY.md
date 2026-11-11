@@ -145,3 +145,8 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 ## Strict fixture venue input audit — 2026-11-11
 - Added `fixture_input_audit.py` to detect missing, ambiguous, malformed, low-sample and same-day/future-dated venue observations before showing research prices. The main dashboard suppresses pricing when known input provenance is unsafe, and explicitly notes that even eligible aggregates are not reconstructed point-in-time.
 - Added `test_fixture_input_audit.py` and CI coverage. Commits `54a384491feec0377b94e61a62ba2ad939b290f5`, `29915ec7f940a3c2492fc0dd2b8f017305998abe`, `19c472f06ccfdfa58cd0228700c0d608e758d610`, `6b69446547d99e5d32c0c92e1dcfa1fa0bb763b4`. Tests/deployment unverified.
+
+## Baseline input hardening — 2026-11-11
+- `fixture_goals_baseline.py` now rejects malformed, nonfinite, and out-of-range source xG values before combining them, rather than letting NaN pass the previous range check and contaminate Poisson pricing.
+- Added `test_fixture_goals_baseline.py` for normal inputs, NaN, infinity, malformed values, low samples and ambiguous team matching; CI includes the module and tests.
+- Commits `643dfc6740b90f826e53adf1312685846ade5ae5`, `6ad3e7912eb6acd8bdc3ea7e9eade866930eae7b`, `51e4d08c0ee041557274e73d1b01a416de304a8d`. Test execution/deployment not independently confirmed.
