@@ -118,60 +118,60 @@ if show:
     fixture=show[fixture_index]
     label=fixture_label(fixture)
     st.markdown(f"#### {label}")
-        st.write("Competition ID:",str(fixture.get("competition_id") or "Unavailable"))
-        st.write("Venue xG:",venue_readiness(fixture,team_rows).get("status") if team_rows else "Unavailable")
-        if fixture in ready and recent_rows:
-            dossier=venue_dossier(fixture,recent_rows,as_of=day.isoformat())
-            st.markdown("**Venue forensic snapshot**")
-            if dossier["teams"]:
-                st.dataframe([{"Team":v["team"],"Venue":v["venue"].title(),
-                    "Sample":v["matches"],"xG for":round(v["xg_for"],2),
-                    "xG against":round(v["xg_against"],2),
-                    "xG difference":round(v["xg_difference"],2),
-                    "Latest match":v["latest"]}
-                    for v in dossier["teams"].values()],hide_index=True,use_container_width=True)
-            for warning in dossier["warnings"]:
-                st.warning(warning)
-            st.caption("Venue aggregates from stored historical match data; not opponent-adjusted, and not a substitute for recent form, referee, corners or cards analysis.")
-            research=baseline(fixture,recent_rows)
-            if research:
-                st.write(f'Pre-match baseline xG: home **{research["home_xg"]:.2f}**, away **{research["away_xg"]:.2f}**')
-                st.write(f'Mechanical pre-match Over 2.5 probability: **{research["over_2_5"]*100:.1f}%**')
-                st.caption(f'Home venue sample: {research["home_n"]}; away venue sample: {research["away_n"]}. Simple Poisson baseline, not calibrated fair odds.')
-                with st.container(border=True):
-                    st.markdown("**Pre-match research pricing**")
-                    prices=price_goals(research["home_xg"],research["away_xg"])
-                    market_labels={"home_win":"Home win","draw":"Draw","away_win":"Away win",
-                                   "over_1_5":"Over 1.5","under_1_5":"Under 1.5",
-                                   "over_2_5":"Over 2.5","under_2_5":"Under 2.5",
-                                   "btts_yes":"BTTS Yes","btts_no":"BTTS No"}
-                    st.dataframe([{"Market":market_labels[k],
-                                   "Probability":f"{prices['probabilities'][k]*100:.1f}%",
-                                   "Research decimal":f"{prices['decimal_prices'][k]:.2f}"}
-                                  for k in market_labels],hide_index=True,use_container_width=True)
-                    st.write("**Most likely correct scores**")
-                    st.dataframe([{"Score":s["score"],"Probability":f'{s["probability"]*100:.1f}%',
-                                   "Research decimal":f'{s["decimal_price"]:.2f}'}
-                                  for s in prices["top_scores"][:5]],hide_index=True,use_container_width=True)
-                    st.caption(f'Independent-Poisson research baseline. Unmodelled score-grid mass: {prices["missing_mass"]*100:.4f}%. Not calibrated; no actual market odds.')
-                    st.markdown("**Asian lines — model research prices**")
-                    total_line=st.selectbox("Asian total goals",[1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5],index=4,
-                                            key=f"total_{fixture.get('id') or label}")
-                    handicap_line=st.selectbox("Home Asian handicap",[-2.0,-1.75,-1.5,-1.25,-1.0,-0.75,-0.5,-0.25,0.0,0.25,0.5,0.75,1.0,1.25,1.5,1.75,2.0],
-                                               index=8,key=f"handicap_{fixture.get('id') or label}")
-                    asian_rows=[]
-                    for market,side,line in [("total","over",total_line),("total","under",total_line),
-                                              ("handicap","home",handicap_line),
-                                              ("handicap","away",-handicap_line)]:
-                        p=asian_market(research["home_xg"],research["away_xg"],market,line,side)
-                        asian_rows.append({"Market":f"{side.title()} {line:+g}" if market=="handicap" else f"{side.title()} {line:g}",
-                                           "Research decimal":f'{p["fair_decimal"]:.2f}' if p["fair_decimal"] else "N/A",
-                                           "Stake won":f'{p["win_stake"]*100:.1f}%',
-                                           "Stake pushed":f'{p["push_stake"]*100:.1f}%'})
-                    st.dataframe(asian_rows,hide_index=True,use_container_width=True)
-                    st.caption("Quarter-lines settle as two equal half-stakes. Handicap is added to the named team's score; away handicap is the opposite of the selected home line. Not bookmaker prices.")
+    st.write("Competition ID:",str(fixture.get("competition_id") or "Unavailable"))
+    st.write("Venue xG:",venue_readiness(fixture,team_rows).get("status") if team_rows else "Unavailable")
+    if fixture in ready and recent_rows:
+        dossier=venue_dossier(fixture,recent_rows,as_of=day.isoformat())
+        st.markdown("**Venue forensic snapshot**")
+        if dossier["teams"]:
+            st.dataframe([{"Team":v["team"],"Venue":v["venue"].title(),
+                "Sample":v["matches"],"xG for":round(v["xg_for"],2),
+                "xG against":round(v["xg_against"],2),
+                "xG difference":round(v["xg_difference"],2),
+                "Latest match":v["latest"]}
+                for v in dossier["teams"].values()],hide_index=True,use_container_width=True)
+        for warning in dossier["warnings"]:
+            st.warning(warning)
+        st.caption("Venue aggregates from stored historical match data; not opponent-adjusted, and not a substitute for recent form, referee, corners or cards analysis.")
+        research=baseline(fixture,recent_rows)
+        if research:
+            st.write(f'Pre-match baseline xG: home **{research["home_xg"]:.2f}**, away **{research["away_xg"]:.2f}**')
+            st.write(f'Mechanical pre-match Over 2.5 probability: **{research["over_2_5"]*100:.1f}%**')
+            st.caption(f'Home venue sample: {research["home_n"]}; away venue sample: {research["away_n"]}. Simple Poisson baseline, not calibrated fair odds.')
+            with st.container(border=True):
+                st.markdown("**Pre-match research pricing**")
+                prices=price_goals(research["home_xg"],research["away_xg"])
+                market_labels={"home_win":"Home win","draw":"Draw","away_win":"Away win",
+                               "over_1_5":"Over 1.5","under_1_5":"Under 1.5",
+                               "over_2_5":"Over 2.5","under_2_5":"Under 2.5",
+                               "btts_yes":"BTTS Yes","btts_no":"BTTS No"}
+                st.dataframe([{"Market":market_labels[k],
+                               "Probability":f"{prices['probabilities'][k]*100:.1f}%",
+                               "Research decimal":f"{prices['decimal_prices'][k]:.2f}"}
+                              for k in market_labels],hide_index=True,use_container_width=True)
+                st.write("**Most likely correct scores**")
+                st.dataframe([{"Score":s["score"],"Probability":f'{s["probability"]*100:.1f}%',
+                               "Research decimal":f'{s["decimal_price"]:.2f}'}
+                              for s in prices["top_scores"][:5]],hide_index=True,use_container_width=True)
+                st.caption(f'Independent-Poisson research baseline. Unmodelled score-grid mass: {prices["missing_mass"]*100:.4f}%. Not calibrated; no actual market odds.')
+                st.markdown("**Asian lines — model research prices**")
+                total_line=st.selectbox("Asian total goals",[1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5],index=4,
+                                        key=f"total_{fixture.get('id') or label}")
+                handicap_line=st.selectbox("Home Asian handicap",[-2.0,-1.75,-1.5,-1.25,-1.0,-0.75,-0.5,-0.25,0.0,0.25,0.5,0.75,1.0,1.25,1.5,1.75,2.0],
+                                           index=8,key=f"handicap_{fixture.get('id') or label}")
+                asian_rows=[]
+                for market,side,line in [("total","over",total_line),("total","under",total_line),
+                                          ("handicap","home",handicap_line),
+                                          ("handicap","away",-handicap_line)]:
+                    p=asian_market(research["home_xg"],research["away_xg"],market,line,side)
+                    asian_rows.append({"Market":f"{side.title()} {line:+g}" if market=="handicap" else f"{side.title()} {line:g}",
+                                       "Research decimal":f'{p["fair_decimal"]:.2f}' if p["fair_decimal"] else "N/A",
+                                       "Stake won":f'{p["win_stake"]*100:.1f}%',
+                                       "Stake pushed":f'{p["push_stake"]*100:.1f}%'})
+                st.dataframe(asian_rows,hide_index=True,use_container_width=True)
+                st.caption("Quarter-lines settle as two equal half-stakes. Handicap is added to the named team's score; away handicap is the opposite of the selected home line. Not bookmaker prices.")
 
-        st.caption("Live halftime state and market odds: not yet connected. No value inference.")
+    st.caption("Live halftime state and market odds: not yet connected. No value inference.")
 st.divider()
 st.subheader("Halftime match workspace")
 st.caption("Select a venue-ready fixture and enter its observed halftime score and xG. No live halftime observations are assumed.")
