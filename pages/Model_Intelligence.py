@@ -4,6 +4,7 @@ Read-only; descriptive signals are not betting recommendations.
 import streamlit as st
 import pandas as pd
 from archive_data_engine import load_coverage, load_research
+from pattern_intelligence_engine import run_pattern_scan
 
 st.set_page_config(page_title="Model Intelligence", layout="wide")
 st.title("🦎 PRO STARLIZARD | Model Intelligence")
@@ -79,6 +80,30 @@ st.bar_chart(year_counts.set_index("year")["linked_matches"])
 with st.expander("Year-by-year table"):
     st.dataframe(year_counts,hide_index=True,use_container_width=True)
 
+st.subheader("Automatic research findings")
+st.caption("Same shared scan as Automatic Pattern Scanner: chronological 70/30 split, minimum 80 matches per segment and period.")
+@st.cache_data(ttl=900)
+def get_findings(frame):
+    return run_pattern_scan(frame,min_n=80,split=0.7)
+findings=get_findings(matches)
+if findings.empty:
+    st.info("No sufficiently large segments were found.")
+else:
+    x,y,z=st.columns(3)
+    x.metric("Segments scanned",len(findings))
+    y.metric("Direction replicated",int(findings.replicated_direction.sum()))
+    z.metric("Exploratory flags",int(findings.screen_flag.sum()))
+    shown=findings[findings.screen_flag].copy()
+    if shown.empty:
+        st.info("No segments passed the current exploratory screen; this is a valid outcome.")
+    else:
+        st.dataframe(shown,hide_index=True,use_container_width=True)
+    with st.expander("All scanned segments"):
+        st.dataframe(findings,hide_index=True,use_container_width=True)
+    st.download_button("Export intelligence findings",findings.to_csv(index=False).encode("utf-8"),
+                       "starlizard_intelligence_findings.csv",mime="text/csv")
+st.caption("Exploratory findings only: no half-time/live market odds, commissions or prospective validation. No profitability inferred.")
+
 st.subheader("Research pipeline")
 st.markdown("""
 **Available now:** Historical archive, coverage reporting, linked-match research,
@@ -88,6 +113,6 @@ next-goal screening and exploratory automatic pattern scanning.
 market-specific historical odds, out-of-sample validation, transaction costs,
 and monitored data freshness.
 """)
-st.info("This dashboard summarizes data readiness. It does not claim that any strategy is profitable or that pattern scanner results are persisted.")
+st.info("This dashboard summarizes data readiness. Findings are computed from cached archive data, not stored as validated strategies.")
 st.download_button("Export readiness report",readiness.to_csv(index=False).encode("utf-8"),
                    "starlizard_model_readiness.csv",mime="text/csv")
