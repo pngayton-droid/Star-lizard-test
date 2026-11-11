@@ -19,6 +19,8 @@ on:
       - 'test_pricing_pipeline.py'
       - 'fixture_snapshot.py'
       - 'test_fixture_snapshot.py'
+      - 'fixture_input_audit.py'
+      - 'test_fixture_input_audit.py'
       - '.github/workflows/validate-halftime.yml'
   workflow_dispatch:
 jobs:
@@ -32,6 +34,6 @@ jobs:
       - name: Install runtime imports for research tests
         run: python -m pip install 'streamlit==1.51.0' 'requests==2.32.5' 'pandas==2.3.3'
       - name: Verify model probabilities
-        run: python -m unittest -v test_halftime_fixture_scenario test_halftime_next_goal_research test_fixture_market_pricing test_fixture_asian_pricing test_fixture_forensic_dossier test_fixture_quote_comparison test_pricing_pipeline test_fixture_snapshot
+        run: python -m unittest -v test_halftime_fixture_scenario test_halftime_next_goal_research test_fixture_market_pricing test_fixture_asian_pricing test_fixture_forensic_dossier test_fixture_quote_comparison test_pricing_pipeline test_fixture_snapshot test_fixture_input_audit
       - name: Compile key application modules
-        run: python -m py_compile fixture_snapshot.py fixture_market_pricing.py fixture_asian_pricing.py fixture_forensic_dossier.py fixture_quote_comparison.py halftime_next_goal_research.py halftime_fixture_scenario.py halftime_snapshot_pricing.py halftime_interaction_engine.py pages/PRO_STARLIZARD_Dashboard.py pages/Halftime_Pricing_Lab.py
+        run: python -m py_compile fixture_input_audit.py fixture_snapshot.py fixture_market_pricing.py fixture_asian_pricing.py fixture_forensic_dossier.py fixture_quote_comparison.py halftime_next_goal_research.py halftime_fixture_scenario.py halftime_snapshot_pricing.py halftime_interaction_engine.py pages/PRO_STARLIZARD_Dashboard.py pages/Halftime_Pricing_Lab.py
