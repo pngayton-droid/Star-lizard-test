@@ -186,6 +186,7 @@ def collect(
     yellow_tol,
     team_split,
     return_audit=False,
+    return_baseline=False,
 ):
     """
     Default return remains:
@@ -204,6 +205,7 @@ def collect(
     }
 
     audit_rows = []
+    baseline = {"corners": [], "yellows": []}
     ids = list(candidates)
     event_count = 0
 
@@ -257,6 +259,8 @@ def collect(
                 fh, fa = result["first_half"]
                 sh, sa = result["second_half"]
                 ah, aa = result["all"]
+                if return_baseline:
+                    baseline[label].append((sh + sa, ah + aa, sh, sa, ah, aa))
 
                 if team_split:
                     qualifies = (
@@ -318,9 +322,12 @@ def collect(
 
         del event_rows
 
+    if return_audit and return_baseline:
+        return records, event_count, audit_rows, baseline
     if return_audit:
         return records, event_count, audit_rows
-
+    if return_baseline:
+        return records, event_count, baseline
     return records, event_count
 
 
