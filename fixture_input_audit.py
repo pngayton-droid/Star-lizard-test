@@ -4,6 +4,7 @@ A latest-observation check detects known leakage but cannot establish whether
 the entire aggregate was computed only from pre-kickoff records.
 """
 from datetime import date
+from math import isfinite
 from fixture_goals_baseline import find_venue
 
 def baseline_input_audit(fixture, rows, fixture_date):
@@ -18,6 +19,11 @@ def baseline_input_audit(fixture, rows, fixture_date):
         try:
             latest=date.fromisoformat(str(row["last_match_date"])[:10])
             n=int(row["sample_n"])
+            xg_for=float(row["xg_for_avg"])
+            xg_against=float(row["xg_against_avg"])
+            if not (isfinite(xg_for) and isfinite(xg_against) and
+                    0<=xg_for<=8 and 0<=xg_against<=8):
+                raise ValueError("Invalid venue xG")
         except (KeyError,ValueError,TypeError):
             warnings.append(f"{side}: malformed venue provenance")
             continue
