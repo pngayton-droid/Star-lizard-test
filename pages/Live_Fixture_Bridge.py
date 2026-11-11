@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import streamlit as st
-from starlizard_live_fixtures import get_key, fixtures_for_day, fixture_label, kickoff, team_name
+from starlizard_live_fixtures import get_key, fixtures_for_day, fixture_label, kickoff, team_name, API_BASE
+import requests
 
 st.set_page_config(page_title="Live Fixture Bridge",layout="wide")
 st.title("🦎 Live Fixture Bridge")
@@ -23,6 +24,27 @@ except Exception as exc:
     st.code(str(exc))
     st.stop()
 st.metric("Fixtures returned",len(fixtures))
+with st.expander("API coverage diagnostics"):
+    st.caption("Checks the first API response without displaying credentials. Use this to distinguish limited source coverage from a pagination issue.")
+    if st.button("Inspect fixture API pagination",key="inspect_fixture_pagination"):
+        try:
+            response=requests.get(API_BASE+"/football/matches",
+                headers={"Authorization":f"Bearer {key}"},
+                params={"date_from":day.isoformat(),"date_to":day.isoformat(),
+                        "sort":"utc_date","per_page":100,"page":1},timeout=25)
+            response.raise_for_status()
+            payload=response.json()
+            rows=payload.get("data") or []
+            metadata=payload.get("meta") or {}
+            st.write("First-page match count:",len(rows))
+            st.write("Pagination metadata:",metadata)
+            st.write("Response top-level fields:",list(payload.keys()))
+            st.write("Distinct competitions in returned matches:",
+                     len(set(str(x.get("competition")) for x in rows)))
+            st.caption("No authorization headers or API credentials are displayed.")
+        except Exception as exc:
+            st.warning("API diagnostics unavailable: "+type(exc).__name__)
+
 if not fixtures:
     st.info("No fixtures returned for this date.")
     st.stop()
