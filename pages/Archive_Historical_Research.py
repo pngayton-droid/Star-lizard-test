@@ -88,7 +88,7 @@ try:
     goals = load_first_goals()
     if goals.empty:
         goals = pd.DataFrame(columns=["understat_id","first_goal_minute","first_goal_side"])
-    qual = qual.merge(goals, on="understat_id", how="left", validate="one_to_one")
+    qual = qual.merge(goals, on="understat_id", how="left", validate="many_to_one")
     # The event data uses lowercase h/a; the display uses Home/Away.
     qual["trailing_code"] = qual["trailing_side"].map({"Home":"h","Away":"a"})
     qual["next_goal_hit"] = qual["first_goal_side"] == qual["trailing_code"]
