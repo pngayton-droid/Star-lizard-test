@@ -1152,6 +1152,22 @@ for page, icon in [
 
 st.divider()
 
+st.subheader("🧠 Models & research")
+st.caption("Open a model or research tool. Your current match pricing and historical screens remain available above.")
+model_pages = [
+    ("⚽ Fixture pricing", "pages/Live_Fixture_Bridge.py", "Fixture-based goals and Asian-market research"),
+    ("🧠 Half-time pricing lab", "pages/Halftime_Pricing_Lab.py", "Half-time pricing scenarios and research"),
+    ("🔎 Half-time intelligence", "pages/Halftime_Intelligence.py", "Second-half and next-goal historical patterns"),
+    ("📈 Model intelligence", "pages/Model_Intelligence.py", "Archive coverage, model readiness and saved findings"),
+    ("🦎 Automatic pattern scanner", "pages/Automatic_Pattern_Scanner.py", "Explore statistically screened historical patterns"),
+    ("🗃️ Historical archive", "pages/Archive_Historical_Research.py", "Inspect linked historical match data"),
+]
+for label, destination, description in model_pages:
+    st.page_link(destination, label=label, use_container_width=True)
+    st.caption(description)
+
+st.divider()
+
 
 # ==================================================
 # PAGE 1 — MATCH PRICING
