@@ -79,7 +79,18 @@ def trailing_three_way_holdout(rows,min_xg=0.2,deficit=1,side="both",train_fract
     if not 0 < train_fraction < 1:
         raise ValueError("train_fraction must be between zero and one")
     dated=[r for r in rows if r.get("match_date") and r.get("trailing_side") in ("home","away")]
-    dates=sorted({str(r["match_date"])[:10] for r in dated})
+    # Select the cutoff from the actual research population, not unrelated
+    # matches or a different xG/deficit cohort.
+    qualifying=[]
+    for r in dated:
+        if side!="both" and r["trailing_side"]!=side:continue
+        try:
+            h,a=int(r["home_ht_goals"]),int(r["away_ht_goals"])
+            xg=float(r["home_ht_xg"] if r["trailing_side"]=="home" else r["away_ht_xg"])
+        except (KeyError,TypeError,ValueError):continue
+        if abs(h-a)==deficit and xg>=min_xg and ((h<a and r["trailing_side"]=="home") or (a<h and r["trailing_side"]=="away")):
+            qualifying.append(r)
+    dates=sorted({str(r["match_date"])[:10] for r in qualifying})
     if len(dates)<2:
         return {"status":"Insufficient distinct match dates","train":None,"later":None}
     cutoff_index=max(1,min(len(dates)-1,int(len(dates)*train_fraction)))
