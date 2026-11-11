@@ -1,0 +1,29 @@
+name: Private encrypted archive backup
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      BACKUP_OUTPUT: ${{ runner.temp }}/starlizard-backup.zip.enc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests
+      - name: Export and encrypt private backup
+        run: python scripts/backup_private_archive.py
+      - name: Upload encrypted backup only
+        uses: actions/upload-artifact@v4
+        with:
+          name: starlizard-encrypted-archive
+          path: ${{ runner.temp }}/starlizard-backup.zip.enc
+          if-no-files-found: error
+          retention-days: 7
