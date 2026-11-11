@@ -16,6 +16,7 @@ from fixture_goals_baseline import baseline
 from fixture_market_pricing import price_goals
 from fixture_asian_pricing import asian_market
 from fixture_forensic_dossier import venue_dossier
+from fixture_quote_comparison import compare_quote
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
@@ -170,6 +171,32 @@ if show:
                                        "Stake pushed":f'{p["push_stake"]*100:.1f}%'})
                 st.dataframe(asian_rows,hide_index=True,use_container_width=True)
                 st.caption("Quarter-lines settle as two equal half-stakes. Handicap is added to the named team's score; away handicap is the opposite of the selected home line. Not bookmaker prices.")
+                st.markdown("**Compare an observed market quote**")
+                st.caption("Manual quote entry only. No bookmaker feed is connected and this baseline has not been calibrated.")
+                options=list(market_labels)+[f"asian_{i}" for i in range(len(asian_rows))]
+                quote_key=st.selectbox("Market for comparison",options,
+                    format_func=lambda k:market_labels[k] if k in market_labels else asian_rows[int(k.split("_")[1])]["Market"],
+                    key="dash_quote_market")
+                quoted=st.number_input("Observed decimal odds",min_value=1.01,max_value=1000.0,
+                    value=2.0,step=0.05,key="dash_quote_odds")
+                fee=st.number_input("Commission on winnings (%)",min_value=0.0,max_value=20.0,
+                    value=0.0,step=0.5,key="dash_quote_fee")
+                if quote_key in market_labels:
+                    probability=prices["probabilities"][quote_key]
+                    win_stake,lose_stake,push_stake=probability,1-probability,0.0
+                else:
+                    idx=int(quote_key.split("_")[1])
+                    m,s,l=[("total","over",total_line),("total","under",total_line),
+                           ("handicap","home",handicap_line),("handicap","away",-handicap_line)][idx]
+                    settlement=asian_market(research["home_xg"],research["away_xg"],m,l,s)
+                    win_stake=settlement["win_stake"]
+                    lose_stake=settlement["lose_stake"]
+                    push_stake=settlement["push_stake"]
+                comparison=compare_quote(quoted,win_stake,lose_stake,push_stake,fee/100)
+                st.write(f'Mechanical break-even decimal: **{comparison["break_even_decimal"]:.2f}**' if comparison["break_even_decimal"] else "No winning settlement probability")
+                st.write(f'Mechanical expected return per £1 staked: **{comparison["expected_roi"]*100:+.2f}%**')
+                st.warning("Scenario calculation only — not a verified value alert. Requires independently calibrated probabilities, genuine timestamped odds and trading-cost checks.")
+
 
     st.caption("Live halftime state and market odds: not yet connected. No value inference.")
 st.divider()
