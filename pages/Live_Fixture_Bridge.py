@@ -29,7 +29,8 @@ st.metric("Fixtures returned",len(fixtures))
 try:
     archive_summary=archive_league_summary(load_coverage())
     coverage_ok=True
-except Exception:
+except Exception as exc:
+    st.caption("Coverage diagnostic: "+type(exc).__name__+": "+str(exc)[:350])
     archive_summary=None
     coverage_ok=False
     st.warning("Historical archive unavailable; cannot verify league coverage.")
