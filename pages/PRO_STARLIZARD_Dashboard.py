@@ -3,6 +3,8 @@
 Read-only fixtures and coverage. No fictitious prices or value flags.
 """
 from datetime import datetime,timedelta
+import csv
+import io
 from zoneinfo import ZoneInfo
 import streamlit as st
 from lightweight_fixture_feed import get_key,fixtures_for_day,fixture_label
@@ -89,6 +91,22 @@ show=ready if st.toggle("Only venue-ready fixtures",value=True) else covered
 if search.strip():
     show=[f for f in show if search.lower() in fixture_label(f).lower()]
 st.caption(f"Showing {min(len(show),80)} of {len(show)} matching fixtures.")
+if show:
+    queue_rows=[]
+    for fixture in show:
+        queue_rows.append({
+            "Fixture":fixture_label(fixture),
+            "Competition ID":str(fixture.get("competition_id") or ""),
+            "Venue xG":venue_readiness(fixture,team_rows).get("status") if team_rows else "Unavailable",
+            "Historical league matches":int((competitions.get(str(fixture.get("competition_id") or "")) or {}).get("matches") or 0),
+        })
+    st.dataframe(queue_rows,hide_index=True,use_container_width=True,height=min(390,40+len(queue_rows)*35))
+    output=io.StringIO()
+    writer=csv.DictWriter(output,fieldnames=list(queue_rows[0]))
+    writer.writeheader()
+    writer.writerows(queue_rows)
+    st.download_button("Export matching fixture queue (CSV)",output.getvalue(),
+        file_name=f"starlizard_fixture_queue_{day.isoformat()}.csv",mime="text/csv")
 if not show:
     st.info("No matches match these filters. Switch off the venue-ready filter to inspect wider coverage.")
 for fixture in show[:80]:
