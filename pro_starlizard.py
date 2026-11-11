@@ -962,6 +962,27 @@ def betting_angles(
 # TWO-TEAM COMPARISON
 # ==================================================
 
+def fixture_prematch_rates(home_team, away_team, match_day):
+    """Historical-only rates for the live halftime view; never include match day."""
+    from datetime import timedelta
+    cutoff = (match_day - timedelta(days=1)).isoformat()
+    home_rows, _ = get_matches(home_team, 25, cutoff, "Home")
+    away_rows, _ = get_matches(away_team, 25, cutoff, "Away")
+    home_df = build_dataframe(home_team, home_rows)
+    away_df = build_dataframe(away_team, away_rows)
+    adjusted_home, adjusted_away, used, eligible, capped = (
+        adjusted_venue_frames(home_df, away_df, cutoff)
+    )
+    if used >= 10:
+        estimated = estimate_xg(adjusted_home, adjusted_away)
+        if estimated is not None:
+            return estimated[0], estimated[1], f"opponent-adjusted ({used}/{eligible} observations)"
+    estimated = estimate_xg(home_df, away_df)
+    if estimated is None:
+        return None
+    return estimated[0], estimated[1], "basic xG fallback (insufficient opponent history)"
+
+
 def show_comparison(
     home_team,
     away_team,
@@ -1563,6 +1584,7 @@ elif (
         LEAGUES,
         find_team_names,
         show_comparison,
+        fixture_prematch_rates,
     )
 
 
