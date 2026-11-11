@@ -176,3 +176,11 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - Added `fixture_live_status.py` to classify API-provided match statuses without guessing from kickoff; shows live matches including API-provided scores in central dashboard, with explicit manual refresh and a 60-second bounded fixture cache. Added fixture queue filter: All fixtures / Live only / Venue xG ready. Uncovered fixtures are no longer hidden.
 - Added `test_fixture_live_status.py` and workflow entries. Commits `59d36122f155af921c40b9a37370dfc2bfbf94af`, `a4e12e6a8fed955b36e5d88e7e6dc9e0b28cf14b`, `387118d440f686c4a6d1b5014cc1bd93774dc86a`, `f02c6fb4a41d99ee4a32f6701acb1017dceeca9b`, `16c4ce148c6fe064809785ceb8784cdb829b6aeb`, `540b66463d72ce9d39abafa930a8ade76a468420`.
 - TheStatsAPI fixture feed supplies status and score; this does not yet fetch match-specific live xG, detailed match events or live odds. Need deployment test and confirm actual provider status strings.
+
+## Historical odds collection preparation (2026-11-11)
+- User requests opening, last-seen/closing prices prioritizing Bet365, Betfair Exchange and William Hill.
+- TheStatsAPI documentation confirms Bet365, Pinnacle, Paddy Power, Betfair Sportsbook and Kambi; **Betfair Exchange and William Hill are NOT documented**. Betfair Sportsbook is NOT Exchange. Do not mislabel.
+- Created protected Supabase table `public.historical_match_odds` (RLS enabled, no anon/auth access) to store entire response, bookmaker names, status, timestamps. Initial row count 0.
+- Added `scripts/collect_historical_odds.py` resumable backfill (default 20 match IDs, 1.1s/request, retries 429, saves complete odds JSON), committed `e1bc0ec11ee5f88b8569f0dc4396e6c9d2ae6089`.
+- **Collector has NOT been executed; no odds retrieved yet**. Needs secure environment with STATS_API_KEY, SUPABASE_URL, SUPABASE_SECRET_KEY and a test run of 20 historical matches; validate actual response shape, timestamps and bookmaker coverage before full backfill.
+- Distinguish last-seen pre-kickoff price from verified close using timestamps. Do not claim historical Betfair Exchange or William Hill coverage without separate source.
