@@ -7,6 +7,8 @@ import requests
 from archive_data_engine import load_coverage
 from fixture_coverage_engine import archive_league_summary, classify_fixture
 from statsapi_competition_coverage import statsapi_coverage
+from statsapi_team_coverage import team_venue_coverage
+from fixture_team_readiness import venue_readiness
 
 st.set_page_config(page_title="Live Fixture Bridge",layout="wide")
 st.title("🦎 Live Fixture Bridge")
@@ -52,6 +54,19 @@ def coverage(item):
     return {"status":"Unmatched","historical_matches":0,"reason":"No verified coverage match"}
 st.metric("League-covered fixtures",sum(coverage(item)["status"] in ("StatsAPI history","League covered") for item in fixtures) if coverage_ok else "Unknown")
 st.caption("Coverage matches the StatsAPI historical competition IDs directly; the imported archive is a secondary source. Minimum 500 historical matches.")
+try:
+    team_rows=team_venue_coverage()
+    team_data_ok=True
+except Exception as exc:
+    team_rows=[]
+    team_data_ok=False
+    st.warning("Team history summary unavailable: "+type(exc).__name__)
+if team_data_ok:
+    covered_items=[item for item in fixtures if coverage(item)["status"] in ("StatsAPI history","League covered")]
+    readiness=[venue_readiness(item,team_rows) for item in covered_items]
+    st.metric("Team/venue xG sample ready",sum(x["status"]=="Venue xG sample ready" for x in readiness))
+    st.caption("At least 8 home/away xG samples required; unmatched team names are not assumed to be ready.")
+
 with st.expander("Competition API lookup test"):
     st.caption("One on-demand request to check how TheStatsAPI identifies competitions. No credentials displayed.")
     ids=list(dict.fromkeys(str(item.get("competition_id")) for item in fixtures if item.get("competition_id")))
@@ -165,6 +180,13 @@ if coverage_ok:
     st.write("**Historical coverage:** "+verdict["status"])
     st.write("**Archive matches in league:** "+str(verdict["historical_matches"]))
     st.caption(verdict["reason"])
+    if team_data_ok:
+        team_check=venue_readiness(item,team_rows)
+        st.write("**Team/venue readiness:** "+team_check["status"])
+        st.write("**Home team home matches:** "+str(team_check["home_games"]))
+        st.write("**Away team away matches:** "+str(team_check["away_games"]))
+        st.write("**Home xG samples:** "+str(team_check["home_xg"]))
+        st.write("**Away xG samples:** "+str(team_check["away_xg"]))
 st.write("**StatsAPI match ID:** "+str(item.get("id","Not supplied")))
 st.subheader("Market data readiness")
 st.warning("Fixture discovery does not supply a verified, timestamped bookmaker quote or a fixture-specific calibrated fair probability. Neither is being inferred.")
