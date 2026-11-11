@@ -56,3 +56,7 @@ Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Sta
 - `.github/workflows/validate-halftime.yml` now triggers when `pages/PRO_STARLIZARD_Dashboard.py` changes, in addition to research/test module changes.
 - Chronological holdout date selection excludes rows without a valid trailing-side designation; regression test added.
 - GitHub commit workflow-run lookup returned an empty run list, which is not evidence of a passing or failing workflow; GitHub Actions UI or a run-specific API lookup still needs checking.
+
+## Research cohort quality — 2026-11-11
+- Supabase checked `starlizard_next_goal_research`: 11,581 rows and 11,581 distinct match IDs, date span 2022-09-18 through 2026-11-03. 6,948 trailing-at-HT rows; **0 missing trailing-team HT xG**.
+- Chronological split cutoff now comes from the precise selected research cohort (HT deficit, trailing side, minimum trailing xG), not other matches. This reduces split distortion; separate regression test added. Holdout still uses simple historical frequencies, not fixture-level odds.
