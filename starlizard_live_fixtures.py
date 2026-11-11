@@ -570,6 +570,25 @@ def show_prices(values, match_day, match_id):
             "restricted to the latest matches."
         )
 
+    st.markdown("#### 📊 At a glance")
+    summary_cols = st.columns(2)
+    for col, label, key, line in (
+        (summary_cols[0], "2H corners", "corners", 4.5),
+        (summary_cols[1], "2H yellow cards", "yellows", 2.5),
+    ):
+        sample = records[key]
+        with col:
+            if len(sample) < MIN_SAMPLE:
+                st.metric(label + " · sample", str(len(sample)))
+                st.caption("Insufficient sample for a rate")
+            else:
+                hits = sum(row[0] > line for row in sample)
+                probability = hits / len(sample)
+                inverse = f"{1/probability:.2f}" if probability else "—"
+                st.metric(label + f" · Over {line:.1f}", f"{probability:.1%}")
+                st.caption(f"{hits}/{len(sample)} matches · historical odds {inverse}")
+    st.caption("Historical frequencies only. No live bookmaker odds have been compared; value is not established.")
+
     for title, key, second_lines, full_lines in (
         (
             "🚩 Corners",
