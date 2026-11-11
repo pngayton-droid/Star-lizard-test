@@ -1,7 +1,8 @@
-"""Read-only, explicitly labelled second-half first-scorer research.
+"""Read-only next-goal research with explicit three-way outcomes.
 
-NULL outcomes are excluded: NULL may mean no second-half goal or unavailable
-sequence data, so treating NULL as a loss would invent outcomes.
+2026-11-11 audit: all 1,337 NULL outcomes among trailing-at-HT matches
+correspond to no second-half goals; counts reconcile when penalty_scored,
+goal and own_goal are included. Ordering/attribution audit is still pending.
 """
 import requests
 import streamlit as st
@@ -15,7 +16,6 @@ def labelled_next_goal_rows():
     for offset in range(0,12000,1000):
         params={"select":"match_id,match_date,home_ht_goals,away_ht_goals,home_ht_xg,away_ht_xg,trailing_side,trailing_team_scored_first",
                 "trailing_side":"not.is.null",
-                "trailing_team_scored_first":"not.is.null",
                 "order":"match_date.asc,match_id.asc","limit":1000,"offset":offset}
         response=requests.get(url+"/rest/v1/starlizard_next_goal_research",
             headers=headers,params=params,timeout=30)
@@ -42,3 +42,26 @@ def trailing_first_summary(rows,min_xg=0.2,deficit=1,side="both"):
     n=len(selected)
     wins=sum(row["trailing_team_scored_first"] is True for row in selected)
     return {"n":n,"hits":wins,"rate":wins/n if n else None}
+
+def trailing_three_way_summary(rows,min_xg=0.2,deficit=1,side="both"):
+    """Observed trailing-first / leader-first / no-goal, never an odds quote."""
+    if side not in ("both","home","away"):raise ValueError("Invalid side")
+    if deficit<1 or min_xg<0:raise ValueError("Invalid filter")
+    selected=[]
+    for row in rows:
+        trailing=row.get("trailing_side")
+        if trailing not in ("home","away") or (side!="both" and side!=trailing):continue
+        try:
+            h,a=int(row["home_ht_goals"]),int(row["away_ht_goals"])
+            if abs(h-a)!=deficit or (h>a and trailing!="away") or (a>h and trailing!="home"):continue
+            xg=float(row["home_ht_xg"] if trailing=="home" else row["away_ht_xg"])
+        except (TypeError,ValueError,KeyError):continue
+        if xg>=min_xg:selected.append(row)
+    n=len(selected)
+    trailing_first=sum(r["trailing_team_scored_first"] is True for r in selected)
+    leader_first=sum(r["trailing_team_scored_first"] is False for r in selected)
+    no_goal=n-trailing_first-leader_first
+    return {"n":n,"trailing_first":trailing_first,"leader_first":leader_first,
+            "no_goal":no_goal,"trailing_rate":trailing_first/n if n else None,
+            "leader_rate":leader_first/n if n else None,
+            "no_goal_rate":no_goal/n if n else None}
