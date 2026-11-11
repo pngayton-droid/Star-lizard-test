@@ -127,6 +127,19 @@ st.image(
     width="stretch",
 )
 
+# Curated sidebar replaces Streamlit's automatic list of development pages.
+with st.sidebar:
+    st.markdown("### 🦎 PRO STARLIZARD")
+    st.caption("Quick navigation")
+    st.page_link("pro_starlizard.py", label="🏠 Main dashboard", use_container_width=True)
+    st.page_link("pages/Live_Fixture_Bridge.py", label="⚽ Fixtures & pricing", use_container_width=True)
+    st.page_link("pages/Halftime_Pricing_Lab.py", label="🧠 Half-time pricing", use_container_width=True)
+    st.page_link("pages/Halftime_Intelligence.py", label="🔎 Half-time research", use_container_width=True)
+    st.page_link("pages/Model_Intelligence.py", label="📈 Model intelligence", use_container_width=True)
+    st.page_link("pages/Automatic_Pattern_Scanner.py", label="🦎 Pattern scanner", use_container_width=True)
+    st.page_link("pages/Archive_Historical_Research.py", label="🗃️ Historical archive", use_container_width=True)
+    st.caption("All research tools remain available; developer pages are hidden from navigation, not deleted.")
+
 LEAGUES = {
     "comp_0256": "France - Ligue 1",
     "comp_3039": "England - Premier League",
