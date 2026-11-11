@@ -9,6 +9,15 @@ from pattern_history_store import save_snapshot, list_snapshots, load_snapshot
 from pattern_snapshot_comparison import compare_scans
 
 st.set_page_config(page_title="Model Intelligence", layout="wide")
+
+# Compact navigation: legacy and diagnostic pages remain available by direct URL.
+with st.sidebar:
+    st.markdown("### 🦎 PRO STARLIZARD")
+    st.page_link("pro_starlizard.py", label="🏠 Main dashboard", use_container_width=True)
+    st.page_link("pages/Live_Fixture_Bridge.py", label="⚽ Fixtures & pricing", use_container_width=True)
+    st.page_link("pages/Halftime_Pricing_Lab.py", label="🧠 Half-time pricing", use_container_width=True)
+    st.page_link("pages/Model_Intelligence.py", label="📈 Model intelligence", use_container_width=True)
+    st.page_link("pages/Automatic_Pattern_Scanner.py", label="🦎 Pattern scanner", use_container_width=True)
 st.title("🦎 PRO STARLIZARD | Model Intelligence")
 st.caption("Historical model control centre · Read-only · No betting edge claims")
 
