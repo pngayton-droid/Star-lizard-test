@@ -785,14 +785,43 @@ def render_live_fixtures(
     )
 
     st.caption(
-        f"{len(matches)} fixtures found "
-        "· UK kick-off times"
+        f"{len(matches)} fixtures found in your selected leagues"
+        " · UK kick-off times"
     )
 
+    now_uk = datetime.now(UK)
+    # This is a time-window shortlist, not a claim that the match is live.
+    approaching_ht = [
+        match for match in matches
+        if (start := kickoff(match)) is not None
+        and 35 <= (now_uk - start).total_seconds() / 60 <= 65
+        and str(match.get("status") or "").lower()
+        not in ("finished", "ft", "postponed", "cancelled", "canceled")
+    ]
+    started_today = [
+        match for match in matches
+        if (start := kickoff(match)) is not None
+        and start <= now_uk
+        and str(match.get("status") or "").lower()
+        not in ("finished", "ft", "postponed", "cancelled", "canceled")
+    ]
+    st.metric("Near halftime by kickoff time", len(approaching_ht))
+    st.caption("Time-window estimate only; verify the actual match status and minute after selecting a fixture.")
+    view = st.radio(
+        "Find fixtures",
+        ["Near halftime", "Started today", "All selected-league fixtures"],
+        horizontal=False,
+        key="lf_shortlist_view",
+    )
+    if view == "Near halftime":
+        matches = approaching_ht
+    elif view == "Started today":
+        matches = started_today
+    by_id = {str(match["id"]): match for match in matches}
     if not matches:
         st.info(
-            "No matches found for this date "
-            "in the selected leagues."
+            "No fixtures match this view. Try All selected-league fixtures "
+            "or choose a different date."
         )
         return
 
