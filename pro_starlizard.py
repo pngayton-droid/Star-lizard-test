@@ -1210,12 +1210,18 @@ if st.session_state.active_page == "Match Pricing":
     )
 
     st.info(
-        "Enter the halftime score, xG, corners "
-        "and yellow cards, then press Calculate "
-        "to retrieve comparable historical matches."
+        "Choose Live Fixtures above to select a match. "
+        "The match screen retrieves available score, xG, corners "
+        "and cards from TheStatsAPI and offers automatic halftime research."
     )
 
-    render_halftime_markets(get_supabase())
+    if st.button("🔴 Choose a live fixture", type="primary", key="pricing_go_live", width="stretch"):
+        st.session_state.active_page = "Live Fixtures"
+        st.rerun()
+
+    with st.expander("✍️ Manual halftime entry (optional)", expanded=False):
+        st.caption("Use this only when you want to research a hypothetical match or enter verified figures yourself.")
+        render_halftime_markets(get_supabase())
 
 
 # ==================================================
