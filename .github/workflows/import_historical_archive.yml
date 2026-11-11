@@ -1,0 +1,35 @@
+name: Import historical archive (manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify required configuration
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::Missing SUPABASE_DB_URL repository secret"
+            exit 1
+          fi
+          if [ ! -f "data/starlizard_import_ready.zip" ]; then
+            echo "::error::Missing data/starlizard_import_ready.zip. Archive must be staged before running."
+            exit 1
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pinned database driver
+        run: python -m pip install 'psycopg[binary]==3.2.12'
+      - name: Import and verify
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: python scripts/import_historical_archive.py data/starlizard_import_ready.zip
