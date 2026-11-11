@@ -77,4 +77,8 @@ class NextGoalResearchTests(unittest.TestCase):
     def test_invalid(self):
         with self.assertRaises(ValueError):
             trailing_first_summary([],side="neutral")
+        with self.assertRaises(ValueError):
+            trailing_three_way_holdout([],side="neutral")
+        with self.assertRaises(ValueError):
+            trailing_three_way_holdout([],min_xg=-1)
 if __name__=="__main__":unittest.main()
