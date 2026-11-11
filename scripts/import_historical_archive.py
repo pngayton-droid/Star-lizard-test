@@ -78,27 +78,22 @@ def main(path):
                 ON CONFLICT (understat_id) DO NOTHING
             """, (understat(r) for r in rows(z, "understat_pre2022.csv")))
             print("understat processed", n)
-            # Do not delete existing events: use one transaction and skip already loaded
-            # fixtures so rerunning this script never doubles their goal events.
-            seen = set()
-            event_values = []
-            for r in rows(z, "understat_verified_goal_events_pre2022.csv"):
-                uid = int(r["understat_id"])
-                if uid not in seen:
-                    seen.add(uid)
-                    cur.execute("SELECT 1 FROM public.archive_understat_goal_events WHERE understat_id=%s LIMIT 1", (uid,))
-                    already = cur.fetchone() is not None
-                    if already:
-                        event_values.append(uid)
-            skip = set(event_values)
+            # Replace only events for imported archive fixtures, transactionally.
+            # This repairs incomplete test fixtures and is safe to rerun.
+            cur.execute("""
+                DELETE FROM public.archive_understat_goal_events
+                WHERE understat_id IN (
+                    SELECT understat_id FROM public.archive_understat
+                    WHERE match_date < DATE '2022-08-05'
+                )
+            """)
             n = insert_batches(cur, """
                 INSERT INTO public.archive_understat_goal_events
                 (understat_id,minute,shot_team_side,result,goal_attribution_verified)
                 VALUES (%s,%s,%s,%s,%s)
             """, ((int(r["understat_id"]), int(float(r["minute"])), r["shot_team_side"],
                    r["result"], flag(r["goal_attribution_verified"]))
-                  for r in rows(z, "understat_verified_goal_events_pre2022.csv")
-                  if int(r["understat_id"]) not in skip))
+                  for r in rows(z, "understat_verified_goal_events_pre2022.csv")))
             print("goal events processed", n)
             linked = 0
             unresolved = 0
