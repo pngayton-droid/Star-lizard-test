@@ -83,3 +83,7 @@ Implementation order:
 6. Regression, chronology, data-quality and calibration tests continuously, but time-box research investigations; never imply a proven edge without prices and costs.
 
 When user says "crack on", prefer concrete GitHub/Supabase engineering progress and commits over repeated narrow edge-hunting reports. Keep central dashboard integration a priority.
+
+## Venue-stratified research — 2026-11-11
+- One-goal HT trailing, HT xG>=0.20, chronological cutoff 2025-05-25: home trailing-first earlier 563/1,185 (47.51%), later 261/531 (49.15%); away earlier 461/1,198 (38.48%), later 252/615 (40.98%).
+- Earlier-only add-one smoothed home probabilities trailing/leader/no-goal 0.47475/0.35354/0.17172; away 0.38468/0.41715/0.19817. Full counts in NEXT_GOAL_LABEL_AUDIT.md. Still need a side-aware baseline comparison and true market quotes.
