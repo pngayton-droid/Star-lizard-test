@@ -116,6 +116,7 @@ if ready and recent_rows:
         state=(str(selected.get("id") or fixture_label(selected)),h_goals,a_goals,h_xg,a_xg,share,adjustment)
         if st.session_state.get("dashboard_state")!=state:
             st.session_state.pop("dashboard_scenario",None)
+            st.session_state.pop("dashboard_hist_result",None)
         if st.button("Calculate fixture halftime scenario",type="primary"):
             try:
                 st.session_state["dashboard_scenario"]=second_half_scenario(
