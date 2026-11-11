@@ -1,0 +1,41 @@
+name: Full historical odds backfill
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/full-historical-odds.yml'
+  workflow_dispatch:
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    permissions:
+      contents: read
+    concurrency:
+      group: full-historical-odds-backfill
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: python -m pip install 'requests>=2.31,<3' 'supabase>=2,<3'
+      - name: Verify private credentials
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: |
+          test -n "$STATS_API_KEY" || { echo "Missing STATS_API_KEY"; exit 1; }
+          test -n "$SUPABASE_URL" || { echo "Missing SUPABASE_URL"; exit 1; }
+          test -n "$SUPABASE_SECRET_KEY" || { echo "Missing SUPABASE_SECRET_KEY"; exit 1; }
+      - name: Collect all historical match odds (resumable)
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/collect_historical_odds.py --limit 12000 --interval 1.1
+      - name: Print summary
+        if: always()
+        run: echo 'Collected records and per-match failures are persisted in Supabase historical_match_odds.'
