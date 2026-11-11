@@ -51,10 +51,10 @@ with st.expander("Open quick goals pricing",expanded=True):
                  "over_2_5":"Over 2.5","under_2_5":"Under 2.5",
                  "btts_yes":"BTTS Yes","btts_no":"BTTS No"}
     st.dataframe([{"Market":name,"Probability":f'{quick["probabilities"][key]*100:.1f}%',
-                   "Model decimal":f'{quick["decimal_prices"][key]:.2f}'}
+                   "Model decimal":f'{quick["decimal_prices"][key]:.2f}' if quick["decimal_prices"][key] is not None else "N/A"}
                   for key,name in quick_names.items()],hide_index=True,use_container_width=True)
     st.dataframe([{"Score":score["score"],"Probability":f'{score["probability"]*100:.1f}%',
-                   "Model decimal":f'{score["decimal_price"]:.2f}'}
+                   "Model decimal":f'{score["decimal_price"]:.2f}' if score["decimal_price"] is not None else "N/A"}
                   for score in quick["top_scores"][:5]],hide_index=True,use_container_width=True)
     quick_line=st.selectbox("Asian total", [1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5],index=4,key="quick_total")
     quick_prices=[asian_market(manual_home,manual_away,"total",quick_line,side) for side in ("over","under")]
@@ -180,7 +180,7 @@ if show:
                                "btts_yes":"BTTS Yes","btts_no":"BTTS No"}
                 st.dataframe([{"Market":market_labels[k],
                                "Probability":f"{prices['probabilities'][k]*100:.1f}%",
-                               "Research decimal":f"{prices['decimal_prices'][k]:.2f}"}
+                               "Research decimal":f"{prices['decimal_prices'][k]:.2f}" if prices["decimal_prices"][k] is not None else "N/A"}
                               for k in market_labels],hide_index=True,use_container_width=True)
                 st.write("**Most likely correct scores**")
                 st.dataframe([{"Score":s["score"],"Probability":f'{s["probability"]*100:.1f}%',
