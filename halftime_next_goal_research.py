@@ -89,3 +89,27 @@ def trailing_three_way_holdout(rows,min_xg=0.2,deficit=1,side="both",train_fract
     return {"status":"ok","cutoff":cutoff,
             "train":trailing_three_way_summary(train,min_xg,deficit,side),
             "later":trailing_three_way_summary(later,min_xg,deficit,side)}
+
+def three_way_holdout_scores(rows,min_xg=0.2,deficit=1,side="both",train_fraction=0.7,smoothing=1.0):
+    """Evaluate frozen earlier-period three-way rates on later match outcomes.
+
+    Uses additive smoothing and returns multiclass Brier score and log loss.
+    These scores describe historical calibration; they do not imply betting ROI.
+    """
+    import math
+    if smoothing<=0:raise ValueError("smoothing must be positive")
+    split=trailing_three_way_holdout(rows,min_xg,deficit,side,train_fraction)
+    if split["status"]!="ok":return {"status":split["status"]}
+    train,later=split["train"],split["later"]
+    if train["n"]<30 or later["n"]<30:
+        return {"status":"Insufficient qualifying matches","train_n":train["n"],"later_n":later["n"]}
+    keys=("trailing_first","leader_first","no_goal")
+    probabilities={k:(train[k]+smoothing)/(train["n"]+3*smoothing) for k in keys}
+    later_rates={k:later[k]/later["n"] for k in keys}
+    brier=sum(later_rates[k]*sum((probabilities[j]-(1.0 if j==k else 0.0))**2 for j in keys) for k in keys)
+    logloss=-sum(later_rates[k]*math.log(probabilities[k]) for k in keys)
+    baseline={k:(later[k]+smoothing)/(later["n"]+3*smoothing) for k in keys}
+    # In-sample later baseline is descriptive only, not a deployable competitor.
+    return {"status":"ok","cutoff":split["cutoff"],"train_n":train["n"],
+            "later_n":later["n"],"earlier_probabilities":probabilities,
+            "later_rates":later_rates,"brier":brier,"log_loss":logloss}
