@@ -52,6 +52,9 @@ class NextGoalResearchTests(unittest.TestCase):
         self.assertAlmostEqual(sum(score["earlier_probabilities"].values()),1.0)
         self.assertGreater(score["brier"],0)
         self.assertGreater(score["log_loss"],0)
+        self.assertEqual(score["baseline_n"],40)
+        self.assertAlmostEqual(score["baseline_brier"]-score["brier"],score["brier_improvement"])
+        self.assertAlmostEqual(score["baseline_log_loss"]-score["log_loss"],score["log_loss_improvement"])
     def test_probability_quality_small_sample(self):
         self.assertEqual(three_way_holdout_scores([])["status"],"Insufficient distinct match dates")
     def test_invalid(self):
