@@ -32,8 +32,26 @@ def searchable(item):
     competition_name=competition.get("name","") if isinstance(competition,dict) else str(competition)
     return " ".join([fixture_label(item),competition_name]).lower()
 shown=[item for item in fixtures if search.lower().strip() in searchable(item)]
-st.caption(f"Showing {len(shown)} fixtures")
-labels=[fixture_label(item) for item in shown]
+# Presentation priority only; never exclude leagues from the underlying API results.
+PRIORITY_TERMS=(
+    "premier league","championship","la liga","primera división",
+    "serie a","bundesliga","ligue 1","champions league",
+    "europa league","conference league","eredivisie",
+    "primeira liga","scottish premiership","league one","league two",
+)
+def priority(item):
+    competition=item.get("competition") or {}
+    comp=(competition.get("name","") if isinstance(competition,dict) else str(competition)).lower()
+    rank=next((i for i,term in enumerate(PRIORITY_TERMS) if term in comp),len(PRIORITY_TERMS))
+    start=kickoff(item)
+    return (rank,start.isoformat() if start else "9999",fixture_label(item))
+shown=sorted(shown,key=priority)
+st.caption(f"Showing {len(shown)} fixtures. Major competitions appear first when the API provides competition names; all returned leagues remain available.")
+def label_with_comp(item):
+    comp=item.get("competition") or {}
+    comp_name=comp.get("name","") if isinstance(comp,dict) else str(comp)
+    return fixture_label(item)+(" · "+str(comp_name) if comp_name else "")
+labels=[label_with_comp(item) for item in shown]
 if not shown:
     st.info("No fixtures match your filter.")
     st.stop()
