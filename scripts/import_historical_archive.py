@@ -9,6 +9,8 @@ import json
 import os
 import sys
 import zipfile
+import re
+import unicodedata
 
 import psycopg
 
@@ -55,6 +57,10 @@ def understat(r):
                for k, v in r.items() if v != ""}
     return (int(r["understat_id"]), r["date"], r["league"], r["home"], r["away"],
             flag(r["verified_goal_sequence"]), True, json.dumps(payload))
+
+def team_key(name):
+    name = unicodedata.normalize('NFKD', name).encode('ascii', 'ignore').decode('ascii')
+    return re.sub(r'[^a-z0-9]', '', name.lower())
 
 def main(path):
     url = os.environ.get("SUPABASE_DB_URL")
@@ -103,12 +109,15 @@ def main(path):
                     conflicts += 1
                     continue
                 cur.execute("""
-                    SELECT archive_key FROM public.archive_football_data
+                    SELECT archive_key, home_team, away_team, payload->>'home_key', payload->>'away_key'
+                    FROM public.archive_football_data
                     WHERE match_date=%s AND league=%s AND source_file=%s
-                    AND lower(home_team)=lower(%s) AND lower(away_team)=lower(%s)
-                """, (r["date"], r["football_data_league"], r["football_data_source"],
-                      r["home"], r["away"]))
-                found = cur.fetchall()
+                """, (r["date"], r["football_data_league"], r["football_data_source"]))
+                home = team_key(r["home"])
+                away = team_key(r["away"])
+                found = [row for row in cur.fetchall()
+                         if (row[3] or team_key(row[1])) == home
+                         and (row[4] or team_key(row[2])) == away]
                 if len(found) != 1:
                     unresolved += 1
                     continue
