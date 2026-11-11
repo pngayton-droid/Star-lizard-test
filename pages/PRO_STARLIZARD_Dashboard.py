@@ -204,8 +204,9 @@ if show:
                     observed_quote={"source":"manual_user_entry","market":quote_key,
                         "decimal_odds":quoted,"commission_percent":fee,
                         "mechanical_comparison":comparison})
-                if not snapshot["model"]["point_in_time_valid"]:
-                    st.warning("Snapshot contains venue observations dated after this fixture; do not use it for historical backtesting.")
+                if not snapshot["model"]["no_known_future_observations"]:
+                    st.warning("Snapshot contains venue observations dated after this fixture.")
+                st.caption("Snapshot is not point-in-time backtest verified; the latest-date check alone cannot establish historical data availability.")
                 st.download_button("Export complete fixture research snapshot (JSON)",
                     data=snapshot_json(snapshot),file_name="starlizard_fixture_snapshot.json",
                     mime="application/json",key="dash_snapshot_export")
