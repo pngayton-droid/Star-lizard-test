@@ -39,7 +39,6 @@ except Exception as exc:
     st.error("TheStatsAPI fixture request failed. Please retry later.")
     st.code(str(exc))
     st.stop()
-st.metric("Fixtures returned",len(fixtures))
 try:
     archive_summary=archive_league_summary(load_coverage())
     archive_ok=True
@@ -150,72 +149,6 @@ with st.expander("API coverage diagnostics"):
         except Exception as exc:
             st.warning("API diagnostics unavailable: "+type(exc).__name__)
 
-# On-demand audit of API statistics availability, independent of league coverage.
-# Never run this on normal page loads: each checked fixture costs API requests.
-with st.expander("🔬 Check actual statistics availability"):
-    st.caption(
-        "Checks up to 20 returned fixtures directly against TheStatsAPI. "
-        "This tests whether match statistics are available, regardless of historical league coverage. "
-        "Up to two API requests per fixture; only runs when you press the button."
-    )
-    if st.button("Test returned fixtures for statistics", key="bridge_stats_audit"):
-        from time import sleep
-        audit_rows = []
-        halted = False
-        for fixture in fixtures[:20]:
-            match_id = fixture.get("id")
-            if not match_id:
-                continue
-            verdict = coverage(fixture) if coverage_ok else {"status": "Coverage unavailable"}
-            statuses = []
-            available = False
-            for suffix in ("/live-stats", "/stats"):
-                try:
-                    response = requests.get(
-                        API_BASE + "/football/matches/" + str(match_id) + suffix,
-                        headers={"Authorization": f"Bearer {key}"},
-                        timeout=20,
-                    )
-                    statuses.append(str(response.status_code))
-                    if response.status_code == 429:
-                        halted = True
-                        break
-                    if response.ok:
-                        body = response.json()
-                        payload = body.get("data") if isinstance(body, dict) else None
-                        if isinstance(payload, dict) and payload:
-                            available = True
-                            break
-                except (requests.RequestException, ValueError):
-                    statuses.append("request error")
-                sleep(1.1)
-            audit_rows.append({
-                "Fixture": fixture_label(fixture),
-                "Competition ID": str(fixture.get("competition_id") or "—"),
-                "Historical coverage": verdict["status"],
-                "Statistics": "Available" if available else ("Rate limited" if halted else "Not confirmed"),
-                "HTTP": ", ".join(statuses),
-            })
-            if halted:
-                break
-        st.session_state["bridge_stats_audit_results"] = {
-            "date": day.isoformat(),
-            "rows": audit_rows,
-            "halted": halted,
-        }
-    saved_audit = st.session_state.get("bridge_stats_audit_results")
-    if saved_audit and saved_audit["date"] == day.isoformat():
-        rows = saved_audit["rows"]
-        st.metric("Fixtures with API statistics", sum(x["Statistics"] == "Available" for x in rows))
-        st.metric("Fixtures checked", len(rows))
-        st.dataframe(rows, hide_index=True, use_container_width=True)
-        if saved_audit["halted"]:
-            st.warning("API rate limit reached. The check stopped rather than retrying aggressively.")
-        st.caption(
-            "Available means the API returned a nonempty statistics payload; "
-            "it does not prove first-half xG, corners and cards are all present or that pricing is ready."
-        )
-
 if not fixtures:
     st.info("No fixtures returned for this date.")
     st.stop()
@@ -224,12 +157,11 @@ def searchable(item):
     competition=item.get("competition") or {}
     competition_name=competition.get("name","") if isinstance(competition,dict) else str(competition)
     return " ".join([fixture_label(item),competition_name]).lower()
-coverage_filter=st.radio("Fixture display",["Model-eligible only","All API fixtures (diagnostics)"],
-    horizontal=True,index=0 if coverage_ok else 1,disabled=not coverage_ok)
-st.caption("Only fixtures with sufficient verified league history appear in the main modelling list. API discovery alone does not guarantee usable statistics.")
-shown=[item for item in fixtures if search.lower().strip() in searchable(item)]
-if coverage_ok and coverage_filter=="Model-eligible only":
-    shown=[item for item in shown if coverage(item)["status"] in ("StatsAPI history","League covered")]
+# Show only competitions explicitly included in our historical modelling coverage.
+# Do not offer unrelated API fixtures in the normal interface.
+shown=[item for item in fixtures
+       if search.lower().strip() in searchable(item)
+       and coverage(item)["status"] in ("StatsAPI history","League covered")]
 # Presentation priority only; never exclude leagues from the underlying API results.
 PRIORITY_TERMS=(
     "premier league","championship","la liga","primera división",
@@ -244,14 +176,15 @@ def priority(item):
     start=kickoff(item)
     return (rank,start.isoformat() if start else "9999",fixture_label(item))
 shown=sorted(shown,key=priority)
-st.caption(f"Showing {len(shown)} fixtures. Major competitions appear first when the API provides competition names; all returned leagues remain available.")
+st.metric("Fixtures in our selected leagues",len(shown))
+st.caption("Only fixtures in competitions covered by our historical research are shown.")
 def label_with_comp(item):
     comp=item.get("competition") or {}
     comp_name=comp.get("name","") if isinstance(comp,dict) else str(comp)
     return fixture_label(item)+(" · "+str(comp_name) if comp_name else "")
 labels=[label_with_comp(item) for item in shown]
 if not shown:
-    st.info("No model-eligible fixtures for this date. The API returned scheduled matches, but none passed the historical league-coverage check. Select All API fixtures (diagnostics) only if you want to inspect them.")
+    st.info("No fixtures in our selected, historically covered leagues on this date. Try another date.")
     st.stop()
 index=st.selectbox("Select fixture",range(len(shown)),format_func=lambda i:labels[i])
 item=shown[index]
