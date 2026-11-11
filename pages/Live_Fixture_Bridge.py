@@ -6,6 +6,7 @@ from lightweight_fixture_feed import get_key, fixtures_for_day, fixture_label, k
 import requests
 from archive_data_engine import load_coverage
 from fixture_coverage_engine import archive_league_summary, classify_fixture
+from statsapi_competition_coverage import statsapi_coverage
 
 st.set_page_config(page_title="Live Fixture Bridge",layout="wide")
 st.title("🦎 Live Fixture Bridge")
@@ -28,17 +29,29 @@ except Exception as exc:
 st.metric("Fixtures returned",len(fixtures))
 try:
     archive_summary=archive_league_summary(load_coverage())
-    coverage_ok=True
-except Exception as exc:
-    st.caption("Coverage diagnostic: "+type(exc).__name__+": "+str(exc)[:350])
+    archive_ok=True
+except Exception:
     archive_summary=None
-    coverage_ok=False
-    st.warning("Historical archive unavailable; cannot verify league coverage.")
-if coverage_ok:
-    st.metric("League-covered fixtures",sum(
-        classify_fixture(item,archive_summary)["status"]=="League covered" for item in fixtures))
-else:
-    st.metric("League-covered fixtures","Unknown")
+    archive_ok=False
+try:
+    api_history=statsapi_coverage()
+    history_ok=True
+except Exception as exc:
+    api_history={}
+    history_ok=False
+    st.warning("StatsAPI historical coverage lookup unavailable: "+type(exc).__name__)
+coverage_ok=archive_ok or history_ok
+def coverage(item):
+    comp_id=str(item.get("competition_id") or "")
+    row=api_history.get(comp_id)
+    if row and int(row.get("matches") or 0)>=500:
+        return {"status":"StatsAPI history","historical_matches":int(row["matches"]),
+                "reason":"Direct competition ID match; team-level readiness not yet checked"}
+    if archive_ok:
+        return classify_fixture(item,archive_summary)
+    return {"status":"Unmatched","historical_matches":0,"reason":"No verified coverage match"}
+st.metric("League-covered fixtures",sum(coverage(item)["status"] in ("StatsAPI history","League covered") for item in fixtures) if coverage_ok else "Unknown")
+st.caption("Coverage matches the StatsAPI historical competition IDs directly; the imported archive is a secondary source. Minimum 500 historical matches.")
 with st.expander("Competition API lookup test"):
     st.caption("One on-demand request to check how TheStatsAPI identifies competitions. No credentials displayed.")
     ids=list(dict.fromkeys(str(item.get("competition_id")) for item in fixtures if item.get("competition_id")))
@@ -64,7 +77,7 @@ with st.expander("Competition API lookup test"):
 with st.expander("Competition matching diagnostics"):
     st.caption("Displays competition fields only; no API credentials or personal information.")
     if st.button("Inspect competition identifiers"):
-        st.write("Archive league codes:",archive_summary.league.tolist() if coverage_ok else "Unavailable")
+        st.write("Archive league codes:",archive_summary.league.tolist() if archive_ok else "Unavailable")
         samples=[]
         seen=set()
         for item in fixtures:
@@ -116,7 +129,7 @@ coverage_filter=st.radio("Historical coverage",["Covered leagues only","All fixt
     horizontal=True,index=0 if coverage_ok else 1,disabled=not coverage_ok)
 shown=[item for item in fixtures if search.lower().strip() in searchable(item)]
 if coverage_ok and coverage_filter=="Covered leagues only":
-    shown=[item for item in shown if classify_fixture(item,archive_summary)["status"]=="League covered"]
+    shown=[item for item in shown if coverage(item)["status"] in ("StatsAPI history","League covered")]
 # Presentation priority only; never exclude leagues from the underlying API results.
 PRIORITY_TERMS=(
     "premier league","championship","la liga","primera división",
@@ -148,7 +161,7 @@ st.write("**Away:** "+team_name(item,"away"))
 st.write("**Kickoff (UK):** "+(start.strftime("%d %b %Y, %H:%M") if start else "Not supplied"))
 st.write("**Match status:** "+str(item.get("status","Unknown")))
 if coverage_ok:
-    verdict=classify_fixture(item,archive_summary)
+    verdict=coverage(item)
     st.write("**Historical coverage:** "+verdict["status"])
     st.write("**Archive matches in league:** "+str(verdict["historical_matches"]))
     st.caption(verdict["reason"])
