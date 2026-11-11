@@ -99,3 +99,9 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - Main `pages/PRO_STARLIZARD_Dashboard.py` now displays the multi-market research table and top-five correct scores for fixtures with a venue-xG baseline, using that shared module. These are **not calibrated fair odds** or verified market prices.
 - Added `test_fixture_market_pricing.py` for symmetry, zero goals, analytic totals, input validation and score ranking. Updated `.github/workflows/validate-halftime.yml` to run new tests and compile module.
 - Commits: `26b85a54078ea44b1d2bfdfcce6335d1ff3523ec`, `2ae46aa6b69ea9a2823c1563048fa5c8b13ca7c7`, `eff32ac2a50b31ee445e72b97611d704bb75e1d9`, `d048414f465ffe95542044bd2bb14b5184cd634a`. CI and deployment still need independent verification.
+
+## Asian pricing integration — 2026-11-11
+- Added `fixture_asian_pricing.py`: shared independent-Poisson Asian total and handicap settlement engine for quarter-goal increments. Outputs expected winning, losing, and refunded stake fractions and fair research decimal = 1 + loss/win, accounting for half-win/half-loss on split quarter lines.
+- Central dashboard now displays selectable Asian totals, home handicap and corresponding away handicap with both sides' research prices and stake-win/push fractions.
+- Added `test_fixture_asian_pricing.py` for integer pushes, quarter-line split, opposing handicaps, input validation; CI workflow includes module and tests.
+- Commits: `8d8b4fe99b074f1da817e3e0075c887731443995`, `495110fb0dfea16fb74b5b445455b575372501a8`, `39863509f666878d5cb34346ddc6a17162617230`, `55c97f377407cccad9930b12adc3b0b027ef4e5e`. CI and deployment not independently confirmed.
