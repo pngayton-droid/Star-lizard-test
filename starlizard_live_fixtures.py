@@ -1,3 +1,4 @@
+from starlizard_halftime_conditional import half_time_rates, halftime_markets
 
 """
 PRO STARLIZARD V5.7
@@ -662,6 +663,7 @@ def render_live_fixtures(
     leagues,
     find_team_names,
     show_comparison,
+    fixture_prematch_rates=None,
 ):
     st.header("⚽ Live Fixtures")
 
@@ -1215,6 +1217,48 @@ def render_live_fixtures(
             if choice != "Select a team"
             else None
         )
+
+    # Experimental conditional prices from pre-match xG + verified HT state.
+    if (
+        fixture_prematch_rates is not None
+        and home and away and home != away
+        and values.get("score") is not None
+        and values.get("xg") is not None
+    ):
+        st.markdown("### 🧮 Half-time model odds · experimental")
+        try:
+            prematch = fixture_prematch_rates(home, away, day)
+            if prematch is None:
+                st.info("Insufficient pre-match xG data for conditional pricing.")
+            else:
+                ph, pa, source = prematch
+                sh, sa = half_time_rates(ph, pa, *values["xg"])
+                hh, ah = values["score"]
+                market_probs = halftime_markets(hh, ah, sh, sa)
+                st.caption(
+                    f"Pre-match expected goals {ph:.2f}–{pa:.2f} ({source}); "
+                    f"updated second-half goals {sh:.2f}–{sa:.2f}."
+                )
+                st.dataframe(
+                    pd.DataFrame([
+                        {
+                            "Market": market,
+                            "Probability": f"{prob:.1%}",
+                            "Indicative odds": f"{1/prob:.2f}" if prob > 0 else "—",
+                        }
+                        for market, prob in market_probs.items()
+                    ]),
+                    hide_index=True,
+                    use_container_width=True,
+                )
+                st.warning(
+                    "Experimental, NOT calibrated fair odds. The halftime "
+                    "xG response and second-half goal share are assumed, "
+                    "not fitted. Next-goal probabilities include the "
+                    "possibility of no further goal. No bookmaker edge claimed."
+                )
+        except Exception as exc:
+            st.warning(f"Half-time conditional model unavailable: {exc}")
 
     c1, c2 = st.columns(2)
 
