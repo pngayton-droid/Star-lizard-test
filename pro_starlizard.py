@@ -5,6 +5,7 @@ from datetime import date
 from supabase import create_client
 
 from starlizard_experimental_pricing import estimate as estimate_xg, probabilities as poisson_prices
+from starlizard_opponent_adjustment import adjust_venue_rows
 from starlizard_live_fixtures import render_live_fixtures
 from starlizard_halftime_markets_v57 import render_halftime_markets
 
@@ -381,6 +382,46 @@ def get_matches(team, count, as_of, venue="All"):
             incomplete.append(row)
 
     return completed, incomplete
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_league_strength_history(competition_id, cutoff):
+    """Read up to 2,000 league fixtures, strictly earlier than cutoff."""
+    db = get_supabase()
+    rows = []
+    for offset in (0, 1000):
+        response = (
+            db.table("historical_xg")
+            .select("match_id,match_date,home_team,away_team,home_xg,away_xg")
+            .eq("competition_id", competition_id)
+            .lt("match_date", str(cutoff))
+            .order("match_date", desc=True)
+            .range(offset, offset + 999)
+            .execute()
+        )
+        batch = response.data or []
+        rows.extend(batch)
+        if len(batch) < 1000:
+            break
+    return rows
+
+
+def adjusted_venue_frames(home_df, away_df, as_of):
+    """Adjust each observation against opponent strength before its date."""
+    league_by_name = {name: code for code, name in LEAGUES.items()}
+    league_names = set(home_df["League"]).union(set(away_df["League"]))
+    history = []
+    capped = False
+    for name in league_names:
+        code = league_by_name.get(name)
+        if code is None:
+            continue
+        rows = get_league_strength_history(code, as_of)
+        capped = capped or len(rows) >= 2000
+        history.extend(rows)
+    home_adj, hu, he = adjust_venue_rows(home_df, history)
+    away_adj, au, ae = adjust_venue_rows(away_df, history)
+    return home_adj, away_adj, hu + au, he + ae, capped
 
 
 def build_dataframe(team, matches):
@@ -1025,11 +1066,46 @@ def show_comparison(
 
     st.subheader("🧮 Experimental xG model prices")
     st.caption(
-        "Pre-match independent-Poisson model, using shrunk home/away "
-        "attack and defence xG. NOT calibrated or backtested; "
+        "Pre-match independent-Poisson model, with historical opponent "
+        "strength adjustments where sufficient data exist. NOT calibrated or backtested; "
         "not a verified betting edge."
     )
-    estimated = estimate_xg(hvdf, avdf)
+    try:
+        with st.spinner("Adjusting xG for historical opponent strength..."):
+            adj_home, adj_away, adjusted_n, eligible_n, history_capped = (
+                adjusted_venue_frames(hvdf, avdf, as_of)
+            )
+        adjusted_estimate = estimate_xg(adj_home, adj_away)
+    except Exception as exc:
+        st.warning(f"Opponent adjustment unavailable: {exc}")
+        adjusted_estimate = None
+        adjusted_n, eligible_n, history_capped = 0, 0, False
+    basic_estimate = estimate_xg(hvdf, avdf)
+    estimated = (
+        adjusted_estimate if adjusted_estimate is not None and adjusted_n >= 10
+        else basic_estimate
+    )
+    if estimated is not None and adjusted_estimate is not None and adjusted_n >= 10:
+        st.caption(
+            f"Opposition-adjusted xG: {adjusted_n}/{eligible_n} "
+            "historical venue observations adjusted using strictly earlier "
+            "league matches. Opponent ratings are shrunk and capped."
+        )
+        if history_capped:
+            st.warning(
+                "League-strength history reached its 2,000-match per-league "
+                "limit; older opponent histories may be incomplete."
+            )
+        if basic_estimate is not None:
+            st.caption(
+                f"Basic model rates for comparison: "
+                f"{basic_estimate[0]:.2f} – {basic_estimate[1]:.2f}"
+            )
+    else:
+        st.warning(
+            "Not enough supported historical opponent adjustments; "
+            "showing the basic xG model instead."
+        )
     if estimated is None:
         st.info("Need at least five valid venue xG observations for each component.")
     else:
