@@ -56,6 +56,18 @@ def fetch_view(view_name, columns="*", max_rows=20000):
         raise ArchiveDataError("Safety limit reached; increase max_rows for complete analysis")
     return pd.DataFrame(rows)
 
+def load_coverage():
+    """Small aggregated view; one request avoids non-unique season-year pagination."""
+    url, key = _credentials()
+    try:
+        r = requests.get(url + "/rest/v1/archive_data_coverage",
+            headers={"apikey": key, "Authorization": "Bearer " + key},
+            params={"select": "*", "limit": 1000}, timeout=45)
+        r.raise_for_status()
+        return pd.DataFrame(r.json())
+    except (requests.RequestException, ValueError) as exc:
+        raise ArchiveDataError("Archive coverage read failed") from exc
+
 def load_research():
     """Return one row per verified cross-source match."""
     frame = fetch_view("archive_verified_match_research")
