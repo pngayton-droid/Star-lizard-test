@@ -518,7 +518,7 @@ def show_prices(values, match_day, match_id):
                     )
                 )
 
-                records, fetched, audit = collect(
+                records, fetched, audit, baseline = collect(
                     db,
                     candidates,
                     hc,
@@ -529,12 +529,14 @@ def show_prices(values, match_day, match_id):
                     1,
                     False,
                     return_audit=True,
+                    return_baseline=True,
                 )
 
             saved = {
                 "signature": signature,
                 "records": records,
                 "audit": audit,
+                "baseline": baseline,
                 "candidates": len(candidates),
                 "fetched": fetched,
                 "capped": capped,
@@ -570,91 +572,64 @@ def show_prices(values, match_day, match_id):
             "restricted to the latest matches."
         )
 
-    st.markdown("#### 📊 At a glance")
-    summary_cols = st.columns(2)
-    for col, label, key, line in (
-        (summary_cols[0], "2H corners", "corners", 4.5),
-        (summary_cols[1], "2H yellow cards", "yellows", 2.5),
-    ):
-        sample = records[key]
-        with col:
-            if len(sample) < MIN_SAMPLE:
-                st.metric(label + " · sample", str(len(sample)))
-                st.caption("Insufficient sample for a rate")
-            else:
-                hits = sum(row[0] > line for row in sample)
-                probability = hits / len(sample)
-                inverse = f"{1/probability:.2f}" if probability else "—"
-                st.metric(label + f" · Over {line:.1f}", f"{probability:.1%}")
-                st.caption(f"{hits}/{len(sample)} matches · historical odds {inverse}")
-    st.caption("Historical frequencies only. No live bookmaker odds have been compared; value is not established.")
-
-    for title, key, second_lines, full_lines in (
-        (
-            "🚩 Corners",
-            "corners",
-            [3.5, 4.5, 5.5, 6.5],
-            [
-                7.5, 8.5, 9.5,
-                10.5, 11.5,
-            ],
-        ),
-        (
-            "🟨 Yellow cards",
-            "yellows",
-            [1.5, 2.5, 3.5, 4.5],
-            [3.5, 4.5, 5.5, 6.5],
-        ),
-    ):
-        sample = records[key]
-
-        st.markdown(
-            f"**{title} · "
-            f"{len(sample)} comparable records**"
-        )
-
-        if len(sample) < MIN_SAMPLE:
-            st.info(
-                "Insufficient verified sample "
-                "for pricing."
-            )
-            continue
-
-        st.caption("Second half")
-
-        st.dataframe(
-            market_table(
-                sample,
-                second_lines,
-                0,
-            ),
-            hide_index=True,
-            use_container_width=True,
-        )
-
-        st.caption("Full match")
-
-        st.dataframe(
-            market_table(
-                sample,
-                full_lines,
-                1,
-            ),
-            hide_index=True,
-            use_container_width=True,
-        )
-
+    st.markdown("#### 📊 Quick market comparison")
     st.caption(
-        "Inverse historical frequencies "
-        "only. Not calibrated fair prices "
-        "or evidence of betting value."
+        "Baseline uses the same historical HT score/xG candidates, "
+        "before filtering for first-half corners or cards. "
+        "It is NOT the unconditional league-wide rate."
     )
+    comparison = []
+    for label, key, line in (
+        ("2H corners O4.5", "corners", 4.5),
+        ("2H yellows O2.5", "yellows", 2.5),
+    ):
+        sample = records[key]
+        base = saved.get("baseline", {}).get(key, [])
+        if len(sample) < MIN_SAMPLE or len(base) < MIN_SAMPLE:
+            comparison.append({
+                "Market": label, "Matched": "—",
+                "Baseline": "—", "Difference": "—",
+                "Sample": f"{len(sample)}/{len(base)}",
+            })
+            continue
+        matched_rate = sum(row[0] > line for row in sample) / len(sample)
+        base_rate = sum(row[0] > line for row in base) / len(base)
+        comparison.append({
+            "Market": label,
+            "Matched": f"{matched_rate:.1%}",
+            "Baseline": f"{base_rate:.1%}",
+            "Difference": f"{(matched_rate-base_rate)*100:+.1f} pp",
+            "Sample": f"{len(sample)}/{len(base)}",
+        })
+    st.dataframe(pd.DataFrame(comparison), hide_index=True, use_container_width=True)
+    st.caption(
+        "Matched/baseline sample counts shown. These overlapping historical "
+        "samples are descriptive, not independent evidence of an edge."
+    )
+    with st.expander("📊 Full corners and cards market tables"):
+        for title, key, second_lines, full_lines in (
+            ("🚩 Corners", "corners", [3.5, 4.5, 5.5, 6.5],
+             [7.5, 8.5, 9.5, 10.5, 11.5]),
+            ("🟨 Yellow cards", "yellows", [1.5, 2.5, 3.5, 4.5],
+             [3.5, 4.5, 5.5, 6.5]),
+        ):
+            sample = records[key]
+            st.markdown(f"**{title} · {len(sample)} records**")
+            if len(sample) < MIN_SAMPLE:
+                st.info("Insufficient verified sample for pricing.")
+                continue
+            st.caption("Second half")
+            st.dataframe(market_table(sample, second_lines, 0),
+                         hide_index=True, use_container_width=True)
+            st.caption("Full match")
+            st.dataframe(market_table(sample, full_lines, 1),
+                         hide_index=True, use_container_width=True)
+    st.caption("Historical frequencies only; bookmaker value has not been assessed.")
 
     # New audit section uses the same
     # historical records as the prices.
-    render_audit(
-        saved.get("audit", [])
-    )
+    with st.expander("🔎 Historical match audit and CSV export"):
+        render_audit(saved.get("audit", []))
 
 
 # ==========================================
@@ -954,10 +929,7 @@ def render_live_fixtures(
     # ======================================
 
     st.markdown("### 🦎 Match intelligence")
-    st.caption(
-        "A quick, evidence-led checklist for the selected fixture. "
-        "Research prompts are not betting recommendations."
-    )
+    st.caption("Research prompts only · no live bookmaker value assessed")
     ht_values = extract_ht(details, snapshot)
     score = ht_values.get("score")
     xg = ht_values.get("xg")
