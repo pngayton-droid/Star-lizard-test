@@ -47,3 +47,7 @@ Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Sta
 - Three-way chronological holdout now compares filtered trailing-team xG/location rates against an **earlier-only** unconditional reference trained on the same halftime deficit. Dashboard reports baseline Brier/log loss and flags filters with no Brier improvement. No later match outcomes enter either trained probability estimate.
 - Regression assertions added for baseline arithmetic. GitHub combined commit status endpoint returned no statuses; this is **not** proof CI passed. Verify GitHub Actions separately.
 - Remains research only: do not label value without market odds, out-of-time fixture-level calibration, and costs.
+
+## Full research-set integrity checkpoint — 2026-11-11
+- Read-only Supabase reconciliation now verifies both first-half and second-half goal counts across all 11,581 `starlizard_next_goal_research` rows: **0 first-half mismatches and 0 second-half mismatches**, counting `goal`, `own_goal`, `penalty_scored`. Scoring-event sequence duplication across the full event archive: **0 duplicated match/period/sequence groups**.
+- `NEXT_GOAL_LABEL_AUDIT.md` records the SQL-derived findings and limitations. Prior 17 VAR-suspect sequences are not yet separately resolved. Source-control checkpoint is not a database backup.
