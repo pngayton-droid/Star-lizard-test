@@ -5,6 +5,15 @@ from halftime_interaction_engine import scan_interactions
 from halftime_research_engine import halftime_sample,rates
 
 st.set_page_config(page_title="Halftime Intelligence",layout="wide")
+
+# Compact navigation: legacy and diagnostic pages remain available by direct URL.
+with st.sidebar:
+    st.markdown("### 🦎 PRO STARLIZARD")
+    st.page_link("pro_starlizard.py", label="🏠 Main dashboard", use_container_width=True)
+    st.page_link("pages/Live_Fixture_Bridge.py", label="⚽ Fixtures & pricing", use_container_width=True)
+    st.page_link("pages/Halftime_Pricing_Lab.py", label="🧠 Half-time pricing", use_container_width=True)
+    st.page_link("pages/Model_Intelligence.py", label="📈 Model intelligence", use_container_width=True)
+    st.page_link("pages/Automatic_Pattern_Scanner.py", label="🦎 Pattern scanner", use_container_width=True)
 st.title("🦎 Halftime Intelligence")
 st.caption("Dedicated second-half research. Historical outcomes, not live odds or a calibrated halftime pricing model.")
 st.subheader("All halftime situations")
