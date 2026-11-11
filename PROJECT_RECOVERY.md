@@ -93,3 +93,9 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - The match queue now offers a compact sortable table (fixture, competition ID, venue xG readiness, historical match count) and a downloadable CSV of all matching queue rows. Existing fixture details and halftime workspace remain.
 - GitHub commits: `ddbbbd8d35db07f7b9f4ab7b7257b10fae190dcd`, `15deb125ef409f5e5edafc7ed9ea9a2a612375a8`. No deployment or automated-test success claimed without run evidence.
 - Product objective remains integrated, trustworthy modelling platform, not a narrow strategy search.
+
+## Reusable multi-market pricing module — 2026-11-11
+- Added `fixture_market_pricing.py`: independently reusable Poisson research probabilities and decimal prices for 1X2, O/U 1.5 and 2.5, BTTS and top-eight correct scores. Reports unmodelled score-grid probability mass instead of silently normalising truncated results.
+- Main `pages/PRO_STARLIZARD_Dashboard.py` now displays the multi-market research table and top-five correct scores for fixtures with a venue-xG baseline, using that shared module. These are **not calibrated fair odds** or verified market prices.
+- Added `test_fixture_market_pricing.py` for symmetry, zero goals, analytic totals, input validation and score ranking. Updated `.github/workflows/validate-halftime.yml` to run new tests and compile module.
+- Commits: `26b85a54078ea44b1d2bfdfcce6335d1ff3523ec`, `2ae46aa6b69ea9a2823c1563048fa5c8b13ca7c7`, `eff32ac2a50b31ee445e72b97611d704bb75e1d9`, `d048414f465ffe95542044bd2bb14b5184cd634a`. CI and deployment still need independent verification.
