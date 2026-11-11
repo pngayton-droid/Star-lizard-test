@@ -5,6 +5,8 @@ on:
     paths:
       - 'halftime_fixture_scenario.py'
       - 'test_halftime_fixture_scenario.py'
+      - 'halftime_next_goal_research.py'
+      - 'test_halftime_next_goal_research.py'
       - '.github/workflows/validate-halftime.yml'
   workflow_dispatch:
 jobs:
@@ -16,6 +18,6 @@ jobs:
         with:
           python-version: '3.11'
       - name: Verify model probabilities
-        run: python -m unittest -v test_halftime_fixture_scenario
+        run: python -m unittest -v test_halftime_fixture_scenario test_halftime_next_goal_research
       - name: Compile key application modules
-        run: python -m py_compile halftime_fixture_scenario.py halftime_snapshot_pricing.py halftime_interaction_engine.py pages/PRO_STARLIZARD_Dashboard.py pages/Halftime_Pricing_Lab.py
+        run: python -m py_compile halftime_next_goal_research.py halftime_fixture_scenario.py halftime_snapshot_pricing.py halftime_interaction_engine.py pages/PRO_STARLIZARD_Dashboard.py pages/Halftime_Pricing_Lab.py
