@@ -25,6 +25,9 @@ class FixtureGoalsBaselineTests(unittest.TestCase):
     def test_reject_malformed(self):
         self.rows[0]["xg_for_avg"]="unavailable"
         self.assertIsNone(baseline(self.fixture,self.rows))
+    def test_reject_invalid_sample(self):
+        self.rows[1]["sample_n"]="unknown"
+        self.assertIsNone(baseline(self.fixture,self.rows))
     def test_reject_low_sample(self):
         self.rows[1]["sample_n"]=7
         self.assertIsNone(baseline(self.fixture,self.rows))
