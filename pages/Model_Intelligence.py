@@ -5,6 +5,7 @@ import streamlit as st
 import pandas as pd
 from archive_data_engine import load_coverage, load_research
 from pattern_intelligence_engine import run_pattern_scan
+from pattern_history_store import save_snapshot, list_snapshots, load_snapshot
 
 st.set_page_config(page_title="Model Intelligence", layout="wide")
 st.title("🦎 PRO STARLIZARD | Model Intelligence")
@@ -103,6 +104,42 @@ else:
     st.download_button("Export intelligence findings",findings.to_csv(index=False).encode("utf-8"),
                        "starlizard_intelligence_findings.csv",mime="text/csv")
 st.caption("Exploratory findings only: no half-time/live market odds, commissions or prospective validation. No profitability inferred.")
+
+st.subheader("Pattern tracking history")
+st.caption("Save an immutable research snapshot. Identical data and scan settings reuse the same snapshot ID.")
+settings={"min_n":80,"split":0.7,"segments":["league","home_price_band","away_price_band"]}
+if st.button("Save current pattern scan",type="primary"):
+    try:
+        key=save_snapshot(matches,findings,settings)
+        st.success("Research snapshot recorded (or already saved): "+key[:12])
+        st.cache_data.clear()
+    except Exception as exc:
+        st.error("Snapshot could not be saved.")
+        st.code(str(exc))
+try:
+    history=list_snapshots()
+except Exception as exc:
+    st.warning("Pattern history is not currently available.")
+    history=pd.DataFrame()
+if not history.empty:
+    st.dataframe(history[["created_at","match_count","segment_count","flagged_count","scan_version"]],hide_index=True,use_container_width=True)
+    options=history.scan_key.tolist()
+    selected=st.selectbox("Inspect saved research snapshot",options,format_func=lambda k:
+        str(history.loc[history.scan_key==k,"created_at"].iloc[0])+" · "+k[:10])
+    if selected:
+        try:
+            snapshot=load_snapshot(selected)
+            if snapshot:
+                prior=pd.DataFrame(snapshot["results"])
+                st.caption("Saved with "+str(snapshot["match_count"])+" linked matches.")
+                if not prior.empty:
+                    st.dataframe(prior,hide_index=True,use_container_width=True)
+                    st.download_button("Export saved snapshot",prior.to_csv(index=False).encode("utf-8"),
+                        "starlizard_saved_pattern_scan.csv","text/csv")
+        except Exception as exc:
+            st.warning("Could not load selected snapshot.")
+else:
+    st.info("No saved scans yet. Use the button above to record the first baseline.")
 
 st.subheader("Research pipeline")
 st.markdown("""
