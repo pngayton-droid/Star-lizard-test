@@ -12,7 +12,8 @@ from fixture_team_readiness import venue_readiness
 from statsapi_recent_venue_xg import recent_venue_xg
 from fixture_goals_baseline import baseline
 from halftime_fixture_scenario import second_half_scenario
-from halftime_snapshot_pricing import quote_break_even
+from halftime_snapshot_pricing import quote_break_even,snapshot_research
+from halftime_research_engine import halftime_sample
 
 st.set_page_config(page_title="PRO STARLIZARD Dashboard",layout="wide")
 st.title("🦎 PRO STARLIZARD")
@@ -129,6 +130,47 @@ if ready and recent_rows:
                 if probability>0:
                     st.write(f'{outcome}: **{probability*100:.1f}%** · mechanical decimal {1/probability:.2f}')
             st.warning("Exploratory independent-Poisson scenario only. Not calibrated, not verified value, and no actual bookmaker odds.")
+        st.markdown("#### Historical halftime cross-check")
+        st.caption("Compare this exact halftime score and approximate xG with actual historical second-half outcomes. Earlier and later periods are shown separately.")
+        outcome=st.selectbox("Historical second-half outcome",[
+            "Second half: at least 1 goal","Second half: at least 2 goals",
+            "Home scores in second half","Away scores in second half",
+            "Home wins second half","Away wins second half",
+            "Both teams score in second half"],key="dash_hist_outcome")
+        tolerance=st.slider("Historical xG tolerance per team",0.1,1.5,0.5,0.1,key="dash_hist_tol")
+        hist_state=(state,outcome,tolerance)
+        if st.session_state.get("dashboard_hist_state")!=hist_state:
+            st.session_state.pop("dashboard_hist_result",None)
+        if st.button("Check historical halftime outcomes"):
+            try:
+                rows=halftime_sample()
+                st.session_state["dashboard_hist_result"]=snapshot_research(
+                    rows,int(h_goals),int(a_goals),float(h_xg),float(a_xg),outcome,tolerance)
+                st.session_state["dashboard_hist_state"]=hist_state
+            except Exception as exc:
+                st.error("Historical query unavailable: "+type(exc).__name__)
+        hist=st.session_state.get("dashboard_hist_result")
+        if hist:
+            if hist.get("status")=="Research estimate available":
+                m,n=st.columns(2)
+                m.metric("Earlier historical frequency",f'{hist["train_rate"]*100:.1f}%')
+                n.metric("Later historical frequency",f'{hist["later_rate"]*100:.1f}%')
+                st.caption(f'Earlier: {hist["train_hits"]}/{hist["train_n"]}; later: {hist["later_hits"]}/{hist["later_n"]}; date cutoff {hist["cutoff"]}. Descriptive only.')
+                if scenario and outcome in {"Second half: at least 1 goal","Second half: at least 2 goals","Home scores in second half","Away scores in second half","Home wins second half","Away wins second half","Both teams score in second half"}:
+                    key_map={"Second half: at least 1 goal":"2H at least 1 goals",
+                        "Second half: at least 2 goals":"2H at least 2 goals",
+                        "Home scores in second half":"Home scores 2H",
+                        "Away scores in second half":"Away scores 2H",
+                        "Home wins second half":"Home wins 2H",
+                        "Away wins second half":"Away wins 2H",
+                        "Both teams score in second half":"Both score 2H"}
+                    model_p=scenario["probabilities"][key_map[outcome]]
+                    st.write(f'Mechanical scenario: **{model_p*100:.1f}%**; later-period observed: **{hist["later_rate"]*100:.1f}%**.')
+                    st.caption("Not a matched backtest: the historical comparison uses a broader pooled match sample, not this fixture's model predictions.")
+            else:
+                st.info(hist["status"])
+                st.caption(f'Earlier matching matches: {hist.get("train_n",0)}; later: {hist.get("later_n",0)}. Try a wider tolerance.')
+
     else:
         st.info("No venue-ready fixture has a matching recent-xG baseline.")
 else:
