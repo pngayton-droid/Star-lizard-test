@@ -5,6 +5,15 @@ from halftime_snapshot_pricing import OUTCOMES,snapshot_research,quote_break_eve
 from halftime_fixture_scenario import second_half_scenario
 
 st.set_page_config(page_title="Halftime Pricing Lab",layout="wide")
+
+# Compact navigation: legacy and diagnostic pages remain available by direct URL.
+with st.sidebar:
+    st.markdown("### 🦎 PRO STARLIZARD")
+    st.page_link("pro_starlizard.py", label="🏠 Main dashboard", use_container_width=True)
+    st.page_link("pages/Live_Fixture_Bridge.py", label="⚽ Fixtures & pricing", use_container_width=True)
+    st.page_link("pages/Halftime_Pricing_Lab.py", label="🧠 Half-time pricing", use_container_width=True)
+    st.page_link("pages/Model_Intelligence.py", label="📈 Model intelligence", use_container_width=True)
+    st.page_link("pages/Automatic_Pattern_Scanner.py", label="🦎 Pattern scanner", use_container_width=True)
 st.title("🦎 Halftime Pricing Lab")
 st.caption("A research bridge from the actual halftime state to historical second-half outcomes. No invented market prices.")
 st.warning("This is not yet a calibrated fixture-specific pricing model. Use only to explore historical conditional rates.")
