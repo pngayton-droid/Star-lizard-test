@@ -15,6 +15,7 @@ from statsapi_recent_venue_xg import recent_venue_xg
 from fixture_goals_baseline import baseline
 from fixture_market_pricing import price_goals
 from fixture_asian_pricing import asian_market
+from fixture_forensic_dossier import venue_dossier
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
@@ -117,6 +118,18 @@ for fixture in show[:80]:
         st.write("Competition ID:",str(fixture.get("competition_id") or "Unavailable"))
         st.write("Venue xG:",venue_readiness(fixture,team_rows).get("status") if team_rows else "Unavailable")
         if fixture in ready and recent_rows:
+            dossier=venue_dossier(fixture,recent_rows,as_of=day.isoformat())
+            st.markdown("**Venue forensic snapshot**")
+            if dossier["teams"]:
+                st.dataframe([{"Team":v["team"],"Venue":v["venue"].title(),
+                    "Sample":v["matches"],"xG for":round(v["xg_for"],2),
+                    "xG against":round(v["xg_against"],2),
+                    "xG difference":round(v["xg_difference"],2),
+                    "Latest match":v["latest"]}
+                    for v in dossier["teams"].values()],hide_index=True,use_container_width=True)
+            for warning in dossier["warnings"]:
+                st.warning(warning)
+            st.caption("Venue aggregates from stored historical match data; not opponent-adjusted, and not a substitute for recent form, referee, corners or cards analysis.")
             research=baseline(fixture,recent_rows)
             if research:
                 st.write(f'Pre-match baseline xG: home **{research["home_xg"]:.2f}**, away **{research["away_xg"]:.2f}**')
