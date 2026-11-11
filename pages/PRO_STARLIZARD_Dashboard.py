@@ -18,6 +18,7 @@ from fixture_asian_pricing import asian_market
 from fixture_forensic_dossier import venue_dossier
 from fixture_quote_comparison import compare_quote
 from fixture_snapshot import build_snapshot,snapshot_json
+from fixture_input_audit import baseline_input_audit
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
@@ -135,7 +136,11 @@ if show:
         for warning in dossier["warnings"]:
             st.warning(warning)
         st.caption("Venue aggregates from stored historical match data; not opponent-adjusted, and not a substitute for recent form, referee, corners or cards analysis.")
-        research=baseline(fixture,recent_rows)
+        provenance=baseline_input_audit(fixture,recent_rows,day.isoformat())
+        for warning in provenance["warnings"]:
+            st.warning("Input provenance: "+warning)
+        st.caption("Venue aggregates have not been reconstructed point-in-time. Historical results are not valid backtests.")
+        research=baseline(fixture,recent_rows) if provenance["eligible_for_current_pricing"] else None
         if research:
             st.write(f'Pre-match baseline xG: home **{research["home_xg"]:.2f}**, away **{research["away_xg"]:.2f}**')
             st.write(f'Mechanical pre-match Over 2.5 probability: **{research["over_2_5"]*100:.1f}%**')
