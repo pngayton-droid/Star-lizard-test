@@ -43,6 +43,14 @@ def second_half_scenario(home_pre,away_pre,home_ht_xg,away_ht_xg,
             outcomes["Home wins FT" if ft_h>ft_a else "Away wins FT" if ft_h<ft_a else "Draw FT"]+=p
             outcomes["Home wins 2H" if h>a else "Away wins 2H" if h<a else "Draw 2H"]+=p
     total_mu=home_mu+away_mu
+    # In an independent homogeneous Poisson race, the first scorer is
+    # proportional to each team's intensity, conditional on a goal.
+    # These are model-implied probabilities, NOT verified event-sequence rates.
+    no_goal=exp(-total_mu)
+    any_goal=1-no_goal
+    outcomes["No second-half goal"]=no_goal
+    outcomes["Home scores first in 2H (model)"]=any_goal*home_mu/total_mu if total_mu else 0.0
+    outcomes["Away scores first in 2H (model)"]=any_goal*away_mu/total_mu if total_mu else 0.0
     for n in [1,2,3]:
         outcomes[f"2H at least {n} goals"]=1-sum(poisson_pmf(total_mu,k) for k in range(n))
     return {"home_2h_mu":home_mu,"away_2h_mu":away_mu,"probabilities":outcomes}
