@@ -19,21 +19,11 @@ if not url or not key:
     st.error("Add SUPABASE_URL and SUPABASE_SECRET_KEY to Streamlit secrets to use this page.")
     st.stop()
 
+from archive_data_engine import load_research, load_first_goals
+
 @st.cache_data(ttl=900, show_spinner="Loading verified historical matches…")
 def load():
-    headers = {"apikey": key, "Authorization": "Bearer " + key}
-    all_rows = []
-    page_size = 1000
-    for offset in range(0, 10000, page_size):
-        r = requests.get(url.rstrip("/") + "/rest/v1/archive_verified_match_research",
-            params={"select": "*", "order": "understat_id.asc", "limit": page_size, "offset": offset},
-            headers=headers, timeout=45)
-        r.raise_for_status()
-        batch = r.json()
-        all_rows.extend(batch)
-        if len(batch) < page_size:
-            break
-    return pd.DataFrame(all_rows).drop_duplicates(subset=["understat_id"], keep="first")
+    return load_research()
 
 try:
     df = load()
@@ -70,22 +60,11 @@ qual["trailing_side"] = ["Home" if h else "Away" for h in home[home | away]]
 st.metric("Qualifying historical matches", f"{len(qual):,}")
 st.caption("Next-goal results use the first verified goal strictly after minute 45. Half-time stoppage-time convention remains provisional.")
 @st.cache_data(ttl=900, show_spinner="Loading first second-half goals…")
-def load_first_goals():
-    headers = {"apikey": key, "Authorization": "Bearer " + key}
-    rows = []
-    for offset in range(0, 20000, 1000):
-        r = requests.get(url.rstrip("/") + "/rest/v1/archive_first_second_half_goal",
-            params={"select": "understat_id,first_goal_minute,first_goal_side", "order": "understat_id.asc", "limit": 1000, "offset": offset},
-            headers=headers, timeout=45)
-        r.raise_for_status()
-        batch = r.json()
-        rows.extend(batch)
-        if len(batch) < 1000:
-            break
-    return pd.DataFrame(rows)
+def load_first_goals_cached():
+    return load_first_goals()
 
 try:
-    goals = load_first_goals()
+    goals = load_first_goals_cached()
     if goals.empty:
         goals = pd.DataFrame(columns=["understat_id","first_goal_minute","first_goal_side"])
     qual = qual.merge(goals, on="understat_id", how="left", validate="one_to_one")
