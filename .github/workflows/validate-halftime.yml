@@ -7,6 +7,7 @@ on:
       - 'test_halftime_fixture_scenario.py'
       - 'halftime_next_goal_research.py'
       - 'test_halftime_next_goal_research.py'
+      - 'pages/PRO_STARLIZARD_Dashboard.py'
       - '.github/workflows/validate-halftime.yml'
   workflow_dispatch:
 jobs:
