@@ -2,6 +2,7 @@
 import streamlit as st
 from halftime_research_engine import halftime_sample
 from halftime_snapshot_pricing import OUTCOMES,snapshot_research,quote_break_even
+from halftime_fixture_scenario import second_half_scenario
 
 st.set_page_config(page_title="Halftime Pricing Lab",layout="wide")
 st.title("🦎 Halftime Pricing Lab")
@@ -57,3 +58,25 @@ if result and result.get("status")=="Research estimate available":
     st.warning("A difference from the market break-even rate is NOT a proven value opportunity. Historical state matching does not incorporate fixture strength, lineup, live events, bookmaker margin or prospective calibration.")
 st.subheader("Next steps")
 st.caption("Combine this historical conditional prior with a calibrated pre-match strength model, real halftime match data, verified next-goal ordering, and timestamped market odds.")
+
+st.divider()
+st.subheader("Fixture-strength second-half scenario")
+st.caption("Enter pre-match expected FULL-TIME goals from your fixture model. This is a separate illustrative Poisson scenario, not calibrated halftime fair odds.")
+l,r=st.columns(2)
+with l:
+    pre_home=st.number_input("Home pre-match expected full-time goals",0.0,8.0,1.5,0.05)
+with r:
+    pre_away=st.number_input("Away pre-match expected full-time goals",0.0,8.0,1.1,0.05)
+share=st.slider("Expected share of goals after halftime",0.35,0.70,0.50,0.01)
+adjust=st.slider("Exploratory HT xG share adjustment",0.0,1.0,0.0,0.05)
+st.caption("Adjustment 0 = pre-match prior only; above zero reallocates the remaining total between teams based on HT xG share. It is a user-controlled heuristic, not a learned parameter.")
+if st.button("Run second-half fixture scenario"):
+    try:
+        scenario=second_half_scenario(pre_home,pre_away,home_xg,away_xg,int(home_score),int(away_score),share,adjust)
+        st.write(f'Illustrative second-half expected goals: home {scenario["home_2h_mu"]:.2f}, away {scenario["away_2h_mu"]:.2f}')
+        import pandas as pd
+        st.dataframe(pd.DataFrame([{"Outcome":k,"Scenario probability":f"{v*100:.1f}%","Mechanical decimal price":f"{1/v:.2f}" if v>0 else "N/A"} for k,v in scenario["probabilities"].items()]),hide_index=True,use_container_width=True)
+        st.warning("These are mechanical scenario prices, NOT validated fair odds or betting signals. No halftime live odds, red cards, opposition adjustment, lineup or event timing incorporated.")
+    except Exception as exc:
+        st.error("Scenario unavailable")
+        st.code(type(exc).__name__+": "+str(exc)[:200])
