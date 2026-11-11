@@ -141,3 +141,7 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 ## Historical leakage safeguard — 2026-11-11
 - Fixture JSON snapshots now explicitly compute `model.point_in_time_valid` by checking home/away venue summary latest dates against fixture date; future observations produce an extra warning and dashboard warning. This is only a preliminary leakage check, not a true point-in-time dataset reconstruction.
 - Added regression cases for future and valid dates. Commits `a70699023ecf0cd0cfc56dc1273311e83ec7b664`, `d4e7ca8f584e391a5e2ea8ec5d2f7f9b009cd1bd`, `fde2ef2544c306deecb3b1b82dabd725a03acf43`. CI execution and deployment remain unverified.
+
+## Strict fixture venue input audit — 2026-11-11
+- Added `fixture_input_audit.py` to detect missing, ambiguous, malformed, low-sample and same-day/future-dated venue observations before showing research prices. The main dashboard suppresses pricing when known input provenance is unsafe, and explicitly notes that even eligible aggregates are not reconstructed point-in-time.
+- Added `test_fixture_input_audit.py` and CI coverage. Commits `54a384491feec0377b94e61a62ba2ad939b290f5`, `29915ec7f940a3c2492fc0dd2b8f017305998abe`, `19c472f06ccfdfa58cd0228700c0d608e758d610`, `6b69446547d99e5d32c0c92e1dcfa1fa0bb763b4`. Tests/deployment unverified.
