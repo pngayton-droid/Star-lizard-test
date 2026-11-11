@@ -111,3 +111,8 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - Main dashboard now displays a venue forensic table inside each venue-ready fixture before pricing. Explicitly labels venue aggregates as unadjusted and not a referee/corners/cards dossier yet.
 - Added `test_fixture_forensic_dossier.py` and CI workflow entries. Commits: `929be35e970b8f9594b20e3912ee198a6560ca27`, `05292451433a913de18ea54771b7b4d9b654a046`, `f7c3a138193bd1a5b315053d8942d6743289a775`, `bdaec4458871b5c4eec052e6775826b196a0e078`.
 - Code committed; successful CI execution and deployment still not independently confirmed.
+
+## Mobile dashboard performance refactor — 2026-11-11
+- `pages/PRO_STARLIZARD_Dashboard.py` now renders forensic dossier and multi-market research pricing for **one selected fixture**, rather than all (up to 80) expanded fixture cards on each Streamlit rerun. Queue table and CSV export remain intact.
+- GitHub commits `0161e696c1c7dfb79af54c08eac8e44d08777810` and `fc68b309015a806e141aea61a26ee10b474a4ce5` (indentation correction).
+- Attempt to run tests via public GitHub raw downloads in local container was blocked by DNS; do not claim tests or deployment passed. Need GitHub Actions run evidence or connector-based source materialization for independent test execution.
