@@ -161,3 +161,7 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - User explicitly prioritises a usable model today over weeks of extra features. Freeze new scope; concentrate on dashboard usability, existing data/pricing, and live deployment validation.
 - Dashboard defaults to showing all historically covered fixtures (or feed fixtures when none covered), not only venue-ready matches, so the screen is usable even when coverage is thin. Halftime fixture selector now defaults to the selected match when it has a usable baseline.
 - Commits `b2f3ea141257e0f977045cae9f3492df470fb274`, `97b7147b7a3391d666349dfa2ec4a7c262361808`. Need actual Streamlit deployment/runtime test before declaring ready.
+
+## Same-day MVP quick pricing — 2026-11-11
+- Central dashboard now shows an expanded **Quick pricing** workspace before any API-key/fixture-feed checks: manually enter home/away expected goals (0–8), get 1X2/totals/BTTS research probabilities and decimal prices, top five correct scores, and selectable Asian total over/under. This remains usable when the external fixture feed is unavailable. Manual intensities are assumptions, not calibrated model outputs.
+- Added safe `N/A` handling for zero-probability markets. Commits `4ac2d4d9791d7358effdabb862352d47ed4bcb50`, `51aebdd0e28b4c1fca9f30cdf975ae621d981a86`, `25a951143a5058cb5441951b7c9be6dff8b549dc`. Live Streamlit deployment not independently verified.
