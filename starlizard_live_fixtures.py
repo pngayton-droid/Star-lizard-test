@@ -950,6 +950,86 @@ def render_live_fixtures(
         )
 
     # ======================================
+    # MATCH INTELLIGENCE SUMMARY
+    # ======================================
+
+    st.markdown("### 🦎 Match intelligence")
+    st.caption(
+        "A quick, evidence-led checklist for the selected fixture. "
+        "Research prompts are not betting recommendations."
+    )
+    ht_values = extract_ht(details, snapshot)
+    score = ht_values.get("score")
+    xg = ht_values.get("xg")
+    corners = ht_values.get("corners")
+    yellows = ht_values.get("yellows")
+    if score is None:
+        st.info(
+            "Verified half-time score not yet available. "
+            "Wait for the first half to finish or refresh the fixture."
+        )
+    else:
+        home_ht, away_ht = score
+        st.metric("Verified half-time score", f"{home_ht}–{away_ht}")
+        first, second = st.columns(2)
+        with first:
+            st.metric(
+                "First-half xG",
+                f"{xg[0]:.2f} – {xg[1]:.2f}" if xg else "Unavailable",
+            )
+            st.metric(
+                "First-half corners",
+                f"{corners[0]} – {corners[1]}" if corners else "Unavailable",
+            )
+        with second:
+            st.metric(
+                "First-half yellow cards",
+                f"{yellows[0]} – {yellows[1]}" if yellows else "Unavailable",
+            )
+            st.metric(
+                "First-half goals",
+                home_ht + away_ht,
+            )
+        st.markdown("**Markets worth researching**")
+        if xg and home_ht != away_ht:
+            trailing = 0 if home_ht < away_ht else 1
+            if xg[trailing] >= 0.20:
+                st.info(
+                    "⚽ Trailing team next goal: first-half xG meets the "
+                    "0.20 research screen. Check pre-match favourite odds, "
+                    "historical hit rates and the actual next-goal quote "
+                    "before assessing value."
+                )
+            else:
+                st.caption(
+                    "Trailing team next goal: below the 0.20 first-half "
+                    "xG screen; no signal from that research rule."
+                )
+        elif xg is None:
+            st.caption("Next-goal research: first-half xG unavailable.")
+        else:
+            st.caption("Next-goal trailing-team screen: no team trails at half-time.")
+        if corners is not None:
+            st.info(
+                "🚩 Second-half corners: verified first-half corner totals "
+                "available. Calculate historical comparisons below."
+            )
+        if yellows is not None:
+            st.info(
+                "🟨 Second-half cards: verified first-half yellow-card totals "
+                "available. Calculate historical comparisons below."
+            )
+        if xg is None or corners is None or yellows is None:
+            st.warning(
+                "Some first-half inputs are missing. Full halftime-market "
+                "research may be unavailable until the feed is complete."
+            )
+    st.caption(
+        "Betting value: NOT ASSESSED. No verified live bookmaker quote "
+        "or calibrated fixture-specific probability is compared here."
+    )
+
+    # ======================================
     # MATCH STATISTICS
     # ======================================
 
@@ -1012,10 +1092,7 @@ def render_live_fixtures(
     # AUTOMATIC PRICING + AUDIT
     # ======================================
 
-    values = extract_ht(
-        details,
-        snapshot,
-    )
+    values = ht_values
 
     show_prices(
         values,
