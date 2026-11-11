@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import date
 from supabase import create_client
 
+from starlizard_experimental_pricing import estimate as estimate_xg, probabilities as poisson_prices
 from starlizard_live_fixtures import render_live_fixtures
 from starlizard_halftime_markets_v57 import render_halftime_markets
 
@@ -1021,6 +1022,44 @@ def show_comparison(
         hvdf,
         avdf,
     )
+
+    st.subheader("🧮 Experimental xG model prices")
+    st.caption(
+        "Pre-match independent-Poisson model, using shrunk home/away "
+        "attack and defence xG. NOT calibrated or backtested; "
+        "not a verified betting edge."
+    )
+    estimated = estimate_xg(hvdf, avdf)
+    if estimated is None:
+        st.info("Need at least five valid venue xG observations for each component.")
+    else:
+        home_rate, away_rate, sample_counts = estimated
+        st.caption(
+            f"Model goal rates: {home_team} {home_rate:.2f} · "
+            f"{away_team} {away_rate:.2f} "
+            f"· xG component samples: {sample_counts}"
+        )
+        prices = poisson_prices(home_rate, away_rate)
+        display_markets = [
+            "Home win", "Draw", "Away win", "Home or draw",
+            "Away or draw", "Home team to score", "Away team to score",
+            "BTTS Yes", "BTTS No", "Over 1.5 goals",
+            "Over 2.5 goals", "Over 3.5 goals",
+        ]
+        st.dataframe(pd.DataFrame([
+            {
+                "Market": market,
+                "Model probability": f"{prices[market]:.1%}",
+                "Indicative odds": f"{1/prices[market]:.2f}"
+                if prices[market] > 0 else "—",
+            }
+            for market in display_markets
+        ]), hide_index=True, use_container_width=True)
+        st.caption(
+            "Indicative odds = 1 / model probability. "
+            "No bookmaker margin; no half-specific markets yet. "
+            "Validation against unseen fixtures is required."
+        )
 
     betting_angles(
         hvdf,
