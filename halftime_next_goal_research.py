@@ -9,7 +9,7 @@ import requests
 import streamlit as st
 from archive_data_engine import _credentials
 
-@st.cache_data(ttl=1800,max_entries=2,show_spinner=False)
+@st.cache_data(ttl=300,max_entries=1,show_spinner=False)
 def next_goal_rows():
     url,key=_credentials()
     headers={"apikey":key,"Authorization":"Bearer "+key}
