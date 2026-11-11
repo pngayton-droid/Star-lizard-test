@@ -17,6 +17,14 @@ class FixtureSnapshotTests(unittest.TestCase):
         self.assertEqual(decoded["observed_quote"]["decimal_odds"],2.5)
         self.assertFalse(decoded["model"]["calibrated"])
         self.assertIn("generated_at_utc",decoded)
+    def test_future_venue_data_flagged(self):
+        self.baseline["home_last"]="2026-11-15"
+        record=build_snapshot("Home v Away","2026-11-11","3039",self.baseline,{},{},{})
+        self.assertFalse(record["model"]["point_in_time_valid"])
+        self.assertTrue(any("after the fixture date" in x for x in record["limitations"]))
+    def test_current_venue_data_valid(self):
+        record=build_snapshot("Home v Away","2026-11-11","3039",self.baseline,{},{},{})
+        self.assertTrue(record["model"]["point_in_time_valid"])
     def test_missing_inputs(self):
         with self.assertRaises(ValueError):
             build_snapshot("a","2026-11-11","1",{}, {}, {}, {})
