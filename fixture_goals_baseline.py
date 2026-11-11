@@ -1,5 +1,5 @@
 """Transparent Poisson goals research baseline, not calibrated fair odds."""
-from math import exp, factorial
+from math import exp, factorial, isfinite
 from fixture_team_readiness import normalize, fixture_team
 
 def find_venue(item,rows,side):
@@ -15,9 +15,14 @@ def baseline(item,rows):
     away=find_venue(item,rows,"away")
     if not home or not away:return None
     if min(int(home["sample_n"]),int(away["sample_n"]))<8:return None
-    home_mu=(float(home["xg_for_avg"])+float(away["xg_against_avg"]))/2
-    away_mu=(float(away["xg_for_avg"])+float(home["xg_against_avg"]))/2
-    if not (0<=home_mu<=8 and 0<=away_mu<=8):return None
+    try:
+        values=[float(home["xg_for_avg"]),float(away["xg_against_avg"]),
+                float(away["xg_for_avg"]),float(home["xg_against_avg"])]
+    except (KeyError,ValueError,TypeError):
+        return None
+    if not all(isfinite(v) and 0<=v<=8 for v in values):return None
+    home_mu=(values[0]+values[1])/2
+    away_mu=(values[2]+values[3])/2
     total=home_mu+away_mu
     under25=sum(exp(-total)*total**k/factorial(k) for k in range(3))
     under15=sum(exp(-total)*total**k/factorial(k) for k in range(2))
