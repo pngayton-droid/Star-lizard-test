@@ -13,13 +13,13 @@ import requests
 from supabase import create_client
 
 API_BASE = "https://api.thestatsapi.com/api"
-PREFERRED = ("bet365", "betfair exchange", "william hill")
-# TheStatsAPI documents Betfair Sportsbook, NOT Betfair Exchange.
-# William Hill is also not a documented provider.
+PREFERRED = ("bet365", "betfair exchange", "pinnacle")
+# Verified in actual historical responses: Bet365, Betfair Exchange, Pinnacle.
+# William Hill was not returned in the initial 20-match sample.
 def bookmaker_priority(name):
     normalized = name.lower().replace("_", " ").strip()
     if normalized == "bet365": return 0
-    if normalized in ("betfair exchange", "william hill"): return 1
+    if normalized == "betfair exchange": return 1
     if normalized == "pinnacle": return 2
     if normalized == "betfair sportsbook": return 3
     return 4
