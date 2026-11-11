@@ -122,3 +122,9 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - Integrated quote input and comparison into the selected fixture's pre-match dashboard pricing panel. Clearly warns that results are mechanical, uncalibrated scenarios.
 - Added `test_fixture_quote_comparison.py` (fair even-money, commission, pushes, half wins/losses, invalid inputs) and extended CI workflow.
 - Commits: `629c11b28c3bead5b9a6fdafb60e15f933f03107`, `abda4311ecf772c7b796d93bd2c507edbe0279f4`, `1581657e27bee2d1f7395777b29b5eb358e5701f`, `2278cd32ab6db231792561a483d37cd5e765ec43`. Test run and deployment still unverified.
+
+## Pricing pipeline consistency tests — 2026-11-11
+- Added `test_pricing_pipeline.py` checking independent-Poisson goals probabilities against equivalent Asian half-goal totals, and that each engine's own fair price produces zero expected return in the quote comparison module. Also checks Asian quarter-line settlement against the quote comparator.
+- Extended central GitHub Actions regression workflow and renamed it to `Validate PRO STARLIZARD pricing` (file path unchanged).
+- Commits `6e01f6e193dbc637ba66b3dcc022cfa7dd986ebb` and `1f98a2cf40193a05bc6166bcf06deff6dbe89d0d`. Tests committed, not independently confirmed passing; deployment not verified.
+- Roadmap: engineering foundations exist but complete system needs API ingestion/refresh, data provenance, calibration, comprehensive forensic stats, live odds and match-state feeds, and independent end-to-end validation.
