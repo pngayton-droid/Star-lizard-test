@@ -9,6 +9,8 @@ from fixture_coverage_engine import archive_league_summary, classify_fixture
 from statsapi_competition_coverage import statsapi_coverage
 from statsapi_team_coverage import team_venue_coverage
 from fixture_team_readiness import venue_readiness
+from statsapi_recent_venue_xg import recent_venue_xg
+from fixture_goals_baseline import baseline
 
 st.set_page_config(page_title="Live Fixture Bridge",layout="wide")
 st.title("🦎 Live Fixture Bridge")
@@ -188,6 +190,25 @@ if coverage_ok:
         st.write("**Home xG samples:** "+str(team_check["home_xg"]))
         st.write("**Away xG samples:** "+str(team_check["away_xg"]))
 st.write("**StatsAPI match ID:** "+str(item.get("id","Not supplied")))
+st.subheader("Experimental fixture goals baseline")
+st.caption("Recent venue xG only: arithmetic attack/defence blend and independent Poisson goals. Not calibrated or opposition-adjusted.")
+if st.button("Calculate historical goals baseline for selected fixture"):
+    try:
+        estimate=baseline(item,recent_venue_xg())
+        if not estimate:
+            st.info("Insufficient matched venue xG samples for this fixture.")
+        else:
+            a,b,c=st.columns(3)
+            a.metric("Home expected goals",f'{estimate["home_xg"]:.2f}')
+            b.metric("Away expected goals",f'{estimate["away_xg"]:.2f}')
+            c.metric("Total expected goals",f'{estimate["total_xg"]:.2f}')
+            for market in ("over_1_5","over_2_5"):
+                p=estimate[market]
+                st.write(f'**{market.replace("_"," ").title()}**: {p*100:.1f}% · mechanical odds {1/p:.2f}' if p>0 else "Probability unavailable")
+            st.caption(f'Home venue sample: {estimate["home_n"]} (latest {estimate["home_last"]}); away venue sample: {estimate["away_n"]} (latest {estimate["away_last"]}).')
+            st.warning("Mechanical probabilities are NOT fair odds or betting recommendations. No bookmaker odds, lineup information, uncertainty calibration, or backtested predictive accuracy is included.")
+    except Exception as exc:
+        st.warning("Historical baseline unavailable: "+type(exc).__name__)
 st.subheader("Market data readiness")
 st.warning("Fixture discovery does not supply a verified, timestamped bookmaker quote or a fixture-specific calibrated fair probability. Neither is being inferred.")
 st.info("Next integration: identify supported market-odds endpoints and capture source, bookmaker, market, line and timestamp before calculating value.")
