@@ -78,7 +78,7 @@ def trailing_three_way_holdout(rows,min_xg=0.2,deficit=1,side="both",train_fract
     """
     if not 0 < train_fraction < 1:
         raise ValueError("train_fraction must be between zero and one")
-    dated=[r for r in rows if r.get("match_date")]
+    dated=[r for r in rows if r.get("match_date") and r.get("trailing_side") in ("home","away")]
     dates=sorted({str(r["match_date"])[:10] for r in dated})
     if len(dates)<2:
         return {"status":"Insufficient distinct match dates","train":None,"later":None}
