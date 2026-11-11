@@ -21,6 +21,15 @@ class VenueDossierTests(unittest.TestCase):
         r=venue_dossier(self.fixture,self.rows,"2026-11-11")
         self.assertEqual(r["status"],"caution")
         self.assertTrue(any("90 days" in x for x in r["warnings"]))
+    def test_invalid_xg_does_not_crash(self):
+        self.rows[0]["xg_for_avg"]=float("nan")
+        result=venue_dossier(self.fixture,self.rows,"2026-11-11")
+        self.assertEqual(result["status"],"unavailable")
+        self.assertTrue(any("invalid data" in warning for warning in result["warnings"]))
+    def test_bad_date_does_not_crash(self):
+        self.rows[1]["last_match_date"]="not-a-date"
+        result=venue_dossier(self.fixture,self.rows,"2026-11-11")
+        self.assertEqual(result["status"],"unavailable")
     def test_unresolved_team(self):
         r=venue_dossier(self.fixture,self.rows[:1],"2026-11-11")
         self.assertEqual(r["status"],"unavailable")
