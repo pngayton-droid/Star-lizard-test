@@ -63,6 +63,12 @@ m2.metric("History-covered",len(covered))
 m3.metric("Venue xG ready",len(ready))
 st.caption("History-covered means at least 500 StatsAPI historical league matches. Venue-ready requires sufficient home and away xG observations.")
 st.subheader("Match queue")
+try:
+    recent_rows=recent_venue_xg() if ready else []
+except Exception:
+    recent_rows=[]
+    st.warning("Recent xG summary unavailable; match queue remains accessible.")
+
 show=ready if st.toggle("Only venue-ready fixtures",value=True) else covered
 if search.strip():
     show=[f for f in show if search.lower() in fixture_label(f).lower()]
@@ -74,7 +80,13 @@ for fixture in show[:80]:
     with st.expander(label):
         st.write("Competition ID:",str(fixture.get("competition_id") or "Unavailable"))
         st.write("Venue xG:",venue_readiness(fixture,team_rows).get("status") if team_rows else "Unavailable")
-        st.caption("Halftime state: not yet connected. Market odds: not yet connected.")
+        if fixture in ready and recent_rows:
+            research=baseline(fixture,recent_rows)
+            if research:
+                st.write(f'Pre-match baseline xG: home **{research["home_xg"]:.2f}**, away **{research["away_xg"]:.2f}**')
+                st.write(f'Mechanical pre-match Over 2.5 probability: **{research["over_2_5"]*100:.1f}%**')
+                st.caption(f'Home venue sample: {research["home_n"]}; away venue sample: {research["away_n"]}. Simple Poisson baseline, not calibrated fair odds.')
+        st.caption("Live halftime state and market odds: not yet connected. No value inference.")
 st.divider()
 st.subheader("Model build status")
 st.write("**Working:** fixture discovery, historical coverage, venue sample checks, halftime outcome research, conditional scenario estimates.")
