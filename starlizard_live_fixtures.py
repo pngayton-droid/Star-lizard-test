@@ -602,6 +602,53 @@ def show_prices(values, match_day, match_id):
             "Difference": f"{(matched_rate-base_rate)*100:+.1f} pp",
             "Sample": f"{len(sample)}/{len(base)}",
         })
+    st.markdown("#### 🚩🟨 Half-time corners and cards research prices")
+    st.caption(
+        "These are conditional historical break-even odds, NOT validated "
+        "fixture-specific fair prices. No bookmaker quotes or EV claims."
+    )
+    market_rows = []
+    for title, key, lines in (
+        ("Second-half corners", "corners", (3.5, 4.5, 5.5, 6.5)),
+        ("Second-half yellow cards", "yellows", (1.5, 2.5, 3.5, 4.5)),
+    ):
+        sample = records[key]
+        base = saved.get("baseline", {}).get(key, [])
+        for line in lines:
+            if len(sample) < MIN_SAMPLE:
+                continue
+            hits = sum(row[0] > line for row in sample)
+            probability = hits / len(sample)
+            baseline_probability = (
+                sum(row[0] > line for row in base) / len(base)
+                if len(base) >= MIN_SAMPLE else None
+            )
+            market_rows.append({
+                "Market": f"{title} Over {line:.1f}",
+                "Matched": f"{hits}/{len(sample)}",
+                "Historical probability": f"{probability:.1%}",
+                "Inverse odds": f"{1 / probability:.2f}" if probability else "—",
+                "vs HT baseline": (
+                    f"{100 * (probability - baseline_probability):+.1f} pp"
+                    if baseline_probability is not None else "—"
+                ),
+            })
+    if market_rows:
+        st.dataframe(
+            pd.DataFrame(market_rows),
+            hide_index=True,
+            use_container_width=True,
+        )
+        st.caption(
+            "Based on verified comparable half-time score, xG, corner and "
+            "yellow-card records. Correlated markets are not independent. "
+            "Player fouls and referee effects are not yet included."
+        )
+    else:
+        st.info(
+            "Not enough comparable verified matches to display corners/cards "
+            "research odds. At least 30 matched matches are required."
+        )
     st.dataframe(pd.DataFrame(comparison), hide_index=True, use_container_width=True)
     st.caption(
         "Matched/baseline sample counts shown. These overlapping historical "
