@@ -69,3 +69,17 @@ Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Sta
 - Direct Supabase evaluation of trailing by exactly one HT goal, trailing HT xG >=0.20: earlier n=2,383 (trailing-first 1,024), later n=1,146 (trailing-first 513). Date cutoff 2025-05-25.
 - Earlier-trained conditional probabilities evaluated on later cohort: Brier 0.63355, log loss 1.04514. Earlier-only one-goal-deficit unconditional baseline: Brier 0.63637, log loss 1.04859. Small improvements +0.00283 Brier and +0.00344 log loss, not evidence of positive betting EV.
 - Full methodology and counts in `NEXT_GOAL_LABEL_AUDIT.md`. Do not overclaim: no live odds, commissions, or prospective selection, and VAR cases remain outstanding.
+
+## Product priority reset — user direction, 2026-11-11
+
+**Primary objective: build the full PRO STARLIZARD football modelling platform. Do not get bogged down trying to find a single betting edge.** Historical strategy analysis is a supporting validation and automated-discovery feature, not the development roadmap.
+
+Implementation order:
+1. Central mobile-friendly dashboard, coherent navigation and useful match-level outputs.
+2. Reliable StatsAPI ingestion, coverage, persisted historical data, scheduled updates and independently verified recoverable backups.
+3. Reusable calibrated pricing modules: full-time goals, Asian handicap/totals, correct scores, halftime and next goal.
+4. Opposition/venue-adjusted xG plus corners/cards/referee intelligence and forensic match dossier.
+5. Actual live match-state ingestion, timestamped bookmaker/exchange quotes, comparison tools and automatically flagged evidence-backed signals.
+6. Regression, chronology, data-quality and calibration tests continuously, but time-box research investigations; never imply a proven edge without prices and costs.
+
+When user says "crack on", prefer concrete GitHub/Supabase engineering progress and commits over repeated narrow edge-hunting reports. Keep central dashboard integration a priority.
