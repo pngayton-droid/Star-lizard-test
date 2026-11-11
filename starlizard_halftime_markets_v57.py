@@ -361,6 +361,21 @@ def market_table(records, lines, index):
     return pd.DataFrame(output)
 
 
+def pricing_snapshot(records, lines, index, label):
+    """Display one illustrative historical line without implying market value."""
+    sample = len(records)
+    if sample < MIN_SAMPLE:
+        st.metric(label + " · sample", str(sample))
+        st.caption("At least 30 comparable records required.")
+        return
+    line = lines[0]
+    hits = sum(row[index] > line for row in records)
+    rate = hits / sample
+    odds = f"{1 / rate:.2f}" if rate else "—"
+    st.metric(label + f" · Over {line:.1f}", f"{rate:.1%}")
+    st.caption(f"{hits}/{sample} matches · inverse historical odds {odds}")
+
+
 def compact_table(records, lines, index):
     frame = market_table(
         records,
@@ -543,6 +558,14 @@ def render_results():
 
     corners = records["corners"]
     yellows = records["yellows"]
+
+    st.markdown("#### At a glance")
+    a, b = st.columns(2)
+    with a:
+        pricing_snapshot(corners, [4.5], 0, "2H corners")
+    with b:
+        pricing_snapshot(yellows, [2.5], 0, "2H yellows")
+    st.caption("Illustrative historical frequencies, not calibrated fair odds. No bookmaker quote has been loaded.")
 
     if view == "Second Half":
         if market_header(
