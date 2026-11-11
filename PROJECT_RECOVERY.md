@@ -153,3 +153,6 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 
 ## Data robustness — 2026-11-11
 - Hardened forensic venue dossier against malformed dates, missing fields and nonfinite xG, returning warnings rather than crashing fixture dashboard. Hardened venue baseline against malformed sample counts. Extended regression tests for both. Commits `54d33aeb2d6a3a2366b5003c4a100897cd9265f6`, `c57ba6dc83c965106ad478a44cbbe4f3889b2541`, `7e523dc9f3b00e669f1dac5a5afe2f93827575ed`, `cd85741c07b304939b56b01a584121e0ea727579`. Test execution still unverified.
+
+## Venue audit validation tightened — 2026-11-11
+- `fixture_input_audit.py` now requires finite and bounded xG values for both source venue summaries before marking a fixture pricing-eligible. Updated audit test fixtures with actual xG and added NaN rejection regression case. Commits `94442b220bbdea1f9de1e71d2d1d2152a6a0e295`, `4c1d23c0ba425bf1e66d5d2cc8b9c3352801780f`. Execution/deployment unverified.
