@@ -93,10 +93,10 @@ except Exception:
     recent_rows=[]
     st.warning("Recent xG summary unavailable; match queue remains accessible.")
 
-show=ready if st.toggle("Only venue-ready fixtures",value=True) else covered
+show=ready if st.toggle("Only venue-ready fixtures",value=False) else (covered if covered else fixtures)
 if search.strip():
     show=[f for f in show if search.lower() in fixture_label(f).lower()]
-st.caption(f"Showing {min(len(show),80)} of {len(show)} matching fixtures.")
+st.caption(f"Showing {len(show)} matching fixtures. Select any match to inspect available data.")
 if show:
     queue_rows=[]
     for fixture in show:
@@ -114,7 +114,7 @@ if show:
     st.download_button("Export matching fixture queue (CSV)",output.getvalue(),
         file_name=f"starlizard_fixture_queue_{day.isoformat()}.csv",mime="text/csv")
 if not show:
-    st.info("No matches match these filters. Switch off the venue-ready filter to inspect wider coverage.")
+    st.info("No fixtures match these filters. Try another date, search or turn off the venue-ready filter.")
 if show:
     fixture_index=st.selectbox("Open fixture dossier",range(len(show)),
         format_func=lambda i:fixture_label(show[i]),key="selected_dossier_fixture")
