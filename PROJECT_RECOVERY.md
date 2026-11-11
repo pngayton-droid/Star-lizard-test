@@ -128,3 +128,7 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - Extended central GitHub Actions regression workflow and renamed it to `Validate PRO STARLIZARD pricing` (file path unchanged).
 - Commits `6e01f6e193dbc637ba66b3dcc022cfa7dd986ebb` and `1f98a2cf40193a05bc6166bcf06deff6dbe89d0d`. Tests committed, not independently confirmed passing; deployment not verified.
 - Roadmap: engineering foundations exist but complete system needs API ingestion/refresh, data provenance, calibration, comprehensive forensic stats, live odds and match-state feeds, and independent end-to-end validation.
+
+## Exportable fixture research snapshot — 2026-11-11
+- Main dashboard selected fixture now offers downloadable versioned JSON containing fixture/date/competition, model identifier, baseline xG inputs and provenance, venue forensic dossier, 1X2/totals/BTTS/correct-score research probabilities and prices, selected Asian lines, and explicit model limitations.
+- JSON snapshot is research-only and does not include a live bookmaker quote. Commit `0a10d462af5aa8b1c92656ed4e33e28f4cb9b269`. Deployment and automated tests remain unverified.
