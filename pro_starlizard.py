@@ -895,12 +895,16 @@ def betting_angles(
                     delta_color="off",
                 )
 
+            # Descriptive inverse frequency only: not a calibrated fair quote.
+            inverse_odds = f"{1 / pooled:.2f}" if pooled > 0 else "—"
+            st.markdown(
+                f"**Historical break-even odds: {inverse_odds}**"
+                f" · {h + a}/{hn + an} ({pooled:.0%})"
+            )
             st.caption(
-                f"Combined historical frequency: "
-                f"{h + a}/{hn + an} "
-                f"({pooled:.0%}). "
-                "Not a predicted probability "
-                "or fair price."
+                "Inverse of the pooled historical hit rate, NOT a "
+                "fixture-specific fair price. Small venue samples, "
+                "opponent strength and selection effects can distort it."
             )
 
     st.info(
