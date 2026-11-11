@@ -59,3 +59,17 @@ Extended the score reconciliation from trailing-at-HT matches to **all 11,581** 
 - Second-half goal-count mismatches: **0 / 11,581**.
 - Across the complete `historical_match_events` event collection, duplicate scoring-event `sequence` groups within match and period: **0**.
 These are read-only integrity checks. They do not by themselves resolve the earlier 17 VAR-suspect cases or guarantee chronological correctness of all events. The match-date/team-name join should be replaced with a unique match-key join where available.
+
+## Real-data chronological validation checkpoint — 2026-11-11
+
+Read-only Supabase SQL on `starlizard_next_goal_research`. Cohort: trailing at HT by exactly one goal, trailing HT xG >= 0.20, either venue. Split at **2025-05-25** (distinct eligible dates; all matches on cutoff date assigned to later group).
+
+| Outcome | Earlier (n=2,383) | Later (n=1,146) |
+| --- | ---: | ---: |
+| Trailing side scores first in 2H | 1,024 (42.97%) | 513 (44.76%) |
+| Leading side scores first | 919 (38.56%) | 414 (36.13%) |
+| No 2H goal | 440 (18.46%) | 219 (19.11%) |
+
+Smoothed earlier conditional probabilities evaluated on later outcomes: **multiclass Brier 0.63355, log loss 1.04514**. A same-cutoff earlier-only baseline using **all one-goal deficits regardless of xG** (n=3,368; trailing 1,355, leader 1,356, no-goal 657) yields **Brier 0.63637, log loss 1.04859** on the **same later selected cohort**. Conditional improvement: Brier **+0.00283**, log loss **+0.00344** (positive means lower loss).
+
+This is a **small descriptive improvement**, not a validated profitable betting edge. Cohort was chosen using prior research; this is not an untouched prospectively selected test. No market odds, fees, or fixture-specific calibration were included. Later samples and possible VAR exclusions still require checking.
