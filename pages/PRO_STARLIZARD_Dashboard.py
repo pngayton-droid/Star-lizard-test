@@ -211,7 +211,11 @@ with st.expander("Explore trailing-team next-goal history"):
                         lcol,rcol=st.columns(2)
                         lcol.metric("Multiclass Brier (lower better)",f'{quality["brier"]:.3f}')
                         rcol.metric("Log loss (lower better)",f'{quality["log_loss"]:.3f}')
-                        st.caption(f'Earlier rates frozen before {quality["cutoff"]}; evaluated against {quality["later_n"]} later qualifying matches. Smoothed historical frequencies, not a fixture-calibrated model or betting backtest.')
+                        st.write(f'Baseline Brier: **{quality["baseline_brier"]:.3f}**, baseline log loss: **{quality["baseline_log_loss"]:.3f}** (trained on {quality["baseline_n"]} earlier matches).')
+                        st.write(f'Brier improvement versus baseline: **{quality["brier_improvement"]:+.3f}** (positive is better).')
+                        if quality["brier_improvement"]<=0:
+                            st.warning("Conditional pattern did not outperform the simple earlier-only baseline on later matches.")
+                        st.caption(f'Earlier rates frozen before {quality["cutoff"]}; evaluated against {quality["later_n"]} later matches. Baseline uses earlier matches with the same deficit, ignoring xG and location filters. Neither is a betting backtest.')
                     else:
                         st.caption("Probability scoring unavailable: "+quality["status"]+".")
                 else:
