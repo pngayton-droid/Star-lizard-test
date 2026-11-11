@@ -11,6 +11,8 @@ from statsapi_team_coverage import team_venue_coverage
 from fixture_team_readiness import venue_readiness
 from statsapi_recent_venue_xg import recent_venue_xg
 from fixture_goals_baseline import baseline
+from halftime_fixture_scenario import second_half_scenario
+from halftime_snapshot_pricing import quote_break_even
 
 st.set_page_config(page_title="PRO STARLIZARD Dashboard",layout="wide")
 st.title("🦎 PRO STARLIZARD")
@@ -63,6 +65,7 @@ m2.metric("History-covered",len(covered))
 m3.metric("Venue xG ready",len(ready))
 st.caption("History-covered means at least 500 StatsAPI historical league matches. Venue-ready requires sufficient home and away xG observations.")
 st.subheader("Match queue")
+st.caption("Select a fixture below to open its halftime scenario workspace.")
 try:
     recent_rows=recent_venue_xg() if ready else []
 except Exception:
@@ -87,6 +90,49 @@ for fixture in show[:80]:
                 st.write(f'Mechanical pre-match Over 2.5 probability: **{research["over_2_5"]*100:.1f}%**')
                 st.caption(f'Home venue sample: {research["home_n"]}; away venue sample: {research["away_n"]}. Simple Poisson baseline, not calibrated fair odds.')
         st.caption("Live halftime state and market odds: not yet connected. No value inference.")
+st.divider()
+st.subheader("Halftime match workspace")
+st.caption("Select a venue-ready fixture and enter its observed halftime score and xG. No live halftime observations are assumed.")
+if ready and recent_rows:
+    choices=[]
+    for f in ready:
+        b=baseline(f,recent_rows)
+        if b: choices.append((f,b))
+    if choices:
+        index=st.selectbox("Fixture for halftime scenario",range(len(choices)),
+            format_func=lambda i:fixture_label(choices[i][0]))
+        selected,prior=choices[index]
+        st.write(f'Pre-match venue xG baseline: **{prior["home_xg"]:.2f} – {prior["away_xg"]:.2f}**')
+        left,right=st.columns(2)
+        with left:
+            h_goals=st.number_input("Home HT goals",0,10,0,key="dash_hg")
+            h_xg=st.number_input("Home HT xG observed",0.0,8.0,0.8,0.05,key="dash_hx")
+        with right:
+            a_goals=st.number_input("Away HT goals",0,10,0,key="dash_ag")
+            a_xg=st.number_input("Away HT xG observed",0.0,8.0,0.6,0.05,key="dash_ax")
+        share=st.slider("Second-half goal share (assumed)",0.35,0.70,0.50,0.01,key="dash_share")
+        adjustment=st.slider("Exploratory xG redistribution",0.0,1.0,0.0,0.05,key="dash_adj")
+        state=(str(selected.get("id") or fixture_label(selected)),h_goals,a_goals,h_xg,a_xg,share,adjustment)
+        if st.session_state.get("dashboard_state")!=state:
+            st.session_state.pop("dashboard_scenario",None)
+        if st.button("Calculate fixture halftime scenario",type="primary"):
+            try:
+                st.session_state["dashboard_scenario"]=second_half_scenario(
+                    prior["home_xg"],prior["away_xg"],h_xg,a_xg,h_goals,a_goals,share,adjustment)
+                st.session_state["dashboard_state"]=state
+            except Exception as exc:
+                st.error("Scenario unavailable: "+type(exc).__name__)
+        scenario=st.session_state.get("dashboard_scenario")
+        if scenario:
+            st.caption(f'Scenario second-half goal intensity: home {scenario["home_2h_mu"]:.2f}, away {scenario["away_2h_mu"]:.2f}.')
+            for outcome,probability in scenario["probabilities"].items():
+                if probability>0:
+                    st.write(f'{outcome}: **{probability*100:.1f}%** · mechanical decimal {1/probability:.2f}')
+            st.warning("Exploratory independent-Poisson scenario only. Not calibrated, not verified value, and no actual bookmaker odds.")
+    else:
+        st.info("No venue-ready fixture has a matching recent-xG baseline.")
+else:
+    st.info("Halftime workspace needs a venue-ready fixture and recent-xG data.")
 st.divider()
 st.subheader("Model build status")
 st.write("**Working:** fixture discovery, historical coverage, venue sample checks, halftime outcome research, conditional scenario estimates.")
