@@ -1,0 +1,21 @@
+name: Validate halftime model
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'halftime_fixture_scenario.py'
+      - 'test_halftime_fixture_scenario.py'
+      - '.github/workflows/validate-halftime.yml'
+  workflow_dispatch:
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify model probabilities
+        run: python -m unittest -v test_halftime_fixture_scenario
+      - name: Compile key application modules
+        run: python -m py_compile halftime_fixture_scenario.py halftime_snapshot_pricing.py halftime_interaction_engine.py pages/PRO_STARLIZARD_Dashboard.py pages/Halftime_Pricing_Lab.py
