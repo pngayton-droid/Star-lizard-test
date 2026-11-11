@@ -2,14 +2,15 @@
 
 2026-11-11 audit: all 1,337 NULL outcomes among trailing-at-HT matches
 correspond to no second-half goals; counts reconcile when penalty_scored,
-goal and own_goal are included. Ordering/attribution audit is still pending.
+goal and own_goal are included. First-scorer attribution agrees for all 5,611 labelled cases; the separate
+17-suspect VAR audit and prospective validation remain outstanding.
 """
 import requests
 import streamlit as st
 from archive_data_engine import _credentials
 
 @st.cache_data(ttl=1800,max_entries=2,show_spinner=False)
-def labelled_next_goal_rows():
+def next_goal_rows():
     url,key=_credentials()
     headers={"apikey":key,"Authorization":"Bearer "+key}
     result=[]
@@ -65,3 +66,6 @@ def trailing_three_way_summary(rows,min_xg=0.2,deficit=1,side="both"):
             "no_goal":no_goal,"trailing_rate":trailing_first/n if n else None,
             "leader_rate":leader_first/n if n else None,
             "no_goal_rate":no_goal/n if n else None}
+
+# Backwards-compatible alias for existing imports.
+labelled_next_goal_rows=next_goal_rows
