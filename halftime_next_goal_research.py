@@ -69,3 +69,23 @@ def trailing_three_way_summary(rows,min_xg=0.2,deficit=1,side="both"):
 
 # Backwards-compatible alias for existing imports.
 labelled_next_goal_rows=next_goal_rows
+
+def trailing_three_way_holdout(rows,min_xg=0.2,deficit=1,side="both",train_fraction=0.7):
+    """Chronological descriptive split; no future match enters training.
+
+    Splits distinct match dates, keeping all matches on one date together.
+    This is a stability check, not a prospective betting backtest.
+    """
+    if not 0 < train_fraction < 1:
+        raise ValueError("train_fraction must be between zero and one")
+    dated=[r for r in rows if r.get("match_date")]
+    dates=sorted({str(r["match_date"])[:10] for r in dated})
+    if len(dates)<2:
+        return {"status":"Insufficient distinct match dates","train":None,"later":None}
+    cutoff_index=max(1,min(len(dates)-1,int(len(dates)*train_fraction)))
+    cutoff=dates[cutoff_index]
+    train=[r for r in dated if str(r["match_date"])[:10]<cutoff]
+    later=[r for r in dated if str(r["match_date"])[:10]>=cutoff]
+    return {"status":"ok","cutoff":cutoff,
+            "train":trailing_three_way_summary(train,min_xg,deficit,side),
+            "later":trailing_three_way_summary(later,min_xg,deficit,side)}
