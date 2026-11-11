@@ -57,6 +57,14 @@ class NextGoalResearchTests(unittest.TestCase):
         self.assertAlmostEqual(score["baseline_log_loss"]-score["log_loss"],score["log_loss_improvement"])
     def test_probability_quality_small_sample(self):
         self.assertEqual(three_way_holdout_scores([])["status"],"Insufficient distinct match dates")
+    def test_holdout_ignores_non_trailing_dates(self):
+        rows=[
+            dict(match_date="2024-01-01",trailing_side=None),
+            dict(match_date="2025-01-01",home_ht_goals=0,away_ht_goals=1,home_ht_xg=.4,away_ht_xg=.2,trailing_side="home",trailing_team_scored_first=True),
+            dict(match_date="2025-02-01",home_ht_goals=0,away_ht_goals=1,home_ht_xg=.4,away_ht_xg=.2,trailing_side="home",trailing_team_scored_first=False)]
+        result=trailing_three_way_holdout(rows,train_fraction=.5)
+        self.assertEqual(result["cutoff"],"2025-02-01")
+        self.assertEqual(result["train"]["n"],1)
     def test_invalid(self):
         with self.assertRaises(ValueError):
             trailing_first_summary([],side="neutral")
