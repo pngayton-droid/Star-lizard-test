@@ -73,3 +73,18 @@ Read-only Supabase SQL on `starlizard_next_goal_research`. Cohort: trailing at H
 Smoothed earlier conditional probabilities evaluated on later outcomes: **multiclass Brier 0.63355, log loss 1.04514**. A same-cutoff earlier-only baseline using **all one-goal deficits regardless of xG** (n=3,368; trailing 1,355, leader 1,356, no-goal 657) yields **Brier 0.63637, log loss 1.04859** on the **same later selected cohort**. Conditional improvement: Brier **+0.00283**, log loss **+0.00344** (positive means lower loss).
 
 This is a **small descriptive improvement**, not a validated profitable betting edge. Cohort was chosen using prior research; this is not an untouched prospectively selected test. No market odds, fees, or fixture-specific calibration were included. Later samples and possible VAR exclusions still require checking.
+
+## Venue-stratified chronological result — 2026-11-11
+
+Same selected one-goal HT deficit, trailing HT xG >=0.20, same cutoff 2025-05-25. Outcomes are trailing-first / leader-first / no 2H goal.
+
+| Trailing side | Earlier outcomes | Later outcomes | Earlier trailing-first % | Later trailing-first % |
+| --- | --- | --- | ---: | ---: |
+| Home | 563 / 419 / 203 (n=1,185) | 261 / 173 / 97 (n=531) | 47.51% | 49.15% |
+| Away | 461 / 500 / 237 (n=1,198) | 252 / 241 / 122 (n=615) | 38.48% | 40.98% |
+
+Earlier-only add-one-smoothed three-way probabilities:
+- Home: 0.47475 / 0.35354 / 0.17172.
+- Away: 0.38468 / 0.41715 / 0.19817.
+
+Home/away difference persists in this one chronological split. This is **descriptive**, not proof of edge or an independent replication; evaluate against an earlier-trained side-only baseline on identical later fixtures, then assess real quoted odds and commissions. Do not interpret rates as fixture-specific fair prices.
