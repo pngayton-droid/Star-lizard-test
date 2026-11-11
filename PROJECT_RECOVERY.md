@@ -165,3 +165,8 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 ## Same-day MVP quick pricing — 2026-11-11
 - Central dashboard now shows an expanded **Quick pricing** workspace before any API-key/fixture-feed checks: manually enter home/away expected goals (0–8), get 1X2/totals/BTTS research probabilities and decimal prices, top five correct scores, and selectable Asian total over/under. This remains usable when the external fixture feed is unavailable. Manual intensities are assumptions, not calibrated model outputs.
 - Added safe `N/A` handling for zero-probability markets. Commits `4ac2d4d9791d7358effdabb862352d47ed4bcb50`, `51aebdd0e28b4c1fca9f30cdf975ae621d981a86`, `25a951143a5058cb5441951b7c9be6dff8b549dc`. Live Streamlit deployment not independently verified.
+
+## Streamlit resource-limit incident — 2026-11-11
+- User screenshot shows deployed app error: `This app has gone over its resource limits. It's using too much memory!` This is an actual deployment blocker; do not declare MVP ready.
+- First mitigation: `halftime_research_engine.py` and `halftime_next_goal_research.py` large historical dataset caches reduced from 2 entries/1800 seconds to 1 entry/300 seconds; commits `ee2a4d8dadd3affaf8baa9e3021e3db0606b0bf5`, `6dd13164b981fcaaad670dc668bd12368e8e9147`.
+- Next: verify deployment/restart, inspect Streamlit Cloud logs/memory and deployed entrypoint, identify other caches/dataframe loads; no claim fix confirmed until app loads.
