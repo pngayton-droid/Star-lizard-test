@@ -14,7 +14,12 @@ def baseline(item,rows):
     home=find_venue(item,rows,"home")
     away=find_venue(item,rows,"away")
     if not home or not away:return None
-    if min(int(home["sample_n"]),int(away["sample_n"]))<8:return None
+    try:
+        home_n=int(home["sample_n"])
+        away_n=int(away["sample_n"])
+    except (KeyError,ValueError,TypeError):
+        return None
+    if min(home_n,away_n)<8:return None
     try:
         values=[float(home["xg_for_avg"]),float(away["xg_against_avg"]),
                 float(away["xg_for_avg"]),float(home["xg_against_avg"])]
@@ -28,5 +33,5 @@ def baseline(item,rows):
     under15=sum(exp(-total)*total**k/factorial(k) for k in range(2))
     return {"home_xg":home_mu,"away_xg":away_mu,"total_xg":total,
             "over_1_5":1-under15,"over_2_5":1-under25,
-            "home_n":int(home["sample_n"]),"away_n":int(away["sample_n"]),
+            "home_n":home_n,"away_n":away_n,
             "home_last":str(home["last_match_date"]),"away_last":str(away["last_match_date"])}
