@@ -14,7 +14,7 @@ from fixture_goals_baseline import baseline
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
-from halftime_next_goal_research import labelled_next_goal_rows,trailing_three_way_summary
+from halftime_next_goal_research import labelled_next_goal_rows,trailing_three_way_summary,trailing_three_way_holdout
 
 st.set_page_config(page_title="PRO STARLIZARD Dashboard",layout="wide")
 st.title("🦎 PRO STARLIZARD")
@@ -178,13 +178,13 @@ if ready and recent_rows:
 else:
     st.info("Halftime workspace needs a venue-ready fixture and recent-xG data.")
 st.divider()
-st.subheader("Verified-label next-goal research")
-st.caption("Historical three-way first-scorer frequencies, including audited goalless halves. Sequence and VAR checks remain outstanding.")
+st.subheader("Audited next-goal research")
+st.caption("Three-way outcomes checked against scoring events and final scores for trailing-at-HT matches. Separate VAR anomaly audit remains outstanding.")
 with st.expander("Explore trailing-team next-goal history"):
     xg_floor=st.slider("Trailing team's HT xG minimum",0.0,2.0,0.2,0.05,key="ng_xg")
     deficit=st.selectbox("Halftime deficit",[1,2,3],key="ng_deficit")
     side=st.selectbox("Trailing team location",["both","home","away"],key="ng_side")
-    if st.button("Analyse labelled next-goal history"):
+    if st.button("Analyse next-goal history"):
         try:
             records=labelled_next_goal_rows()
             result=trailing_three_way_summary(records,xg_floor,deficit,side)
@@ -193,7 +193,20 @@ with st.expander("Explore trailing-team next-goal history"):
                 st.write(f'Trailing team first: **{result["trailing_rate"]*100:.1f}%** ({result["trailing_first"]}/{result["n"]})')
                 st.write(f'Leading team first: **{result["leader_rate"]*100:.1f}%** ({result["leader_first"]}/{result["n"]})')
                 st.write(f'No second-half goal: **{result["no_goal_rate"]*100:.1f}%** ({result["no_goal"]}/{result["n"]})')
-                st.caption("Observed three-way frequencies only. Not fixture-calibrated fair odds; sequence/VAR checks still pending.")
+                st.caption("Observed three-way frequencies only. Not fixture-calibrated fair odds; separate VAR anomaly audit remains outstanding.")
+                holdout=trailing_three_way_holdout(records,xg_floor,deficit,side)
+                if holdout["status"]=="ok":
+                    earlier,later=holdout["train"],holdout["later"]
+                    st.markdown("**Chronological stability check**")
+                    st.caption(f'Earlier matches before {holdout["cutoff"]}; later matches from this date onward. Match dates are never split between periods.')
+                    for label,group in [("Earlier",earlier),("Later",later)]:
+                        if group["n"]:
+                            st.write(f'{label} ({group["n"]}): trailing first **{group["trailing_rate"]*100:.1f}%**, leader first **{group["leader_rate"]*100:.1f}%**, no goal **{group["no_goal_rate"]*100:.1f}%**')
+                        else:
+                            st.write(f'{label}: no qualifying matches')
+                    st.caption("This is a chronological descriptive comparison, not an odds-based betting backtest.")
+                else:
+                    st.info("Not enough distinct match dates for a chronological comparison.")
             else:
                 st.info("No observations match these filters.")
         except Exception as exc:
