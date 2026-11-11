@@ -170,3 +170,9 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - User screenshot shows deployed app error: `This app has gone over its resource limits. It's using too much memory!` This is an actual deployment blocker; do not declare MVP ready.
 - First mitigation: `halftime_research_engine.py` and `halftime_next_goal_research.py` large historical dataset caches reduced from 2 entries/1800 seconds to 1 entry/300 seconds; commits `ee2a4d8dadd3affaf8baa9e3021e3db0606b0bf5`, `6dd13164b981fcaaad670dc668bd12368e8e9147`.
 - Next: verify deployment/restart, inspect Streamlit Cloud logs/memory and deployed entrypoint, identify other caches/dataframe loads; no claim fix confirmed until app loads.
+
+## Live fixture MVP integration — 2026-11-11
+- User confirmed the new central dashboard is visible at https://pro-starlizard-preview.streamlit.app/PRO_STARLIZARD_Dashboard and requested live fixtures next.
+- Added `fixture_live_status.py` to classify API-provided match statuses without guessing from kickoff; shows live matches including API-provided scores in central dashboard, with explicit manual refresh and a 60-second bounded fixture cache. Added fixture queue filter: All fixtures / Live only / Venue xG ready. Uncovered fixtures are no longer hidden.
+- Added `test_fixture_live_status.py` and workflow entries. Commits `59d36122f155af921c40b9a37370dfc2bfbf94af`, `a4e12e6a8fed955b36e5d88e7e6dc9e0b28cf14b`, `387118d440f686c4a6d1b5014cc1bd93774dc86a`, `f02c6fb4a41d99ee4a32f6701acb1017dceeca9b`, `16c4ce148c6fe064809785ceb8784cdb829b6aeb`, `540b66463d72ce9d39abafa930a8ade76a468420`.
+- TheStatsAPI fixture feed supplies status and score; this does not yet fetch match-specific live xG, detailed match events or live odds. Need deployment test and confirm actual provider status strings.
