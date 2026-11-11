@@ -105,3 +105,9 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 - Central dashboard now displays selectable Asian totals, home handicap and corresponding away handicap with both sides' research prices and stake-win/push fractions.
 - Added `test_fixture_asian_pricing.py` for integer pushes, quarter-line split, opposing handicaps, input validation; CI workflow includes module and tests.
 - Commits: `8d8b4fe99b074f1da817e3e0075c887731443995`, `495110fb0dfea16fb74b5b445455b575372501a8`, `39863509f666878d5cb34346ddc6a17162617230`, `55c97f377407cccad9930b12adc3b0b027ef4e5e`. CI and deployment not independently confirmed.
+
+## Fixture forensic dossier — 2026-11-11
+- Added reusable `fixture_forensic_dossier.py`: matches historical home and away venue xG summaries by exact competition and normalized team name, includes sample count, xG for/against/difference, latest observation, and warnings for insufficient sample or stale/future dates.
+- Main dashboard now displays a venue forensic table inside each venue-ready fixture before pricing. Explicitly labels venue aggregates as unadjusted and not a referee/corners/cards dossier yet.
+- Added `test_fixture_forensic_dossier.py` and CI workflow entries. Commits: `929be35e970b8f9594b20e3912ee198a6560ca27`, `05292451433a913de18ea54771b7b4d9b654a046`, `f7c3a138193bd1a5b315053d8942d6743289a775`, `bdaec4458871b5c4eec052e6775826b196a0e078`.
+- Code committed; successful CI execution and deployment still not independently confirmed.
