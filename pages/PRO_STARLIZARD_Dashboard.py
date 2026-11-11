@@ -56,6 +56,28 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:15px;}
 st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
 st.caption("Match intelligence · Research terminal")
 st.markdown('<div class="sl-note"><strong>Data status:</strong> Fixture and historical research available. Live halftime xG, verified next-goal prices and live bookmaker quotes are not connected yet.</div>',unsafe_allow_html=True)
+st.subheader("Your model workspaces")
+st.caption("Choose what you want to investigate. The models and their calculations remain unchanged.")
+model_links = [
+    ("⚽ Match pricing & fixtures", "pages/Live_Fixture_Bridge.py",
+     "Find fixtures and examine match pricing."),
+    ("🧠 Half-time pricing", "pages/Halftime_Pricing_Lab.py",
+     "Explore half-time markets and fair prices."),
+    ("🔎 Half-time patterns", "pages/Halftime_Intelligence.py",
+     "Research second-half and next-goal patterns."),
+    ("📈 Model intelligence", "pages/Model_Intelligence.py",
+     "View research readiness and saved pattern results."),
+    ("🦎 Automatic pattern scanner", "pages/Automatic_Pattern_Scanner.py",
+     "Explore historical signals with holdout checks."),
+    ("🗃️ Historical archive", "pages/Archive_Historical_Research.py",
+     "Inspect historical matches and data coverage."),
+]
+for label, destination, description in model_links:
+    with st.container(border=True):
+        st.page_link(destination, label=label, use_container_width=True)
+        st.caption(description)
+
+st.divider()
 st.subheader("Choose your workspace")
 a,b,c=st.columns(3)
 with a:
