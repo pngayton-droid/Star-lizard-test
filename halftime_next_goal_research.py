@@ -78,6 +78,8 @@ def trailing_three_way_holdout(rows,min_xg=0.2,deficit=1,side="both",train_fract
     """
     if not 0 < train_fraction < 1:
         raise ValueError("train_fraction must be between zero and one")
+    if side not in ("both","home","away") or deficit<1 or min_xg<0:
+        raise ValueError("Invalid research filter")
     dated=[r for r in rows if r.get("match_date") and r.get("trailing_side") in ("home","away")]
     # Select the cutoff from the actual research population, not unrelated
     # matches or a different xG/deficit cohort.
