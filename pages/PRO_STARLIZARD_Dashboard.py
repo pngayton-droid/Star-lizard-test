@@ -53,11 +53,8 @@ div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:15px;}
 }
 </style>
 """,unsafe_allow_html=True)
-st.markdown("""<div class="sl-hero">
-<div class="sl-kicker">Match intelligence · Research terminal</div>
-<h1>🦎 PRO STARLIZARD</h1>
-<p>Find a fixture. Check the evidence. Explore the prices.<br>Built for clear decisions, not invented betting signals.</p>
-</div>""",unsafe_allow_html=True)
+st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
+st.caption("Match intelligence · Research terminal")
 st.markdown('<div class="sl-note"><strong>Data status:</strong> Fixture and historical research available. Live halftime xG, verified next-goal prices and live bookmaker quotes are not connected yet.</div>',unsafe_allow_html=True)
 st.subheader("Choose your workspace")
 a,b,c=st.columns(3)
