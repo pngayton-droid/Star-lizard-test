@@ -14,6 +14,7 @@ from fixture_team_readiness import venue_readiness
 from statsapi_recent_venue_xg import recent_venue_xg
 from fixture_goals_baseline import baseline
 from fixture_market_pricing import price_goals
+from fixture_asian_pricing import asian_market
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
@@ -137,6 +138,23 @@ for fixture in show[:80]:
                                    "Research decimal":f'{s["decimal_price"]:.2f}'}
                                   for s in prices["top_scores"][:5]],hide_index=True,use_container_width=True)
                     st.caption(f'Independent-Poisson research baseline. Unmodelled score-grid mass: {prices["missing_mass"]*100:.4f}%. Not calibrated; no actual market odds.')
+                    st.markdown("**Asian lines — model research prices**")
+                    total_line=st.selectbox("Asian total goals",[1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5],index=4,
+                                            key=f"total_{fixture.get('id') or label}")
+                    handicap_line=st.selectbox("Home Asian handicap",[-2.0,-1.75,-1.5,-1.25,-1.0,-0.75,-0.5,-0.25,0.0,0.25,0.5,0.75,1.0,1.25,1.5,1.75,2.0],
+                                               index=8,key=f"handicap_{fixture.get('id') or label}")
+                    asian_rows=[]
+                    for market,side,line in [("total","over",total_line),("total","under",total_line),
+                                              ("handicap","home",handicap_line),
+                                              ("handicap","away",-handicap_line)]:
+                        p=asian_market(research["home_xg"],research["away_xg"],market,line,side)
+                        asian_rows.append({"Market":f"{side.title()} {line:+g}" if market=="handicap" else f"{side.title()} {line:g}",
+                                           "Research decimal":f'{p["fair_decimal"]:.2f}' if p["fair_decimal"] else "N/A",
+                                           "Stake won":f'{p["win_stake"]*100:.1f}%',
+                                           "Stake pushed":f'{p["push_stake"]*100:.1f}%'})
+                    st.dataframe(asian_rows,hide_index=True,use_container_width=True)
+                    st.caption("Quarter-lines settle as two equal half-stakes. Handicap is added to the named team's score; away handicap is the opposite of the selected home line. Not bookmaker prices.")
+
         st.caption("Live halftime state and market odds: not yet connected. No value inference.")
 st.divider()
 st.subheader("Halftime match workspace")
