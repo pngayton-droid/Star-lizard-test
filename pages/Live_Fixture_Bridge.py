@@ -63,7 +63,14 @@ def coverage(item):
     if archive_ok:
         return classify_fixture(item,archive_summary)
     return {"status":"Unmatched","historical_matches":0,"reason":"No verified coverage match"}
-st.metric("League-covered fixtures",sum(coverage(item)["status"] in ("StatsAPI history","League covered") for item in fixtures) if coverage_ok else "Unknown")
+covered_count=sum(coverage(item)["status"] in ("StatsAPI history","League covered") for item in fixtures) if coverage_ok else None
+st.metric("League-covered fixtures",covered_count if covered_count is not None else "Unknown")
+if covered_count == 0 and fixtures:
+    st.info(
+        f"The API returned {len(fixtures)} scheduled fixtures, but none match a competition "
+        "with at least 500 historical matches in our database. This is a modelling-coverage "
+        "restriction, not proof that live match statistics are unavailable."
+    )
 st.caption("Coverage matches the StatsAPI historical competition IDs directly; the imported archive is a secondary source. Minimum 500 historical matches.")
 try:
     team_rows=team_venue_coverage()
