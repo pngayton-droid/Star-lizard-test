@@ -85,6 +85,31 @@ with st.container(border=True):
     st.write("**Available now:** fixture discovery, venue data checks, baseline goals scenarios, manual halftime scenario, historical halftime research.")
     st.write("**In development:** calibrated multi-market pricing, automatic live halftime state, verified market odds, referee/corners/cards integration, automated value alerts.")
     st.page_link("pages/Live_Fixture_Bridge.py",label="Open fixture ingestion and coverage workspace")
+st.subheader("Quick pricing — usable without historical coverage")
+st.caption("Enter your own expected goals to get immediate research prices. No fixture feed, venue history or live odds required.")
+with st.expander("Open quick goals pricing",expanded=not bool(ready)):
+    quick_home,quick_away=st.columns(2)
+    with quick_home:
+        manual_home=st.number_input("Home expected goals",min_value=0.0,max_value=8.0,value=1.40,step=0.05,key="quick_home_xg")
+    with quick_away:
+        manual_away=st.number_input("Away expected goals",min_value=0.0,max_value=8.0,value=1.10,step=0.05,key="quick_away_xg")
+    quick=price_goals(manual_home,manual_away)
+    quick_names={"home_win":"Home win","draw":"Draw","away_win":"Away win",
+                 "over_1_5":"Over 1.5","under_1_5":"Under 1.5",
+                 "over_2_5":"Over 2.5","under_2_5":"Under 2.5",
+                 "btts_yes":"BTTS Yes","btts_no":"BTTS No"}
+    st.dataframe([{"Market":name,"Probability":f'{quick["probabilities"][key]*100:.1f}%',
+                   "Model decimal":f'{quick["decimal_prices"][key]:.2f}'}
+                  for key,name in quick_names.items()],hide_index=True,use_container_width=True)
+    st.dataframe([{"Score":score["score"],"Probability":f'{score["probability"]*100:.1f}%',
+                   "Model decimal":f'{score["decimal_price"]:.2f}'}
+                  for score in quick["top_scores"][:5]],hide_index=True,use_container_width=True)
+    quick_line=st.selectbox("Asian total", [1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5],index=4,key="quick_total")
+    quick_prices=[asian_market(manual_home,manual_away,"total",quick_line,side) for side in ("over","under")]
+    st.dataframe([{"Market":f'{p["side"].title()} {quick_line:g}',
+                   "Model decimal":f'{p["fair_decimal"]:.2f}' if p["fair_decimal"] else "N/A"}
+                  for p in quick_prices],hide_index=True,use_container_width=True)
+    st.caption("Inputs are manually supplied assumptions, not data-derived or calibrated predictions.")
 st.subheader("Match queue")
 st.caption("Select a fixture below to open its halftime scenario workspace.")
 try:
