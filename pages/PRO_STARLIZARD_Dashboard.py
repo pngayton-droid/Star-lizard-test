@@ -25,11 +25,41 @@ from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
 from halftime_next_goal_research import labelled_next_goal_rows,trailing_three_way_summary,trailing_three_way_holdout,three_way_holdout_scores
 
-st.set_page_config(page_title="PRO STARLIZARD Dashboard",layout="wide")
-st.title("🦎 PRO STARLIZARD")
-st.caption("Central match intelligence dashboard — halftime first. Research signals are not betting recommendations.")
-st.warning("Live halftime xG, verified next-goal prices and live market quotes are not connected yet. No value alerts will be fabricated.")
-st.subheader("Research workspaces")
+st.set_page_config(page_title="PRO STARLIZARD | Match Intelligence",layout="wide",page_icon="🦎")
+st.markdown("""
+<style>
+:root { --sl-green:#14b88a; --sl-navy:#10243a; }
+.block-container {max-width:1180px; padding-top:1.3rem; padding-bottom:4rem;}
+h1,h2,h3 {letter-spacing:-.025em;}
+h1 {font-weight:800!important;}
+[data-testid="stMetric"] {border:1px solid rgba(128,145,160,.22);border-radius:14px;padding:14px 16px;background:rgba(128,145,160,.055);}
+[data-testid="stMetricValue"] {font-size:1.65rem;}
+[data-testid="stAlert"] {border-radius:12px;}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-radius:15px;}
+.stButton>button[kind="primary"] {border-radius:10px;font-weight:700;}
+[data-testid="stDataFrame"] {border-radius:10px;overflow:hidden;}
+.sl-hero {padding:24px 25px;border-radius:19px;background:linear-gradient(115deg,#10243a,#174c53);color:white;margin-bottom:16px;}
+.sl-kicker {font-size:.76rem;letter-spacing:.14em;text-transform:uppercase;color:#8ce9c7;font-weight:750;margin-bottom:6px;}
+.sl-hero h1 {color:white!important;font-size:clamp(1.7rem,4vw,2.65rem);margin:0 0 7px 0;}
+.sl-hero p {color:#d7e8e9;margin:0;font-size:.98rem;line-height:1.5;}
+.sl-note {padding:11px 15px;border-left:3px solid #14b88a;background:rgba(20,184,138,.08);border-radius:0 10px 10px 0;margin:12px 0 19px;}
+@media(max-width:640px) {
+ .block-container {padding:0.75rem .8rem 3rem;}
+ .sl-hero {padding:18px 17px;border-radius:14px;}
+ .sl-hero h1 {font-size:1.75rem;}
+ [data-testid="stMetric"] {padding:10px;}
+ [data-testid="stMetricValue"] {font-size:1.35rem;}
+ h2 {font-size:1.3rem!important;}
+}
+</style>
+""",unsafe_allow_html=True)
+st.markdown("""<div class="sl-hero">
+<div class="sl-kicker">Match intelligence · Research terminal</div>
+<h1>🦎 PRO STARLIZARD</h1>
+<p>Find a fixture. Check the evidence. Explore the prices.<br>Built for clear decisions, not invented betting signals.</p>
+</div>""",unsafe_allow_html=True)
+st.markdown('<div class="sl-note"><strong>Data status:</strong> Fixture and historical research available. Live halftime xG, verified next-goal prices and live bookmaker quotes are not connected yet.</div>',unsafe_allow_html=True)
+st.subheader("Choose your workspace")
 a,b,c=st.columns(3)
 with a:
     st.page_link("pages/Halftime_Pricing_Lab.py",label="🧠 Halftime Pricing Lab")
@@ -38,9 +68,9 @@ with b:
 with c:
     st.page_link("pages/Live_Fixture_Bridge.py",label="📅 Live Fixture Bridge")
 
-st.subheader("Quick pricing — usable without historical coverage")
+st.subheader("Quick price calculator")
 st.caption("Enter your own expected goals to get immediate research prices. No fixture feed, venue history or live odds required.")
-with st.expander("Open quick goals pricing",expanded=True):
+with st.expander("⚽ Enter expected goals and calculate prices",expanded=False):
     quick_home,quick_away=st.columns(2)
     with quick_home:
         manual_home=st.number_input("Home expected goals",min_value=0.0,max_value=8.0,value=1.40,step=0.05,key="quick_home_xg")
@@ -69,6 +99,7 @@ if not key:
     st.error("TheStatsAPI key not configured.")
     st.stop()
 today=datetime.now(ZoneInfo("Europe/London")).date()
+st.subheader("Find a match")
 day=st.date_input("Fixture date (UK)",value=today,
     min_value=today-timedelta(days=7),max_value=today+timedelta(days=21))
 search=st.text_input("Find team or fixture",placeholder="Search fixtures")
@@ -116,9 +147,9 @@ m1.metric("Scheduled fixtures",len(fixtures))
 m2.metric("History-covered",len(covered))
 m3.metric("Venue xG ready",len(ready))
 st.caption("History-covered means at least 500 StatsAPI historical league matches. Venue-ready requires sufficient home and away xG observations.")
-st.subheader("Model operations")
+st.subheader("Platform details")
 st.caption("Live view of what the platform can actually provide today; this is a build-status panel, not a claim that all pricing engines are calibrated.")
-with st.container(border=True):
+with st.expander("View platform coverage and development status",expanded=False):
     left,middle,right=st.columns(3)
     left.metric("Fixtures with league history",len(covered))
     middle.metric("Fixtures with venue xG",len(ready))
@@ -127,7 +158,7 @@ with st.container(border=True):
     st.write("**Available now:** fixture discovery, venue data checks, baseline goals scenarios, manual halftime scenario, historical halftime research.")
     st.write("**In development:** calibrated multi-market pricing, automatic live halftime state, verified market odds, referee/corners/cards integration, automated value alerts.")
     st.page_link("pages/Live_Fixture_Bridge.py",label="Open fixture ingestion and coverage workspace")
-st.subheader("Match queue")
+st.subheader("Match explorer")
 st.caption("Select a fixture below to open its halftime scenario workspace.")
 try:
     recent_rows=recent_venue_xg() if ready else []
@@ -263,7 +294,7 @@ if show:
 
     st.caption("Live halftime state and market odds: not yet connected. No value inference.")
 st.divider()
-st.subheader("Halftime match workspace")
+st.subheader("Halftime scenario lab")
 st.caption("Select a venue-ready fixture and enter its observed halftime score and xG. No live halftime observations are assumed.")
 if ready and recent_rows:
     choices=[]
