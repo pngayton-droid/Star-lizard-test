@@ -42,3 +42,8 @@ Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Sta
 - `pages/PRO_STARLIZARD_Dashboard.py` now displays the three outcomes, earlier/later rates, and probability quality after the user requests research. `test_halftime_next_goal_research.py` has new tests; GitHub CI execution still needs verification.
 - These are pooled conditional historical rates, **not** fixture-specific calibrated fair odds, verified positive expected value, or actual market quotes.
 - Next: verify CI/deployment, compare holdout scores to honest pre-match baselines, reconcile the 17 VAR cases, then connect real live HT observations and odds.
+
+## 2026-11-11 baseline comparison update
+- Three-way chronological holdout now compares filtered trailing-team xG/location rates against an **earlier-only** unconditional reference trained on the same halftime deficit. Dashboard reports baseline Brier/log loss and flags filters with no Brier improvement. No later match outcomes enter either trained probability estimate.
+- Regression assertions added for baseline arithmetic. GitHub combined commit status endpoint returned no statuses; this is **not** proof CI passed. Verify GitHub Actions separately.
+- Remains research only: do not label value without market odds, out-of-time fixture-level calibration, and costs.
