@@ -60,3 +60,7 @@ Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Sta
 ## Research cohort quality — 2026-11-11
 - Supabase checked `starlizard_next_goal_research`: 11,581 rows and 11,581 distinct match IDs, date span 2022-09-18 through 2026-11-03. 6,948 trailing-at-HT rows; **0 missing trailing-team HT xG**.
 - Chronological split cutoff now comes from the precise selected research cohort (HT deficit, trailing side, minimum trailing xG), not other matches. This reduces split distortion; separate regression test added. Holdout still uses simple historical frequencies, not fixture-level odds.
+
+## Holdout input guard — 2026-11-11
+- Chronological three-way research now rejects invalid trailing-side, halftime deficit, and minimum-xG filters before selecting split dates. Regression tests added.
+- GitHub source commits are confirmed; automated test execution and deployment remain unverified. Next engineering priorities: run CI, resolve 17 VAR suspects by match ID, and build out-of-time fixture-level calibration against odds.
