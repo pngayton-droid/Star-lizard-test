@@ -108,6 +108,20 @@ def three_way_holdout_scores(rows,min_xg=0.2,deficit=1,side="both",train_fractio
     later_rates={k:later[k]/later["n"] for k in keys}
     brier=sum(later_rates[k]*sum((probabilities[j]-(1.0 if j==k else 0.0))**2 for j in keys) for k in keys)
     logloss=-sum(later_rates[k]*math.log(probabilities[k]) for k in keys)
+    # Compare against an honest unconditional three-way prior trained only
+    # on earlier dates, not on the later evaluation period.
+    train_all=trailing_three_way_summary(
+        [r for r in rows if r.get("match_date") and str(r["match_date"])[:10]<split["cutoff"]],
+        min_xg=0.0,deficit=deficit,side="both")
+    if train_all["n"]<30:
+        return {"status":"Insufficient baseline matches","train_n":train["n"],"later_n":later["n"]}
+    baseline_probs={k:(train_all[k]+smoothing)/(train_all["n"]+3*smoothing) for k in keys}
+    baseline_brier=sum(later_rates[k]*sum((baseline_probs[j]-(1.0 if j==k else 0.0))**2 for j in keys) for k in keys)
+    baseline_logloss=-sum(later_rates[k]*math.log(baseline_probs[k]) for k in keys)
     return {"status":"ok","cutoff":split["cutoff"],"train_n":train["n"],
             "later_n":later["n"],"earlier_probabilities":probabilities,
-            "later_rates":later_rates,"brier":brier,"log_loss":logloss}
+            "later_rates":later_rates,"brier":brier,"log_loss":logloss,
+            "baseline_n":train_all["n"],"baseline_brier":baseline_brier,
+            "baseline_log_loss":baseline_logloss,
+            "brier_improvement":baseline_brier-brier,
+            "log_loss_improvement":baseline_logloss-logloss}
