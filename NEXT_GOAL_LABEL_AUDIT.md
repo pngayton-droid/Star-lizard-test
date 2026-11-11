@@ -27,3 +27,15 @@ Joined `starlizard_next_goal_research` to `halftime_research_outcomes` on match 
 - Earlier audit of 17 suspect VAR timelines still requires exclusion/reconciliation.
 
 **Do not use 2,674/6,948 as a verified unconditional hit rate.** The correct denominator for a verified three-way first-scorer analysis requires event-level consistency and ordering checks, not only final-score totals.
+
+## RESOLVED — 2026-11-11: the 810 discrepancies were a counting bug
+
+**Supersedes the earlier conclusion that 810 timelines were incomplete.** The reconciliation query omitted `penalty_scored` from goal event types. TheStatsAPI timeline has three scoring event types: `goal`, `own_goal`, and `penalty_scored`.
+
+Re-ran the 6,948 trailing-at-HT match reconciliation against final-score-derived second-half goal counts, using all three scoring event types. **All 6,948 / 6,948 matched exactly, 0 discrepancies.** The 217 apparently missing timeline goals and the other 593 mismatches were artifacts of the incomplete query, NOT evidence of defective StatsAPI timelines.
+
+All 1,337 NULL first-scorer outcomes correspond to verified no-second-half-goal matches. The 5,611 labelled outcomes are second-half goal matches. This resolves goal-count completeness in this trailing-team subset, **not** goal-sequence ordering, team attribution (especially own goals), the previously identified 17 VAR anomalies, or correctness of every row in the entire archive.
+
+**Critical implementation rule:** When counting goals in timeline data, include `type IN ('goal','own_goal','penalty_scored')`. Do not treat `penalty_awarded`, `penalty_saved`, or `penalty_missed` as goals. Own goals must be attributed to the benefiting team when determining the next scorer.
+
+The earlier sections above are retained as an audit trail; this resolution takes precedence.
