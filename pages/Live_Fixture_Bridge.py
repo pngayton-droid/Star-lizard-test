@@ -151,10 +151,11 @@ def searchable(item):
     competition=item.get("competition") or {}
     competition_name=competition.get("name","") if isinstance(competition,dict) else str(competition)
     return " ".join([fixture_label(item),competition_name]).lower()
-coverage_filter=st.radio("Historical coverage",["Covered leagues only","All fixtures"],
+coverage_filter=st.radio("Fixture display",["Model-eligible only","All API fixtures (diagnostics)"],
     horizontal=True,index=0 if coverage_ok else 1,disabled=not coverage_ok)
+st.caption("Only fixtures with sufficient verified league history appear in the main modelling list. API discovery alone does not guarantee usable statistics.")
 shown=[item for item in fixtures if search.lower().strip() in searchable(item)]
-if coverage_ok and coverage_filter=="Covered leagues only":
+if coverage_ok and coverage_filter=="Model-eligible only":
     shown=[item for item in shown if coverage(item)["status"] in ("StatsAPI history","League covered")]
 # Presentation priority only; never exclude leagues from the underlying API results.
 PRIORITY_TERMS=(
@@ -177,7 +178,7 @@ def label_with_comp(item):
     return fixture_label(item)+(" · "+str(comp_name) if comp_name else "")
 labels=[label_with_comp(item) for item in shown]
 if not shown:
-    st.info("No fixtures match this filter. During international week this may be expected. Select All fixtures to inspect the source feed.")
+    st.info("No model-eligible fixtures for this date. The API returned scheduled matches, but none passed the historical league-coverage check. Select All API fixtures (diagnostics) only if you want to inspect them.")
     st.stop()
 index=st.selectbox("Select fixture",range(len(shown)),format_func=lambda i:labels[i])
 item=shown[index]
