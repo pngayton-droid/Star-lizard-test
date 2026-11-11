@@ -135,7 +135,8 @@ except Exception:
     recent_rows=[]
     st.warning("Recent xG summary unavailable; match queue remains accessible.")
 
-show=ready if st.toggle("Only venue-ready fixtures",value=False) else (covered if covered else fixtures)
+queue_filter=st.selectbox("Fixture view",["All fixtures","Live only","Venue xG ready"],key="fixture_view")
+show=live_matches if queue_filter=="Live only" else ready if queue_filter=="Venue xG ready" else fixtures
 if search.strip():
     show=[f for f in show if search.lower() in fixture_label(f).lower()]
 st.caption(f"Showing {len(show)} matching fixtures. Select any match to inspect available data.")
