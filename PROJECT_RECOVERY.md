@@ -87,3 +87,9 @@ When user says "crack on", prefer concrete GitHub/Supabase engineering progress 
 ## Venue-stratified research — 2026-11-11
 - One-goal HT trailing, HT xG>=0.20, chronological cutoff 2025-05-25: home trailing-first earlier 563/1,185 (47.51%), later 261/531 (49.15%); away earlier 461/1,198 (38.48%), later 252/615 (40.98%).
 - Earlier-only add-one smoothed home probabilities trailing/leader/no-goal 0.47475/0.35354/0.17172; away 0.38468/0.41715/0.19817. Full counts in NEXT_GOAL_LABEL_AUDIT.md. Still need a side-aware baseline comparison and true market quotes.
+
+## Dashboard-first engineering — 2026-11-11
+- Main dashboard `pages/PRO_STARLIZARD_Dashboard.py` now includes a model-operations section: historical fixture coverage, venue-xG-ready fixture counts and percentage, explicit current capabilities vs future features, and a link to the fixture bridge.
+- The match queue now offers a compact sortable table (fixture, competition ID, venue xG readiness, historical match count) and a downloadable CSV of all matching queue rows. Existing fixture details and halftime workspace remain.
+- GitHub commits: `ddbbbd8d35db07f7b9f4ab7b7257b10fae190dcd`, `15deb125ef409f5e5edafc7ed9ea9a2a612375a8`. No deployment or automated-test success claimed without run evidence.
+- Product objective remains integrated, trustworthy modelling platform, not a narrow strategy search.
