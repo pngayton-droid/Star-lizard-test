@@ -13,6 +13,15 @@ from statsapi_recent_venue_xg import recent_venue_xg
 from fixture_goals_baseline import baseline
 
 st.set_page_config(page_title="Live Fixture Bridge",layout="wide")
+
+# Compact navigation: legacy and diagnostic pages remain available by direct URL.
+with st.sidebar:
+    st.markdown("### 🦎 PRO STARLIZARD")
+    st.page_link("pro_starlizard.py", label="🏠 Main dashboard", use_container_width=True)
+    st.page_link("pages/Live_Fixture_Bridge.py", label="⚽ Fixtures & pricing", use_container_width=True)
+    st.page_link("pages/Halftime_Pricing_Lab.py", label="🧠 Half-time pricing", use_container_width=True)
+    st.page_link("pages/Model_Intelligence.py", label="📈 Model intelligence", use_container_width=True)
+    st.page_link("pages/Automatic_Pattern_Scanner.py", label="🦎 Pattern scanner", use_container_width=True)
 st.title("🦎 Live Fixture Bridge")
 st.caption("Actual scheduled fixtures from TheStatsAPI. No invented bookmaker quotes or value signals.")
 key=get_key()
