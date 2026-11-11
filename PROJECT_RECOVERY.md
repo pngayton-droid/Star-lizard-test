@@ -51,3 +51,8 @@ Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Sta
 ## Full research-set integrity checkpoint — 2026-11-11
 - Read-only Supabase reconciliation now verifies both first-half and second-half goal counts across all 11,581 `starlizard_next_goal_research` rows: **0 first-half mismatches and 0 second-half mismatches**, counting `goal`, `own_goal`, `penalty_scored`. Scoring-event sequence duplication across the full event archive: **0 duplicated match/period/sequence groups**.
 - `NEXT_GOAL_LABEL_AUDIT.md` records the SQL-derived findings and limitations. Prior 17 VAR-suspect sequences are not yet separately resolved. Source-control checkpoint is not a database backup.
+
+## CI hardening — 2026-11-11
+- `.github/workflows/validate-halftime.yml` now triggers when `pages/PRO_STARLIZARD_Dashboard.py` changes, in addition to research/test module changes.
+- Chronological holdout date selection excludes rows without a valid trailing-side designation; regression test added.
+- GitHub commit workflow-run lookup returned an empty run list, which is not evidence of a passing or failing workflow; GitHub Actions UI or a run-specific API lookup still needs checking.
