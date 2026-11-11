@@ -12,22 +12,32 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-      - name: Verify configuration and staged archive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch archive from private Supabase Storage
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SECRET_KEY" ]; then
-            echo "::error::Missing SUPABASE_URL or SUPABASE_SECRET_KEY"
-            exit 1
-          fi
-          if [ ! -f "data/starlizard_import_ready.zip" ]; then
-            echo "::error::Archive ZIP not staged. Do not run until uploaded securely."
-            exit 1
-          fi
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+          python - <<'PY'
+          import os
+          from urllib.request import Request, urlopen
+          from pathlib import Path
+          url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+          secret = os.environ.get("SUPABASE_SECRET_KEY", "")
+          if not url.startswith("https://") or not secret:
+              raise SystemExit("Missing Supabase API secrets")
+          uri = url + "/storage/v1/object/starlizard-private-import/starlizard_import_ready.zip"
+          req = Request(uri, headers={"apikey": secret})
+          with urlopen(req, timeout=90) as response:
+              data = response.read()
+          if len(data) > 10 * 1024 * 1024:
+              raise SystemExit("Unexpected archive size")
+          Path("data").mkdir(exist_ok=True)
+          Path("data/starlizard_import_ready.zip").write_bytes(data)
+          print("Private archive downloaded:", len(data), "bytes")
+          PY
       - name: Import historical archive using Supabase REST
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
