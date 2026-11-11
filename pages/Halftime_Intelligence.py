@@ -1,6 +1,7 @@
 """PRO STARLIZARD halftime research workspace."""
 import streamlit as st
 from halftime_state_scanner import scan_halftime_states
+from halftime_interaction_engine import scan_interactions
 from halftime_research_engine import halftime_sample,rates
 
 st.set_page_config(page_title="Halftime Intelligence",layout="wide")
@@ -24,6 +25,24 @@ if st.button("Scan all halftime situations",type="primary"):
             st.info("No historical segments meet this minimum sample size.")
     except Exception as exc:
         st.error("Broad halftime scan unavailable.")
+        st.code(type(exc).__name__+": "+str(exc)[:250])
+st.subheader("Automatic halftime interaction discovery")
+st.caption("Checks pairs of halftime conditions, ranking patterns by their earlier-period deviation and reporting later-period frequencies separately.")
+min_interaction=st.number_input("Minimum earlier-period sample per combination",min_value=50,max_value=1000,value=120,step=10)
+if st.button("Discover combined halftime patterns"):
+    try:
+        rows=halftime_sample()
+        found=scan_interactions(rows,minimum=min_interaction)
+        st.metric("Combined outcome segments inspected",len(found))
+        if found.empty:
+            st.info("No combinations met the sample requirements.")
+        else:
+            st.dataframe(found,hide_index=True,use_container_width=True)
+            st.download_button("Export halftime combinations",found.to_csv(index=False).encode("utf-8"),
+                "starlizard_halftime_interactions.csv",mime="text/csv")
+            st.warning("Exploratory ranking only. Multiple comparisons, selection bias, correlated outcomes and repeated research can create false discoveries. Later-period rates are not proven out-of-sample betting edges or fair odds.")
+    except Exception as exc:
+        st.error("Combined halftime research unavailable.")
         st.code(type(exc).__name__+": "+str(exc)[:250])
 st.divider()
 st.markdown("### Specific strategy research: trailing-team halftime xG")
