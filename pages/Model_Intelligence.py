@@ -6,6 +6,7 @@ import pandas as pd
 from archive_data_engine import load_coverage, load_research
 from pattern_intelligence_engine import run_pattern_scan
 from pattern_history_store import save_snapshot, list_snapshots, load_snapshot
+from pattern_snapshot_comparison import compare_scans
 
 st.set_page_config(page_title="Model Intelligence", layout="wide")
 st.title("🦎 PRO STARLIZARD | Model Intelligence")
@@ -140,6 +141,49 @@ if not history.empty:
             st.warning("Could not load selected snapshot.")
 else:
     st.info("No saved scans yet. Use the button above to record the first baseline.")
+
+st.subheader("Pattern change tracker")
+st.caption("Compare a saved baseline against the current scan, or against another saved snapshot. Changes in segment eligibility may reflect different data coverage.")
+if history.empty:
+    st.info("Save a baseline above before comparing patterns.")
+else:
+    baseline_key=st.selectbox("Baseline snapshot",history.scan_key.tolist(),key="compare_baseline",
+        format_func=lambda k: str(history.loc[history.scan_key==k,"created_at"].iloc[0])+" · "+k[:10])
+    comparison_mode=st.radio("Compare baseline with",["Current scan","Another saved snapshot"],horizontal=True)
+    comparison_key=None
+    if comparison_mode=="Another saved snapshot":
+        comparison_key=st.selectbox("Comparison snapshot",history.scan_key.tolist(),key="compare_target",
+            format_func=lambda k: str(history.loc[history.scan_key==k,"created_at"].iloc[0])+" · "+k[:10])
+    try:
+        baseline=load_snapshot(baseline_key)
+        old=pd.DataFrame(baseline["results"]) if baseline else pd.DataFrame()
+        if comparison_mode=="Current scan":
+            new=findings
+        else:
+            target=load_snapshot(comparison_key)
+            new=pd.DataFrame(target["results"]) if target else pd.DataFrame()
+        if comparison_key==baseline_key and comparison_mode!="Current scan":
+            st.info("Choose two different snapshots to see changes.")
+        else:
+            comparison=compare_scans(old,new)
+            if comparison.empty:
+                st.info("No comparable segments.")
+            else:
+                counts=comparison.change_status.value_counts()
+                st.write("**Changes by category**")
+                st.dataframe(counts.rename_axis("change").reset_index(name="segments"),
+                             hide_index=True,use_container_width=True)
+                st.dataframe(comparison[["market","segment","value","change_status",
+                    "holdout_n_previous","holdout_n_current",
+                    "holdout_lift_previous","holdout_lift_current","lift_change_pp",
+                    "screen_flag_previous","screen_flag_current"]],
+                    hide_index=True,use_container_width=True)
+                st.download_button("Export pattern comparison",comparison.to_csv(index=False).encode("utf-8"),
+                    "starlizard_pattern_comparison.csv",mime="text/csv")
+    except Exception as exc:
+        st.warning("Unable to compare snapshots.")
+        st.code(str(exc))
+st.caption("A larger outcome-rate deviation is not evidence of improved betting returns. Historical results can change because of data corrections, coverage or sampling.")
 
 st.subheader("Research pipeline")
 st.markdown("""
