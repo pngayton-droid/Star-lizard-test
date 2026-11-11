@@ -5,7 +5,6 @@ Read-only fixtures and coverage. No fictitious prices or value flags.
 from datetime import datetime,timedelta
 import csv
 import io
-import json
 from zoneinfo import ZoneInfo
 import streamlit as st
 from lightweight_fixture_feed import get_key,fixtures_for_day,fixture_label
@@ -18,6 +17,7 @@ from fixture_market_pricing import price_goals
 from fixture_asian_pricing import asian_market
 from fixture_forensic_dossier import venue_dossier
 from fixture_quote_comparison import compare_quote
+from fixture_snapshot import build_snapshot,snapshot_json
 from halftime_fixture_scenario import second_half_scenario
 from halftime_snapshot_pricing import quote_break_even,snapshot_research
 from halftime_research_engine import halftime_sample
@@ -172,24 +172,6 @@ if show:
                                        "Stake pushed":f'{p["push_stake"]*100:.1f}%'})
                 st.dataframe(asian_rows,hide_index=True,use_container_width=True)
                 st.caption("Quarter-lines settle as two equal half-stakes. Handicap is added to the named team's score; away handicap is the opposite of the selected home line. Not bookmaker prices.")
-                snapshot={
-                    "schema_version":1,"source":"PRO STARLIZARD research dashboard",
-                    "fixture":label,"fixture_date":day.isoformat(),
-                    "competition_id":str(fixture.get("competition_id") or ""),
-                    "model":"independent_poisson_uncalibrated",
-                    "inputs":{"home_xg":research["home_xg"],"away_xg":research["away_xg"],
-                              "home_venue_sample":research["home_n"],"away_venue_sample":research["away_n"],
-                              "home_latest":research["home_last"],"away_latest":research["away_last"]},
-                    "venue_dossier":dossier,
-                    "goals_pricing":prices,
-                    "asian_pricing":{"total_line":total_line,"home_handicap":handicap_line,
-                                     "rows":asian_rows},
-                    "limitations":["Research baseline, not calibrated",
-                                   "No verified bookmaker odds","No live match-state ingestion"]}
-                st.download_button("Export selected fixture model snapshot (JSON)",
-                    data=json.dumps(snapshot,indent=2,default=str),
-                    file_name="starlizard_fixture_snapshot.json",mime="application/json",
-                    key="dash_snapshot_export")
                 st.markdown("**Compare an observed market quote**")
                 st.caption("Manual quote entry only. No bookmaker feed is connected and this baseline has not been calibrated.")
                 options=list(market_labels)+[f"asian_{i}" for i in range(len(asian_rows))]
@@ -215,6 +197,17 @@ if show:
                 st.write(f'Mechanical break-even decimal: **{comparison["break_even_decimal"]:.2f}**' if comparison["break_even_decimal"] else "No winning settlement probability")
                 st.write(f'Mechanical expected return per £1 staked: **{comparison["expected_roi"]*100:+.2f}%**')
                 st.warning("Scenario calculation only — not a verified value alert. Requires independently calibrated probabilities, genuine timestamped odds and trading-cost checks.")
+                snapshot=build_snapshot(
+                    label,day.isoformat(),fixture.get("competition_id") or "",
+                    research,dossier,prices,
+                    {"total_line":total_line,"home_handicap":handicap_line,"rows":asian_rows},
+                    observed_quote={"source":"manual_user_entry","market":quote_key,
+                        "decimal_odds":quoted,"commission_percent":fee,
+                        "mechanical_comparison":comparison})
+                st.download_button("Export complete fixture research snapshot (JSON)",
+                    data=snapshot_json(snapshot),file_name="starlizard_fixture_snapshot.json",
+                    mime="application/json",key="dash_snapshot_export")
+
 
 
     st.caption("Live halftime state and market odds: not yet connected. No value inference.")
