@@ -34,3 +34,11 @@ Supabase holds historical xG and match events plus imported archive tables. GitH
 
 ## Starting a new conversation
 Tell the assistant: "Continue PRO STARLIZARD from GitHub repo pngayton-droid/Star-lizard-test, read PROJECT_RECOVERY.md and inspect latest main commits. Work directly on GitHub and Supabase, keep halftime central, and don't ask me to test each small change."
+
+## Progress checkpoint — 2026-11-11 (latest)
+
+- Next-goal data audit `NEXT_GOAL_LABEL_AUDIT.md`: 6,948 trailing-at-HT matches; all second-half goal counts reconcile once `penalty_scored` is included. All 5,611 scored-match first-scorer labels agree with first timeline scoring event, including own-goal beneficiary; 1,337 no-goal outcomes verified. Separate 17 VAR suspect timelines still require follow-up.
+- `halftime_next_goal_research.py` now supports unconditional three-way historical outcome frequencies, chronological match-date holdout, and frozen earlier-period three-way probability quality (multiclass Brier and log loss). Minimum 30 qualifying observations in each split; additive smoothing.
+- `pages/PRO_STARLIZARD_Dashboard.py` now displays the three outcomes, earlier/later rates, and probability quality after the user requests research. `test_halftime_next_goal_research.py` has new tests; GitHub CI execution still needs verification.
+- These are pooled conditional historical rates, **not** fixture-specific calibrated fair odds, verified positive expected value, or actual market quotes.
+- Next: verify CI/deployment, compare holdout scores to honest pre-match baselines, reconcile the 17 VAR cases, then connect real live HT observations and odds.
