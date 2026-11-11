@@ -4,6 +4,8 @@ from zoneinfo import ZoneInfo
 import streamlit as st
 from starlizard_live_fixtures import get_key, fixtures_for_day, fixture_label, kickoff, team_name, API_BASE
 import requests
+from archive_data_engine import load_coverage
+from fixture_coverage_engine import archive_league_summary, classify_fixture
 
 st.set_page_config(page_title="Live Fixture Bridge",layout="wide")
 st.title("🦎 Live Fixture Bridge")
@@ -24,6 +26,18 @@ except Exception as exc:
     st.code(str(exc))
     st.stop()
 st.metric("Fixtures returned",len(fixtures))
+try:
+    archive_summary=archive_league_summary(load_coverage())
+    coverage_ok=True
+except Exception:
+    archive_summary=None
+    coverage_ok=False
+    st.warning("Historical archive unavailable; cannot verify league coverage.")
+if coverage_ok:
+    st.metric("League-covered fixtures",sum(
+        classify_fixture(item,archive_summary)["status"]=="League covered" for item in fixtures))
+else:
+    st.metric("League-covered fixtures","Unknown")
 with st.expander("API coverage diagnostics"):
     st.caption("Checks the first API response without displaying credentials. Use this to distinguish limited source coverage from a pagination issue.")
     if st.button("Inspect fixture API pagination",key="inspect_fixture_pagination"):
@@ -53,7 +67,11 @@ def searchable(item):
     competition=item.get("competition") or {}
     competition_name=competition.get("name","") if isinstance(competition,dict) else str(competition)
     return " ".join([fixture_label(item),competition_name]).lower()
+coverage_filter=st.radio("Historical coverage",["Covered leagues only","All fixtures"],
+    horizontal=True,index=0 if coverage_ok else 1,disabled=not coverage_ok)
 shown=[item for item in fixtures if search.lower().strip() in searchable(item)]
+if coverage_ok and coverage_filter=="Covered leagues only":
+    shown=[item for item in shown if classify_fixture(item,archive_summary)["status"]=="League covered"]
 # Presentation priority only; never exclude leagues from the underlying API results.
 PRIORITY_TERMS=(
     "premier league","championship","la liga","primera división",
@@ -75,7 +93,7 @@ def label_with_comp(item):
     return fixture_label(item)+(" · "+str(comp_name) if comp_name else "")
 labels=[label_with_comp(item) for item in shown]
 if not shown:
-    st.info("No fixtures match your filter.")
+    st.info("No fixtures match this filter. During international week this may be expected. Select All fixtures to inspect the source feed.")
     st.stop()
 index=st.selectbox("Select fixture",range(len(shown)),format_func=lambda i:labels[i])
 item=shown[index]
@@ -84,6 +102,11 @@ st.write("**Home:** "+team_name(item,"home"))
 st.write("**Away:** "+team_name(item,"away"))
 st.write("**Kickoff (UK):** "+(start.strftime("%d %b %Y, %H:%M") if start else "Not supplied"))
 st.write("**Match status:** "+str(item.get("status","Unknown")))
+if coverage_ok:
+    verdict=classify_fixture(item,archive_summary)
+    st.write("**Historical coverage:** "+verdict["status"])
+    st.write("**Archive matches in league:** "+str(verdict["historical_matches"]))
+    st.caption(verdict["reason"])
 st.write("**StatsAPI match ID:** "+str(item.get("id","Not supplied")))
 st.subheader("Market data readiness")
 st.warning("Fixture discovery does not supply a verified, timestamped bookmaker quote or a fixture-specific calibrated fair probability. Neither is being inferred.")
