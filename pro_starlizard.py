@@ -1177,35 +1177,33 @@ def show_comparison(
 # ==================================================
 
 if "active_page" not in st.session_state:
-    st.session_state.active_page = "Match Pricing"
+    st.session_state.active_page = "Home"
 
-for page, icon in [
-    ("Match Pricing", "⚽"),
-    ("Historical Research", "📊"),
-    ("Live Fixtures", "🔴"),
-    ("Database Health", "🗄️"),
-]:
-    active = (
-        st.session_state.active_page == page
-    )
+st.subheader("⚽ Match centre")
+st.caption("Choose a fixture to view its actual match state and available halftime research.")
+if st.button("🔴 Live Fixtures — Select a Match", type="primary", key="nav_live_main", width="stretch"):
+    st.session_state.active_page = "Live Fixtures"
+    st.rerun()
 
-    if st.button(
-        f"{icon}  {page}",
-        key=f"nav_{page}",
-        width="stretch",
-        type=(
-            "primary"
-            if active
-            else "secondary"
-        ),
-    ):
-        st.session_state.active_page = page
+with st.expander("Other dashboard tools", expanded=False):
+    for page, label in [
+        ("Historical Research", "📊 Team historical comparison"),
+        ("Database Health", "🗄️ Database health"),
+        ("Match Pricing", "✍️ Manual halftime research"),
+    ]:
+        if st.button(label, key=f"nav_extra_{page}", width="stretch"):
+            st.session_state.active_page = page
+            st.rerun()
+
+if st.session_state.active_page != "Home":
+    if st.button("🏠 Back to dashboard", key="nav_home", width="stretch"):
+        st.session_state.active_page = "Home"
         st.rerun()
 
 st.divider()
 
 st.subheader("🧠 Models & research")
-st.caption("Open a model or research tool. Your current match pricing and historical screens remain available above.")
+st.caption("Choose a specialist model or research workspace. These tools remain available without cluttering the main screen.")
 model_pages = [
     ("⚽ Fixture pricing", "pages/Live_Fixture_Bridge.py", "Fixture-based goals and Asian-market research"),
     ("🧠 Half-time pricing lab", "pages/Halftime_Pricing_Lab.py", "Half-time pricing scenarios and research"),
