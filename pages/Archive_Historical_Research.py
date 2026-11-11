@@ -26,14 +26,14 @@ def load():
     page_size = 1000
     for offset in range(0, 10000, page_size):
         r = requests.get(url.rstrip("/") + "/rest/v1/archive_verified_match_research",
-            params={"select": "*", "order": "match_date.asc", "limit": page_size, "offset": offset},
+            params={"select": "*", "order": "understat_id.asc", "limit": page_size, "offset": offset},
             headers=headers, timeout=45)
         r.raise_for_status()
         batch = r.json()
         all_rows.extend(batch)
         if len(batch) < page_size:
             break
-    return pd.DataFrame(all_rows)
+    return pd.DataFrame(all_rows).drop_duplicates(subset=["understat_id"], keep="first")
 
 try:
     df = load()
@@ -88,7 +88,7 @@ try:
     goals = load_first_goals()
     if goals.empty:
         goals = pd.DataFrame(columns=["understat_id","first_goal_minute","first_goal_side"])
-    qual = qual.merge(goals, on="understat_id", how="left", validate="many_to_one")
+    qual = qual.merge(goals, on="understat_id", how="left", validate="one_to_one")
     # The event data uses lowercase h/a; the display uses Home/Away.
     qual["trailing_code"] = qual["trailing_side"].map({"Home":"h","Away":"a"})
     qual["next_goal_hit"] = qual["first_goal_side"] == qual["trailing_code"]
@@ -110,8 +110,8 @@ try:
         st.dataframe(summary, hide_index=True, use_container_width=True)
         st.subheader("Pre-match odds bands")
         qual["trailing_prematch_odds"] = qual["b365_home"].where(qual["trailing_side"]=="Home", qual["b365_away"])
-        qual["odds_band"] = pd.cut(qual["trailing_prematch_odds"], bins=[0,1.5,2,3,4,5,10,float("inf")],
-            labels=["<1.50","1.50–1.99","2.00–2.99","3.00–3.99","4.00–4.99","5.00–9.99","10+"])
+        qual["odds_band"] = pd.cut(qual["trailing_prematch_odds"], bins=[0,1.5,2,3,4,5,10,float("inf")], right=False,
+            labels=["Below 1.50","1.50–1.99","2.00–2.99","3.00–3.99","4.00–4.99","5.00–9.99","10+"])
         bands = qual.groupby("odds_band", observed=True).agg(matches=("understat_id","size"),
             hits=("next_goal_hit","sum")).reset_index()
         bands["strike_rate"] = (bands["hits"] / bands["matches"] * 100).round(2)
