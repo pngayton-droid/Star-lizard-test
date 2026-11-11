@@ -1,11 +1,32 @@
 """PRO STARLIZARD halftime research workspace."""
 import streamlit as st
+from halftime_state_scanner import scan_halftime_states
 from halftime_research_engine import halftime_sample,rates
 
 st.set_page_config(page_title="Halftime Intelligence",layout="wide")
 st.title("🦎 Halftime Intelligence")
 st.caption("Dedicated second-half research. Historical outcomes, not live odds or a calibrated halftime pricing model.")
-st.markdown("### Trailing-team halftime xG")
+st.subheader("All halftime situations")
+st.caption("Scan 0–0, draws, leading and trailing scores, xG dominance and second-half outcomes across the archive.")
+min_sample=st.number_input("Minimum matches per historical segment",min_value=30,max_value=1000,value=100,step=10)
+if st.button("Scan all halftime situations",type="primary"):
+    try:
+        full_sample=halftime_sample()
+        results=scan_halftime_states(full_sample,min_n=min_sample)
+        st.metric("Historical matches scanned",len(full_sample))
+        st.metric("Historical segments meeting threshold",len(results))
+        if not results.empty:
+            st.dataframe(results,hide_index=True,use_container_width=True)
+            st.download_button("Download halftime scan",results.to_csv(index=False).encode("utf-8"),
+                "starlizard_halftime_states.csv",mime="text/csv")
+            st.caption("Percentages describe second-half outcomes within each halftime segment; overlapping segments are not independent. No multiple-testing adjustment or prospective validation yet.")
+        else:
+            st.info("No historical segments meet this minimum sample size.")
+    except Exception as exc:
+        st.error("Broad halftime scan unavailable.")
+        st.code(type(exc).__name__+": "+str(exc)[:250])
+st.divider()
+st.markdown("### Specific strategy research: trailing-team halftime xG")
 competition=st.text_input("Optional StatsAPI competition ID (blank = all leagues)",placeholder="comp_3039")
 deficit=st.selectbox("Halftime deficit",[1,2,3])
 threshold=st.number_input("Minimum trailing-team HT xG",min_value=0.0,max_value=4.0,value=0.20,step=0.05)
