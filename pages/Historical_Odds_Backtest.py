@@ -8,6 +8,7 @@ from supabase import create_client
 from starlizard_experimental_pricing import estimate, probabilities
 from starlizard_backtest_opponents import OpponentHistory
 from starlizard_venue_baselines import VenueBaseline
+from starlizard_team_strength import SequentialTeamStrength
 from starlizard_calibration import fit_calibration, apply_calibration, reliability, brier as calibration_brier
 
 st.set_page_config(page_title="PRO STARLIZARD | Odds Backtest", page_icon="📈", layout="wide")
@@ -41,6 +42,7 @@ def calculate(rows, n):
     history = defaultdict(list)
     opponents = OpponentHistory()
     venue_baselines = VenueBaseline()
+    team_strength = SequentialTeamStrength()
     output = []
     df = pd.DataFrame(rows)
     if df.empty:
@@ -55,6 +57,7 @@ def calculate(rows, n):
             hh_adjusted = history[(league, home, "home_adj")][-n:]
             aa = history[(league, away, "away")][-n:]
             aa_adjusted = history[(league, away, "away_adj")][-n:]
+            strength_rates = team_strength.predict(league, home, away)
             if len(hh) >= 5 and len(aa) >= 5:
                 home_df = pd.DataFrame(hh)
                 away_df = pd.DataFrame(aa)
@@ -74,6 +77,7 @@ def calculate(rows, n):
                     venue_home_rate = venue_rate(pd.DataFrame(hh_adjusted), pd.DataFrame(aa_adjusted), home_prior)
                     venue_away_rate = venue_rate(pd.DataFrame(aa_adjusted), pd.DataFrame(hh_adjusted), away_prior)
                     venue_probs = probabilities(venue_home_rate, venue_away_rate)
+                    strength_probs = probabilities(*strength_rates) if strength_rates else None
                     hp, dp, ap = (valid(r.get(k)) for k in ("home_price", "draw_price", "away_price"))
                     if all(p is not None and p > 1 for p in (hp, dp, ap)):
                         outcome = ("Home win" if r["home_goals"] > r["away_goals"] else
@@ -92,10 +96,15 @@ def calculate(rows, n):
                                        "Away adjusted": adjusted_probs["Away win"] if adjusted_probs else None,
                                        "Home venue": venue_probs["Home win"], "Draw venue": venue_probs["Draw"],
                                        "Away venue": venue_probs["Away win"],
+                                       "Home strength": strength_probs["Home win"] if strength_probs else None,
+                                       "Draw strength": strength_probs["Draw"] if strength_probs else None,
+                                       "Away strength": strength_probs["Away win"] if strength_probs else None,
                                        "Home expected goals": rates[0], "Away expected goals": rates[1],
                                        "Home adjusted xG": adjusted_rates[0] if adjusted_rates else None,
                                        "Away adjusted xG": adjusted_rates[1] if adjusted_rates else None,
                                        "Home venue xG": venue_home_rate, "Away venue xG": venue_away_rate,
+                                       "Home strength xG": strength_rates[0] if strength_rates else None,
+                                       "Away strength xG": strength_rates[1] if strength_rates else None,
                                        "Home odds": hp, "Draw odds": dp, "Away odds": ap})
             hx, ax = valid(r.get("home_xg")), valid(r.get("away_xg"))
             if hx is not None and ax is not None and 0 <= hx < 12 and 0 <= ax < 12:
@@ -111,6 +120,7 @@ def calculate(rows, n):
             history[(league, away, "away_adj")].append({"xGF": aadj_for, "xGA": aadj_against})
             opponents.record(league, home, away, hx, ax)
             venue_baselines.record(league, hx, ax)
+            team_strength.record(league, home, away, hx, ax)
     return pd.DataFrame(output)
 
 sample = st.select_slider("Previous home/away fixtures per team", options=[5, 10, 15, 20, 25], value=20)
@@ -167,6 +177,28 @@ if results is not None:
             venue_brier = calibration_brier(venue_matrix, y)
             st.metric("Venue-specific historical priors Brier score", f"{venue_brier:.4f}")
             st.caption(f"Versus adjusted xG: {venue_brier - adjusted_brier:+.4f}; negative is better. Priors use only earlier league and global matches.")
+            strength_valid = test[["Home strength", "Draw strength", "Away strength"]].notna().all(axis=1)
+            strength_count = int(strength_valid.sum())
+            if strength_count:
+                strength_frame = test.loc[strength_valid]
+                strength_matrix = strength_frame[["Home strength", "Draw strength", "Away strength"]].to_numpy(dtype=float)
+                strength_y = strength_frame["Result"].map({"Home win": 0, "Draw": 1, "Away win": 2}).to_numpy()
+                strength_brier = calibration_brier(strength_matrix, strength_y)
+                st.metric("Sequential team-strength Brier score", f"{strength_brier:.4f}")
+                st.caption(f"{strength_count:,} held-out fixtures with prior league history. "
+                           "EWMA attack/defence xG and league home advantage; "
+                           "strictly earlier dates only. No market odds in predictions.")
+                if strength_count != len(test):
+                    st.caption("Not all fixtures qualify; compare models on the same eligible subset.")
+                strength_market = market_matrix[strength_valid.to_numpy()]
+                strength_venue = venue_matrix[strength_valid.to_numpy()]
+                st.dataframe(pd.DataFrame([
+                    {"Model": "Sequential team strength", "Brier": strength_brier},
+                    {"Model": "Venue-specific xG (same fixtures)", "Brier": calibration_brier(strength_venue, strength_y)},
+                    {"Model": "Bet365 no-vig (same fixtures)", "Brier": calibration_brier(strength_market, strength_y)}
+                ]), hide_index=True, use_container_width=True)
+            else:
+                st.warning("No qualifying fixtures for team-strength comparison.")
             calibrated_matrix = apply_calibration(test, fit, "adjusted")
             calibrated_brier = calibration_brier(calibrated_matrix, y)
             st.metric("Train-calibrated opponent xG Brier score", f"{calibrated_brier:.4f}")
@@ -224,7 +256,7 @@ if results is not None:
             goal_rows = []
             for side in ("Home", "Away"):
                 actual_goals = test[f"{side} goals"].astype(float)
-                for model_name, expected_col in (("Basic", f"{side} expected goals"), ("Adjusted", f"{side} adjusted xG"), ("Venue-specific", f"{side} venue xG")):
+                for model_name, expected_col in (("Basic", f"{side} expected goals"), ("Adjusted", f"{side} adjusted xG"), ("Venue-specific", f"{side} venue xG"), ("Team strength", f"{side} strength xG")):
                     expected_goals = test[expected_col].astype(float)
                     goal_rows.append({
                         "Side": side, "Model": model_name,
@@ -238,14 +270,15 @@ if results is not None:
             st.dataframe(reliability(test, adjusted_matrix), hide_index=True, use_container_width=True)
             st.download_button("Download full diagnostic predictions CSV", test.to_csv(index=False).encode("utf-8"),
                                file_name="starlizard_full_diagnostics.csv", mime="text/csv")
-            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Train-calibrated opponent xG"], horizontal=True)
+            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated opponent xG"], horizontal=True)
 
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
             bets = []
             for _, r in test.iterrows():
                 for name in outcome_names:
                     key = name.split()[0]
-                    p = (r[f"{key} venue"] if strategy == "Venue-specific historical priors"
+                    p = (r[f"{key} strength"] if strategy == "Sequential team strength"
+                         else r[f"{key} venue"] if strategy == "Venue-specific historical priors"
                          else r[f"{key} calibrated"] if strategy == "Train-calibrated opponent xG"
                          else r[f"{key} adjusted"] if strategy == "Opponent-adjusted xG"
                          else r[f"{key} model"])
