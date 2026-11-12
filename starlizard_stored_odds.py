@@ -84,4 +84,16 @@ def render_historical_odds(matches):
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
     else:
         st.info("No selections found.")
+    if key == "match_odds":
+        last = markets[key]
+        def price(side):
+            try:
+                v = float(last.get(side, {}).get("opening") or last.get(side, {}).get("last_seen"))
+                return v if v > 1 else None
+            except (ValueError, TypeError):
+                return None
+        home, away = price("home"), price("away")
+        if home and away:
+            fav = "Home favourite" if home < away else "Away favourite" if away < home else "Level prices"
+            st.info(f"Pre-match market classification: {fav} · home {home:.2f} / away {away:.2f}. Uses opening quotes when available, otherwise last-seen historical prices; latter are not necessarily true pre-match opening prices.")
     st.caption("Opening = earliest recorded quote where available. Last seen = latest recorded quote; intended as a pre-kickoff reference, but exact snapshot time is not verified. Missing prices remain blank.")
