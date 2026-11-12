@@ -71,12 +71,15 @@ def calculate(rows, n):
                                 "1.50–1.99" if min(hp, ap) < 2 else
                                 "2.00–2.99" if min(hp, ap) < 3 else "3.00+")
                         output.append({"Date": day, "League": league, "Match": f"{home} v {away}",
-                                       "Favourite": fav, "Band": band, "Result": outcome,
+                                       "Favourite": fav, "Band": band, "Result": outcome, "Home goals": r["home_goals"], "Away goals": r["away_goals"],
                                        "Home model": probs["Home win"], "Draw model": probs["Draw"],
                                        "Away model": probs["Away win"],
                                        "Home adjusted": adjusted_probs["Home win"] if adjusted_probs else None,
                                        "Draw adjusted": adjusted_probs["Draw"] if adjusted_probs else None,
                                        "Away adjusted": adjusted_probs["Away win"] if adjusted_probs else None,
+                                       "Home expected goals": rates[0], "Away expected goals": rates[1],
+                                       "Home adjusted xG": adjusted_rates[0] if adjusted_rates else None,
+                                       "Away adjusted xG": adjusted_rates[1] if adjusted_rates else None,
                                        "Home odds": hp, "Draw odds": dp, "Away odds": ap})
             hx, ax = valid(r.get("home_xg")), valid(r.get("away_xg"))
             if hx is not None and ax is not None and 0 <= hx < 12 and 0 <= ax < 12:
@@ -163,6 +166,57 @@ if results is not None:
             test["Home calibrated"] = calibrated_matrix[:, 0]
             test["Draw calibrated"] = calibrated_matrix[:, 1]
             test["Away calibrated"] = calibrated_matrix[:, 2]
+            st.markdown("### 🔬 Pricing engine diagnostics")
+            st.caption("All diagnostics below use held-out match outcomes. They describe errors; they do not tune the model.")
+            diagnostic_rows = []
+            for key, outcome in (("Home", "Home win"), ("Draw", "Draw"), ("Away", "Away win")):
+                actual = float((test["Result"] == outcome).mean())
+                diagnostic_rows.append({
+                    "Outcome": outcome,
+                    "Actual frequency": actual,
+                    "Basic predicted": float(test[f"{key} model"].mean()),
+                    "Adjusted predicted": float(test[f"{key} adjusted"].mean()),
+                    "Bet365 no-vig predicted": float(market_matrix[:, ["Home", "Draw", "Away"].index(key)].mean()),
+                    "Adjusted error (predicted − actual)": float(test[f"{key} adjusted"].mean() - actual),
+                })
+            st.dataframe(pd.DataFrame(diagnostic_rows).style.format({
+                "Actual frequency": "{:.1%}", "Basic predicted": "{:.1%}",
+                "Adjusted predicted": "{:.1%}", "Bet365 no-vig predicted": "{:.1%}",
+                "Adjusted error (predicted − actual)": "{:+.1%}"
+            }), hide_index=True, use_container_width=True)
+            st.markdown("#### Error by favourite strength")
+            strength_rows = []
+            for group_name, group_frame in test.groupby("Band", observed=True):
+                idx = test.index.get_indexer(group_frame.index)
+                observed = y[idx]
+                adjusted = adjusted_matrix[idx]
+                baseline = market_matrix[idx]
+                strength_rows.append({
+                    "Favourite odds band": group_name, "Matches": len(group_frame),
+                    "Adjusted Brier": calibration_brier(adjusted, observed),
+                    "Bet365 Brier": calibration_brier(baseline, observed),
+                    "Gap (model − market)": calibration_brier(adjusted, observed) - calibration_brier(baseline, observed),
+                })
+            st.dataframe(pd.DataFrame(strength_rows).sort_values("Favourite odds band"), hide_index=True, use_container_width=True)
+            st.markdown("#### Goal expectation diagnostics")
+            st.caption("Expected goals are estimated from prior xG. Actual goals are held-out outcomes, not inputs to predictions.")
+            goal_rows = []
+            for side in ("Home", "Away"):
+                actual_goals = test[f"{side} goals"].astype(float)
+                for model_name, expected_col in (("Basic", f"{side} expected goals"), ("Adjusted", f"{side} adjusted xG")):
+                    expected_goals = test[expected_col].astype(float)
+                    goal_rows.append({
+                        "Side": side, "Model": model_name,
+                        "Actual goals per match": float(actual_goals.mean()),
+                        "Expected goals per match": float(expected_goals.mean()),
+                        "Mean prediction bias": float((expected_goals - actual_goals).mean()),
+                        "Mean absolute error": float((expected_goals - actual_goals).abs().mean()),
+                    })
+            st.dataframe(pd.DataFrame(goal_rows), hide_index=True, use_container_width=True)
+            st.markdown("#### Prediction reliability")
+            st.dataframe(reliability(test, adjusted_matrix), hide_index=True, use_container_width=True)
+            st.download_button("Download full diagnostic predictions CSV", test.to_csv(index=False).encode("utf-8"),
+                               file_name="starlizard_full_diagnostics.csv", mime="text/csv")
             strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Train-calibrated opponent xG"], horizontal=True)
 
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
