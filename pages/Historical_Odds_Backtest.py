@@ -225,6 +225,46 @@ if results is not None:
             except (ValueError, KeyError) as exc:
                 st.warning(f"Team-strength calibration unavailable: {exc}")
                 calibrated_strength_brier = None
+            st.markdown("### ⚖️ Market-anchored model experiment")
+            st.caption("Fit blend weight on EARLIER matches only; compare with the market on held-out matches. "
+                       "This is a market-informed prediction benchmark, NOT an independent source of betting value.")
+            strength_cols = ["Home strength", "Draw strength", "Away strength"]
+            price_cols_blend = ["Home odds", "Draw odds", "Away odds"]
+            train_valid = train[strength_cols + price_cols_blend].notna().all(axis=1)
+            blend_train = train.loc[train_valid]
+            if len(blend_train) >= 200:
+                train_raw = blend_train[strength_cols].to_numpy(dtype=float)
+                train_cal = transform_strength(train_raw, strength_fit)
+                train_prices = blend_train[price_cols_blend].to_numpy(dtype=float)
+                train_inv = 1 / train_prices
+                train_market = train_inv / train_inv.sum(axis=1, keepdims=True)
+                train_y = blend_train["Result"].map({"Home win": 0, "Draw": 1, "Away win": 2}).to_numpy()
+                # Analytic least-squares minimiser of multiclass Brier for convex blend.
+                delta = train_cal - train_market
+                truth = np.eye(3)[train_y]
+                denominator = float(np.sum(delta * delta))
+                blend_weight = (float(np.sum(delta * (truth - train_market))) / denominator
+                                if denominator > 1e-12 else 0.)
+                blend_weight = float(np.clip(blend_weight, 0., 1.))
+                blended = (1 - blend_weight) * market_matrix + blend_weight * calibrated_strength
+                blended_brier = calibration_brier(blended, y)
+                st.metric("Train-fitted model contribution", f"{blend_weight:.1%}")
+                st.metric("Market-anchored held-out Brier", f"{blended_brier:.4f}")
+                st.dataframe(pd.DataFrame([
+                    {"Model": "Bet365 no-vig", "Brier": market_brier},
+                    {"Model": "Calibrated team strength", "Brier": calibrated_strength_brier},
+                    {"Model": "Train-fitted market + strength", "Brier": blended_brier},
+                ]), hide_index=True, use_container_width=True)
+                st.caption(f"Weight fitted on {len(blend_train):,} earlier fixtures; "
+                           "0% means the training data preferred the bookmaker alone. "
+                           "A lower held-out Brier would support incremental information, "
+                           "not necessarily a tradable edge.")
+                for i, key in enumerate(["Home", "Draw", "Away"]):
+                    test[f"{key} market blend"] = blended[:, i]
+                with st.expander("Market-anchored reliability by outcome"):
+                    st.dataframe(reliability(test, blended), hide_index=True, use_container_width=True)
+            else:
+                st.warning("Insufficient earlier fixtures with prices for a market-anchored fit.")
             calibrated_matrix = apply_calibration(test, fit, "adjusted")
             calibrated_brier = calibration_brier(calibrated_matrix, y)
             st.metric("Train-calibrated opponent xG Brier score", f"{calibrated_brier:.4f}")
@@ -327,14 +367,15 @@ if results is not None:
             st.download_button("Download audit fixture rows CSV",
                                test.to_csv(index=False).encode("utf-8"),
                                file_name="starlizard_backtest_audit_fixtures.csv", mime="text/csv")
-            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated team strength", "Train-calibrated opponent xG"], horizontal=True)
+            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated team strength", "Market-anchored team strength", "Train-calibrated opponent xG"], horizontal=True)
 
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
             bets = []
             for _, r in test.iterrows():
                 for name in outcome_names:
                     key = name.split()[0]
-                    p = (r.get(f"{key} strength calibrated") if strategy == "Train-calibrated team strength"
+                    p = (r.get(f"{key} market blend") if strategy == "Market-anchored team strength"
+                         else r.get(f"{key} strength calibrated") if strategy == "Train-calibrated team strength"
                          else r[f"{key} strength"] if strategy == "Sequential team strength"
                          else r[f"{key} venue"] if strategy == "Venue-specific historical priors"
                          else r[f"{key} calibrated"] if strategy == "Train-calibrated opponent xG"
@@ -398,6 +439,25 @@ if results is not None:
                               .reset_index())
                     result["Strike rate"] = result["Wins"] / result["Selections"]
                     return result
+                st.markdown("#### Predicted versus actual winners by probability band")
+                bets_df["Probability band"] = pd.cut(
+                    bets_df["Model probability"],
+                    bins=[0, .10, .20, .30, .40, .50, .60, .75, 1.000001],
+                    labels=["0–10%", "10–20%", "20–30%", "30–40%",
+                            "40–50%", "50–60%", "60–75%", "75–100%"],
+                    right=False)
+                calibration_by_band = (bets_df.groupby("Probability band", observed=True)
+                    .agg(Selections=("Won", "size"),
+                         Predicted_winners=("Model probability", "sum"),
+                         Actual_winners=("Won", "sum"),
+                         Predicted_win_rate=("Model probability", "mean"),
+                         Actual_win_rate=("Won", "mean"),
+                         ROI=("Profit", "mean")).reset_index())
+                calibration_by_band["Win rate gap"] = (calibration_by_band["Predicted_win_rate"]
+                                                        - calibration_by_band["Actual_win_rate"])
+                st.dataframe(calibration_by_band, hide_index=True, use_container_width=True)
+                st.caption("These are SELECTED bets only, not all fixtures. "
+                           "Overconfidence in selected bets can coexist with reasonable overall calibration.")
                 st.markdown("#### By selection")
                 st.dataframe(grouped(["Selection"]), hide_index=True, use_container_width=True)
                 st.markdown("#### By bookmaker odds")
