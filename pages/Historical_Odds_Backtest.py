@@ -7,6 +7,7 @@ import streamlit as st
 from supabase import create_client
 from starlizard_experimental_pricing import estimate, probabilities
 from starlizard_backtest_opponents import OpponentHistory
+from starlizard_calibration import fit_calibration, apply_calibration, reliability, brier as calibration_brier
 
 st.set_page_config(page_title="PRO STARLIZARD | Odds Backtest", page_icon="📈", layout="wide")
 st.title("📈 Historical odds backtest")
@@ -114,6 +115,8 @@ if results is not None:
         dates = sorted(results["Date"].unique())
         split = dates[int(len(dates) * 0.7)]
         st.caption(f"Chronological 70/30 split at {split}. No parameters are fitted on the test set; displayed evaluation is on the later dates only.")
+        train = results[results["Date"] < split].copy()
+        fit = fit_calibration(train, "adjusted")
         test = results[results["Date"] >= split].copy()
         league = st.selectbox("Competition", ["All"] + sorted(test["League"].unique().tolist()))
         if league != "All":
@@ -140,14 +143,36 @@ if results is not None:
                 st.caption(f"Against basic xG: {adjusted_brier - brier:+.4f} (negative means improvement).")
             else:
                 st.info("Some adjusted probabilities unavailable for this subset.")
-            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG"], horizontal=True)
+            calibrated_matrix = apply_calibration(test, fit, "adjusted")
+            calibrated_brier = calibration_brier(calibrated_matrix, y)
+            st.metric("Train-calibrated opponent xG Brier score", f"{calibrated_brier:.4f}")
+            st.caption(
+                f"Calibration trained on {fit['train_size']:,} earlier matches only; "
+                f"shrinkage to historical home/draw/away frequencies: {fit['alpha']:.0%}. "
+                "No Bet365 prices or test results are inputs to calibration."
+            )
+            if calibrated_brier < adjusted_brier and calibrated_brier < market_brier:
+                st.success("Calibrated xG beats both benchmarks on this held-out subset. Independent replication is still required.")
+            elif calibrated_brier < adjusted_brier:
+                st.info("Calibration improves adjusted xG on this held-out subset, but has not beaten Bet365.")
+            else:
+                st.warning("Calibration has not improved the adjusted model on this held-out subset.")
+            with st.expander("Probability calibration by outcome and probability band"):
+                st.caption("Positive error means the outcome happened more often than predicted.")
+                st.dataframe(reliability(test, calibrated_matrix), hide_index=True, use_container_width=True)
+            test["Home calibrated"] = calibrated_matrix[:, 0]
+            test["Draw calibrated"] = calibrated_matrix[:, 1]
+            test["Away calibrated"] = calibrated_matrix[:, 2]
+            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Train-calibrated opponent xG"], horizontal=True)
 
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
             bets = []
             for _, r in test.iterrows():
                 for name in outcome_names:
                     key = name.split()[0]
-                    p = r[f"{key} adjusted"] if strategy == "Opponent-adjusted xG" else r[f"{key} model"]
+                    p = (r[f"{key} calibrated"] if strategy == "Train-calibrated opponent xG"
+                         else r[f"{key} adjusted"] if strategy == "Opponent-adjusted xG"
+                         else r[f"{key} model"])
                     odds = r[f"{key} odds"]
                     if pd.isna(p):
                         continue
