@@ -7,6 +7,7 @@ from supabase import create_client
 from starlizard_experimental_pricing import estimate as estimate_xg, probabilities as poisson_prices
 from starlizard_opponent_adjustment import adjust_venue_rows
 from starlizard_live_fixtures import render_live_fixtures
+from starlizard_stored_odds import render_historical_odds
 from starlizard_halftime_markets_v57 import render_halftime_markets
 
 # ==================================================
@@ -1251,6 +1252,8 @@ def show_comparison(
         f"{away_team} — overall league matches"
     ):
         styled_matches(aadf)
+
+    render_historical_odds(home_all + away_all)
 
     st.header("Data quality")
 
