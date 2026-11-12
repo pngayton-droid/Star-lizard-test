@@ -289,12 +289,67 @@ if results is not None:
                         bets.append({"Date": r["Date"], "Match": r["Match"], "Favourite": r["Favourite"],
                                      "Band": r["Band"], "Selection": name, "Odds": odds,
                                      "Estimated EV": p * odds - 1,
+                                     "Model probability": p,
+                                     "Won": int(r["Result"] == name),
+                                     "Side": ("Favourite" if (name == "Home win" and r["Favourite"] == "Home") or
+                                              (name == "Away win" and r["Favourite"] == "Away") else
+                                              "Underdog" if name in ("Home win", "Away win") else "Draw"),
                                      "Profit": odds - 1 if r["Result"] == name else -1})
             if bets:
                 bets_df = pd.DataFrame(bets)
                 st.metric("Selections (flat 1-unit stakes)", f"{len(bets_df):,}")
                 st.metric("Historical flat-stake ROI", f"{bets_df['Profit'].mean():+.1%}")
                 st.caption("Multiple selections can arise from one match. Selection threshold is exploratory and must not be tuned against this same test set.")
+                st.markdown("### 🔎 Value-selection diagnostics")
+                st.caption("Breakdowns of the CURRENT selected model and threshold. "
+                           "Descriptive analysis on the held-out period; choosing filters from these "
+                           "results would overfit. ROI assumes quoted odds were available to bet.")
+                bets_df["Price band"] = pd.cut(
+                    bets_df["Odds"], bins=[1, 1.5, 2, 3, 5, 10, float("inf")],
+                    labels=["1.01–1.49", "1.50–1.99", "2.00–2.99",
+                            "3.00–4.99", "5.00–9.99", "10.00+"], right=False)
+                bets_df["Estimated edge band"] = pd.cut(
+                    bets_df["Estimated EV"], bins=[-float("inf"), .10, .20, .40, 1., float("inf")],
+                    labels=["5–9.9%*", "10–19.9%", "20–39.9%", "40–99.9%", "100%+"],
+                    right=False)
+                def grouped(keys):
+                    result = (bets_df.groupby(keys, observed=True, dropna=False)
+                              .agg(Selections=("Profit", "size"),
+                                   Wins=("Won", "sum"),
+                                   ROI=("Profit", "mean"),
+                                   Total_profit=("Profit", "sum"),
+                                   Avg_odds=("Odds", "mean"),
+                                   Mean_estimated_edge=("Estimated EV", "mean"))
+                              .reset_index())
+                    result["Strike rate"] = result["Wins"] / result["Selections"]
+                    return result
+                st.markdown("#### By selection")
+                st.dataframe(grouped(["Selection"]), hide_index=True, use_container_width=True)
+                st.markdown("#### By bookmaker odds")
+                st.dataframe(grouped(["Price band"]), hide_index=True, use_container_width=True)
+                st.markdown("#### By favourite / underdog")
+                st.dataframe(grouped(["Side"]), hide_index=True, use_container_width=True)
+                st.markdown("#### By pre-match favourite odds band")
+                st.dataframe(grouped(["Band"]), hide_index=True, use_container_width=True)
+                st.markdown("#### By estimated edge")
+                st.dataframe(grouped(["Estimated edge band"]), hide_index=True, use_container_width=True)
+                st.caption("*First edge band begins at the selected threshold; "
+                           "its label assumes the default 5% setting.")
+                st.markdown("#### By outcome and odds band")
+                st.dataframe(grouped(["Selection", "Price band"]), hide_index=True, use_container_width=True)
+                st.markdown("#### Long-priced selections")
+                longshots = bets_df[bets_df["Odds"] >= 5]
+                st.metric("Selections at odds 5.00+", f"{len(longshots):,}")
+                if len(longshots):
+                    st.metric("ROI at odds 5.00+", f"{longshots['Profit'].mean():+.1%}")
+                    st.metric("Share of total P/L from odds 5.00+",
+                              f"{longshots['Profit'].sum():+.1f} units")
+                st.download_button(
+                    "Download ALL value selections CSV",
+                    bets_df.to_csv(index=False).encode("utf-8"),
+                    file_name="starlizard_all_value_selections.csv",
+                    mime="text/csv",
+                )
                 st.dataframe(bets_df.tail(200), hide_index=True, use_container_width=True)
             else:
                 st.info("No selections at the chosen edge threshold.")
