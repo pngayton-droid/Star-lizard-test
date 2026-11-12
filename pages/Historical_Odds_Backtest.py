@@ -9,6 +9,7 @@ from starlizard_experimental_pricing import estimate, probabilities
 from starlizard_backtest_opponents import OpponentHistory
 from starlizard_venue_baselines import VenueBaseline
 from starlizard_team_strength import SequentialTeamStrength
+from starlizard_strength_calibration import fit as fit_strength_calibration, transform as transform_strength
 from starlizard_calibration import fit_calibration, apply_calibration, reliability, brier as calibration_brier
 
 st.set_page_config(page_title="PRO STARLIZARD | Odds Backtest", page_icon="📈", layout="wide")
@@ -199,6 +200,31 @@ if results is not None:
                 ]), hide_index=True, use_container_width=True)
             else:
                 st.warning("No qualifying fixtures for team-strength comparison.")
+            st.markdown("### 🧪 Team-strength probability correction")
+            try:
+                strength_fit, fit_count, train_before, train_after = fit_strength_calibration(train)
+                calibrated_strength = transform(
+                    test[["Home strength", "Draw strength", "Away strength"]].to_numpy(dtype=float),
+                    strength_fit)
+                test["Home strength calibrated"] = calibrated_strength[:, 0]
+                test["Draw strength calibrated"] = calibrated_strength[:, 1]
+                test["Away strength calibrated"] = calibrated_strength[:, 2]
+                calibrated_strength_brier = calibration_brier(calibrated_strength, y)
+                st.metric("Calibrated team-strength Brier", f"{calibrated_strength_brier:.4f}")
+                st.caption(f"Fitted using {fit_count:,} earlier matches only; "
+                           f"temperature {np.exp(strength_fit[0]):.3f}. "
+                           "Multiclass Brier optimisation with regularisation. "
+                           "No test outcomes or bookmaker odds used in fitting.")
+                st.dataframe(pd.DataFrame([
+                    {"Model": "Raw team strength", "Brier": strength_brier},
+                    {"Model": "Train-calibrated team strength", "Brier": calibrated_strength_brier},
+                    {"Model": "Bet365 no-vig", "Brier": market_brier}
+                ]), hide_index=True, use_container_width=True)
+                with st.expander("Calibrated team-strength reliability by outcome"):
+                    st.dataframe(reliability(test, calibrated_strength), hide_index=True, use_container_width=True)
+            except (ValueError, KeyError) as exc:
+                st.warning(f"Team-strength calibration unavailable: {exc}")
+                calibrated_strength_brier = None
             calibrated_matrix = apply_calibration(test, fit, "adjusted")
             calibrated_brier = calibration_brier(calibrated_matrix, y)
             st.metric("Train-calibrated opponent xG Brier score", f"{calibrated_brier:.4f}")
@@ -270,20 +296,21 @@ if results is not None:
             st.dataframe(reliability(test, adjusted_matrix), hide_index=True, use_container_width=True)
             st.download_button("Download full diagnostic predictions CSV", test.to_csv(index=False).encode("utf-8"),
                                file_name="starlizard_full_diagnostics.csv", mime="text/csv")
-            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated opponent xG"], horizontal=True)
+            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated team strength", "Train-calibrated opponent xG"], horizontal=True)
 
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
             bets = []
             for _, r in test.iterrows():
                 for name in outcome_names:
                     key = name.split()[0]
-                    p = (r[f"{key} strength"] if strategy == "Sequential team strength"
+                    p = (r.get(f"{key} strength calibrated") if strategy == "Train-calibrated team strength"
+                         else r[f"{key} strength"] if strategy == "Sequential team strength"
                          else r[f"{key} venue"] if strategy == "Venue-specific historical priors"
                          else r[f"{key} calibrated"] if strategy == "Train-calibrated opponent xG"
                          else r[f"{key} adjusted"] if strategy == "Opponent-adjusted xG"
                          else r[f"{key} model"])
                     odds = r[f"{key} odds"]
-                    if pd.isna(p):
+                    if p is None or pd.isna(p):
                         continue
                     if p * odds - 1 >= threshold:
                         bets.append({"Date": r["Date"], "Match": r["Match"], "Favourite": r["Favourite"],
