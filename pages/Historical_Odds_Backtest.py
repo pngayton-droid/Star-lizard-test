@@ -203,7 +203,7 @@ if results is not None:
             st.markdown("### 🧪 Team-strength probability correction")
             try:
                 strength_fit, fit_count, train_before, train_after = fit_strength_calibration(train)
-                calibrated_strength = transform(
+                calibrated_strength = transform_strength(
                     test[["Home strength", "Draw strength", "Away strength"]].to_numpy(dtype=float),
                     strength_fit)
                 test["Home strength calibrated"] = calibrated_strength[:, 0]
