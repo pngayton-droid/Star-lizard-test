@@ -1,0 +1,22 @@
+name: Diagnose historical opening odds
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install requests
+      - name: Check one match without saving or changing data
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+        run: python scripts/diagnose_opening_odds.py
