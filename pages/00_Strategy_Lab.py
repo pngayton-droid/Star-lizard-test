@@ -43,6 +43,8 @@ except Exception as exc:
     st.warning("Odds coverage unavailable. Check database connection.")
 st.markdown("### Our testing rules")
 st.markdown("**1.** Historical price + verified outcome required.  \n**2.** Use only information available when the bet was placed.  \n**3.** Train on earlier matches; test on untouched later matches.  \n**4.** Report stake-based profit, ROI, drawdown and bet count.  \n**5.** Never label a historical quote as guaranteed executable.")
+st.markdown("### Scrumpy’s Anomaly Hunter")
+st.page_link("pages/01_Scrumpy_Anomaly_Hunter.py",label="🔎 Open Anomaly Hunter",use_container_width=True)
 st.markdown("### Existing research (preserved)")
 st.page_link("pages/Historical_Odds_Backtest.py",label="Open existing odds backtest",icon="📈")
 st.page_link("pages/10_Halftime_Research.py",label="Open halftime outcome research",icon="🔎")
