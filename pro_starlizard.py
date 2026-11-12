@@ -152,6 +152,7 @@ with st.sidebar:
     st.page_link("pages/Halftime_Pricing_Lab.py", label="🧠 Half-time pricing", use_container_width=True)
     st.page_link("pages/Halftime_Intelligence.py", label="🔎 Half-time research", use_container_width=True)
     st.page_link("pages/Model_Intelligence.py", label="📈 Model intelligence", use_container_width=True)
+    st.page_link("pages/Historical_Odds_Backtest.py", label="📊 Historical odds backtest", use_container_width=True)
     st.page_link("pages/Automatic_Pattern_Scanner.py", label="🦎 Pattern scanner", use_container_width=True)
     st.page_link("pages/Archive_Historical_Research.py", label="🗃️ Historical archive", use_container_width=True)
     st.caption("All research tools remain available; developer pages are hidden from navigation, not deleted.")
