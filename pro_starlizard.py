@@ -1153,6 +1153,53 @@ def show_comparison(
             }
             for market in display_markets
         ]), hide_index=True, use_container_width=True)
+        st.markdown("#### 📈 Pre-match market comparison")
+        st.caption(
+            "Enter the bookmaker's PRE-KICKOFF 1X2 prices for this fixture. "
+            "The xG model remains independent; odds are used only to classify "
+            "the favourite and compare prices. Never enter post-kickoff odds."
+        )
+        market_cols = st.columns(3)
+        market_quotes = {}
+        for column, label in zip(market_cols, ("Home win", "Draw", "Away win")):
+            with column:
+                quote = st.number_input(
+                    f"Bookmaker {label}",
+                    min_value=1.01,
+                    max_value=1000.0,
+                    value=None,
+                    step=0.05,
+                    format="%.2f",
+                    key="market_quote_" + label.replace(" ", "_"),
+                    placeholder="Optional",
+                )
+                market_quotes[label] = quote
+        hq, dq, aq = (market_quotes[k] for k in ("Home win", "Draw", "Away win"))
+        if hq is not None and aq is not None:
+            fav = home_team if hq < aq else away_team if aq < hq else "Neither (equal prices)"
+            shortest = min(hq, aq)
+            band = ("Under 1.50" if shortest < 1.50 else
+                    "1.50–1.99" if shortest < 2.00 else
+                    "2.00–2.99" if shortest < 3.00 else "3.00+")
+            st.info(f"Pre-match favourite: {fav} · shortest team price {shortest:.2f} · odds band {band}")
+            if dq is not None:
+                implied = {k: 1.0 / v for k, v in market_quotes.items()}
+                total = sum(implied.values())
+                st.caption(f"Bookmaker 1X2 implied total: {total:.1%} (includes margin).")
+                st.dataframe(pd.DataFrame([
+                    {
+                        "Outcome": outcome,
+                        "Model fair odds": round(1 / prices[outcome], 2) if prices[outcome] > 0 else None,
+                        "Bookmaker odds": market_quotes[outcome],
+                        "Model EV": f"{(prices[outcome] * market_quotes[outcome] - 1):+.1%}",
+                        "Market no-vig probability": f"{implied[outcome] / total:.1%}",
+                    }
+                    for outcome in ("Home win", "Draw", "Away win")
+                ]), hide_index=True, use_container_width=True)
+                st.warning("Exploratory differences only: the model has NOT been calibrated or independently backtested. These are not validated betting edges.")
+        else:
+            st.caption("Enter both team prices to classify the favourite; add the draw price for the full market comparison.")
+
         st.caption(
             "Indicative odds = 1 / model probability. "
             "No bookmaker margin; no half-specific markets yet. "
