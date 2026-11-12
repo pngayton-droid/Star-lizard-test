@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 from supabase import create_client
 from starlizard_experimental_pricing import estimate, probabilities
+from starlizard_backtest_opponents import OpponentHistory
 
 st.set_page_config(page_title="PRO STARLIZARD | Odds Backtest", page_icon="📈", layout="wide")
 st.title("📈 Historical odds backtest")
@@ -36,6 +37,7 @@ def valid(x):
 def calculate(rows, n):
     # Match dates processed in groups: no fixture on a given date may train another on that date.
     history = defaultdict(list)
+    opponents = OpponentHistory()
     output = []
     df = pd.DataFrame(rows)
     if df.empty:
@@ -47,13 +49,17 @@ def calculate(rows, n):
             home = r["home_team"]
             away = r["away_team"]
             hh = history[(league, home, "home")][-n:]
+            hh_adjusted = history[(league, home, "home_adj")][-n:]
             aa = history[(league, away, "away")][-n:]
+            aa_adjusted = history[(league, away, "away_adj")][-n:]
             if len(hh) >= 5 and len(aa) >= 5:
                 home_df = pd.DataFrame(hh)
                 away_df = pd.DataFrame(aa)
                 rates = estimate(home_df, away_df)
                 if rates:
                     probs = probabilities(rates[0], rates[1])
+                    adjusted_rates = estimate(pd.DataFrame(hh_adjusted), pd.DataFrame(aa_adjusted))
+                    adjusted_probs = probabilities(adjusted_rates[0], adjusted_rates[1]) if adjusted_rates else None
                     hp, dp, ap = (valid(r.get(k)) for k in ("home_price", "draw_price", "away_price"))
                     if all(p is not None and p > 1 for p in (hp, dp, ap)):
                         outcome = ("Home win" if r["home_goals"] > r["away_goals"] else
@@ -67,13 +73,23 @@ def calculate(rows, n):
                                        "Favourite": fav, "Band": band, "Result": outcome,
                                        "Home model": probs["Home win"], "Draw model": probs["Draw"],
                                        "Away model": probs["Away win"],
+                                       "Home adjusted": adjusted_probs["Home win"] if adjusted_probs else None,
+                                       "Draw adjusted": adjusted_probs["Draw"] if adjusted_probs else None,
+                                       "Away adjusted": adjusted_probs["Away win"] if adjusted_probs else None,
                                        "Home odds": hp, "Draw odds": dp, "Away odds": ap})
             hx, ax = valid(r.get("home_xg")), valid(r.get("away_xg"))
             if hx is not None and ax is not None and 0 <= hx < 12 and 0 <= ax < 12:
-                pending.append((league, home, away, hx, ax))
-        for league, home, away, hx, ax in pending:
+                home_attack, home_defence, home_ok = opponents.factors(league, away)
+                away_attack, away_defence, away_ok = opponents.factors(league, home)
+                pending.append((league, home, away, hx, ax,
+                                hx * home_attack, ax * home_defence,
+                                ax * away_attack, hx * away_defence))
+        for league, home, away, hx, ax, hadj_for, hadj_against, aadj_for, aadj_against in pending:
             history[(league, home, "home")].append({"xGF": hx, "xGA": ax})
             history[(league, away, "away")].append({"xGF": ax, "xGA": hx})
+            history[(league, home, "home_adj")].append({"xGF": hadj_for, "xGA": hadj_against})
+            history[(league, away, "away_adj")].append({"xGF": aadj_for, "xGA": aadj_against})
+            opponents.record(league, home, away, hx, ax)
     return pd.DataFrame(output)
 
 sample = st.select_slider("Previous home/away fixtures per team", options=[5, 10, 15, 20, 25], value=10)
@@ -117,12 +133,24 @@ if results is not None:
             market_matrix = np.column_stack([1 / test[f"{k.split()[0]} odds"] / margin for k in outcome_names])
             market_brier = float(np.mean(np.sum((market_matrix - np.eye(3)[y]) ** 2, axis=1)))
             st.metric("Bookmaker no-vig Brier score", f"{market_brier:.4f}")
+            adjusted_matrix = test[["Home adjusted", "Draw adjusted", "Away adjusted"]].to_numpy(dtype=float)
+            if np.isfinite(adjusted_matrix).all():
+                adjusted_brier = float(np.mean(np.sum((adjusted_matrix - np.eye(3)[y]) ** 2, axis=1)))
+                st.metric("Opponent-adjusted Brier score", f"{adjusted_brier:.4f}")
+                st.caption(f"Against basic xG: {adjusted_brier - brier:+.4f} (negative means improvement).")
+            else:
+                st.info("Some adjusted probabilities unavailable for this subset.")
+            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG"], horizontal=True)
+
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
             bets = []
             for _, r in test.iterrows():
                 for name in outcome_names:
                     key = name.split()[0]
-                    p, odds = r[f"{key} model"], r[f"{key} odds"]
+                    p = r[f"{key} adjusted"] if strategy == "Opponent-adjusted xG" else r[f"{key} model"]
+                    odds = r[f"{key} odds"]
+                    if pd.isna(p):
+                        continue
                     if p * odds - 1 >= threshold:
                         bets.append({"Date": r["Date"], "Match": r["Match"], "Favourite": r["Favourite"],
                                      "Band": r["Band"], "Selection": name, "Odds": odds,
@@ -137,4 +165,4 @@ if results is not None:
             else:
                 st.info("No selections at the chosen edge threshold.")
             st.dataframe(test.tail(100), hide_index=True, use_container_width=True)
-        st.caption("Model is a basic venue-specific xG Poisson benchmark, NOT the opposition-adjusted live model. This page does not yet establish whether that more complex model has an edge.")
+        st.caption("Opponent-adjusted version uses sequential league/team xG histories with the same shrinkage and factor limits as the existing opponent adjustment module. It is a causal historical approximation, not a fully calibrated model. Date-based splitting is used; do not optimise the edge threshold on the held-out period.")
