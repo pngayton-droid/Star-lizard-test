@@ -367,15 +367,14 @@ if results is not None:
             st.download_button("Download audit fixture rows CSV",
                                test.to_csv(index=False).encode("utf-8"),
                                file_name="starlizard_backtest_audit_fixtures.csv", mime="text/csv")
-            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated team strength", "Market-anchored team strength", "Train-calibrated opponent xG"], horizontal=True)
+            strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated team strength", "Train-calibrated opponent xG"], horizontal=True)
 
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
             bets = []
             for _, r in test.iterrows():
                 for name in outcome_names:
                     key = name.split()[0]
-                    p = (r.get(f"{key} market blend") if strategy == "Market-anchored team strength"
-                         else r.get(f"{key} strength calibrated") if strategy == "Train-calibrated team strength"
+                    p = (r.get(f"{key} strength calibrated") if strategy == "Train-calibrated team strength"
                          else r[f"{key} strength"] if strategy == "Sequential team strength"
                          else r[f"{key} venue"] if strategy == "Venue-specific historical priors"
                          else r[f"{key} calibrated"] if strategy == "Train-calibrated opponent xG"
