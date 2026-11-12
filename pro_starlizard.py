@@ -1397,6 +1397,7 @@ if st.session_state.active_page == "Home":
         ("🔎 Half-time intelligence", "pages/Halftime_Intelligence.py", "Second-half and next-goal historical patterns"),
         ("📈 Model intelligence", "pages/Model_Intelligence.py", "Archive coverage, model readiness and saved findings"),
         ("🦎 Automatic pattern scanner", "pages/Automatic_Pattern_Scanner.py", "Explore statistically screened historical patterns"),
+        ("🔎 Scrumpy’s Anomaly Hunter", "pages/01_Scrumpy_Anomaly_Hunter.py", "Chronological odds-band validation and five research tracks"),
         ("🗃️ Historical archive", "pages/Archive_Historical_Research.py", "Inspect linked historical match data"),
     ]
     for label, destination, description in model_pages:
