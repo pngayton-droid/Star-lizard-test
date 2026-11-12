@@ -88,7 +88,7 @@ def calculate(rows, n):
                         band = ("<1.50" if min(hp, ap) < 1.50 else
                                 "1.50–1.99" if min(hp, ap) < 2 else
                                 "2.00–2.99" if min(hp, ap) < 3 else "3.00+")
-                        output.append({"Date": day, "League": league, "Match": f"{home} v {away}",
+                        output.append({"Match ID": r["match_id"], "Date": day, "League": league, "Match": f"{home} v {away}",
                                        "Favourite": fav, "Band": band, "Result": outcome, "Home goals": r["home_goals"], "Away goals": r["away_goals"],
                                        "Home model": probs["Home win"], "Draw model": probs["Draw"],
                                        "Away model": probs["Away win"],
@@ -106,7 +106,7 @@ def calculate(rows, n):
                                        "Home venue xG": venue_home_rate, "Away venue xG": venue_away_rate,
                                        "Home strength xG": strength_rates[0] if strength_rates else None,
                                        "Away strength xG": strength_rates[1] if strength_rates else None,
-                                       "Home odds": hp, "Draw odds": dp, "Away odds": ap})
+                                       "Home odds": hp, "Draw odds": dp, "Away odds": ap, "Home opening odds": valid(r.get("home_open")), "Away opening odds": valid(r.get("away_open"))})
             hx, ax = valid(r.get("home_xg")), valid(r.get("away_xg"))
             if hx is not None and ax is not None and 0 <= hx < 12 and 0 <= ax < 12:
                 home_attack, home_defence, home_ok = opponents.factors(league, away)
@@ -296,6 +296,37 @@ if results is not None:
             st.dataframe(reliability(test, adjusted_matrix), hide_index=True, use_container_width=True)
             st.download_button("Download full diagnostic predictions CSV", test.to_csv(index=False).encode("utf-8"),
                                file_name="starlizard_full_diagnostics.csv", mime="text/csv")
+            st.markdown("### 🧾 Independent backtest integrity audit")
+            st.caption("Checks stored 1X2 prices, outcomes, fixture identities, bookmaker margins and settlement. "
+                       "These checks do not prove the historical quote was executable before kickoff.")
+            audit_rows = []
+            def check(label, count, note):
+                audit_rows.append({"Check": label, "Flagged": int(count), "Interpretation": note})
+            check("Duplicate match IDs", test["Match ID"].duplicated().sum(),
+                  "Repeated fixtures can inflate performance statistics.")
+            check("Invalid result labels", (~test["Result"].isin(outcome_names)).sum(),
+                  "Only home win, draw and away win may settle a 1X2 bet.")
+            derived = np.where(test["Home goals"] > test["Away goals"], "Home win",
+                               np.where(test["Home goals"] < test["Away goals"], "Away win", "Draw"))
+            check("Result disagrees with goals", (test["Result"].to_numpy() != derived).sum(),
+                  "Settlement must match full-time goals.")
+            price_cols = ["Home odds", "Draw odds", "Away odds"]
+            prices = test[price_cols].astype(float)
+            check("Invalid 1X2 odds", (~np.isfinite(prices.to_numpy()) | (prices.to_numpy() <= 1)).any(axis=1).sum(),
+                  "All three decimal prices must exceed 1.")
+            implied_sum = (1 / prices).sum(axis=1)
+            check("Implausible book margins (outside 0.90–1.25)",
+                  ((implied_sum < .90) | (implied_sum > 1.25)).sum(),
+                  "Review suspicious quotes and market alignment; not proof of corruption.")
+            check("Home/away opening prices absent",
+                  test[["Home opening odds", "Away opening odds"]].isna().any(axis=1).sum(),
+                  "Last-seen snapshots usually cannot be independently timed without source timestamps.")
+            st.dataframe(pd.DataFrame(audit_rows), hide_index=True, use_container_width=True)
+            st.metric("Average Bet365 1X2 overround", f"{(implied_sum.mean()-1):+.2%}")
+            st.metric("Median Bet365 1X2 overround", f"{(implied_sum.median()-1):+.2%}")
+            st.download_button("Download audit fixture rows CSV",
+                               test.to_csv(index=False).encode("utf-8"),
+                               file_name="starlizard_backtest_audit_fixtures.csv", mime="text/csv")
             strategy = st.radio("Model used for value selections", ["Basic xG", "Opponent-adjusted xG", "Venue-specific historical priors", "Sequential team strength", "Train-calibrated team strength", "Train-calibrated opponent xG"], horizontal=True)
 
             threshold = st.slider("Minimum estimated model edge", 0.00, 0.25, 0.05, 0.01)
@@ -313,7 +344,7 @@ if results is not None:
                     if p is None or pd.isna(p):
                         continue
                     if p * odds - 1 >= threshold:
-                        bets.append({"Date": r["Date"], "Match": r["Match"], "Favourite": r["Favourite"],
+                        bets.append({"Match ID": r["Match ID"], "Date": r["Date"], "Match": r["Match"], "Favourite": r["Favourite"],
                                      "Band": r["Band"], "Selection": name, "Odds": odds,
                                      "Estimated EV": p * odds - 1,
                                      "Model probability": p,
@@ -327,6 +358,23 @@ if results is not None:
                 st.metric("Selections (flat 1-unit stakes)", f"{len(bets_df):,}")
                 st.metric("Historical flat-stake ROI", f"{bets_df['Profit'].mean():+.1%}")
                 st.caption("Multiple selections can arise from one match. Selection threshold is exploratory and must not be tuned against this same test set.")
+                st.markdown("#### Betting calculation audit")
+                recomputed = np.where(bets_df["Won"].to_numpy() == 1,
+                                      bets_df["Odds"].to_numpy() - 1., -1.)
+                st.metric("Settlement discrepancies",
+                          f"{int((np.abs(recomputed - bets_df['Profit'].to_numpy()) > 1e-9).sum()):,}")
+                st.metric("Selected bets / unique fixtures",
+                          f"{len(bets_df):,} / {bets_df['Match ID'].nunique():,}")
+                st.metric("Matches with multiple selections",
+                          f"{int((bets_df.groupby('Match ID').size() > 1).sum()):,}")
+                st.metric("Model-expected winning bets",
+                          f"{bets_df['Model probability'].sum():,.1f}")
+                st.metric("Actual winning bets", f"{int(bets_df['Won'].sum()):,}")
+                st.metric("Mean predicted EV versus realised ROI",
+                          f"{bets_df['Estimated EV'].mean():+.1%} / {bets_df['Profit'].mean():+.1%}")
+                st.caption("The model's mean estimated EV is NOT independently validated. "
+                           "One match can generate several mutually exclusive bets; "
+                           "profits are calculated per unit staked per selection.")
                 st.markdown("### 🔎 Value-selection diagnostics")
                 st.caption("Breakdowns of the CURRENT selected model and threshold. "
                            "Descriptive analysis on the held-out period; choosing filters from these "
