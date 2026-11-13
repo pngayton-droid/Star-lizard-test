@@ -126,6 +126,11 @@ def main():
                     if isinstance(stats, dict):
                         save_events(match_id, stats=stats)
                         event_updates += 1
+                # Save scores when included in the finished-match listing.
+                score = match.get("score") or {}
+                regulation = score.get("regulation") or {}
+                goals = (regulation.get("home"), regulation.get("away"),
+                         score.get("half_time_home"), score.get("half_time_away"))
                 if not known.get(match_id):
                     expected = ((stats or {}).get("overview") or {}).get("expected_goals") or {}
                     full, half = expected.get("all") or {}, expected.get("first_half") or {}
@@ -141,6 +146,9 @@ def main():
                             "home_xg": values[0], "away_xg": values[1],
                             "home_ht_xg": values[2], "away_ht_xg": values[3],
                         }
+                        if all(v is not None for v in goals):
+                            row.update(home_goals=goals[0], away_goals=goals[1],
+                                       home_ht_goals=goals[2], away_ht_goals=goals[3])
                         if row["match_date"] and row["home_team"] and row["away_team"]:
                             db.table("historical_xg").upsert(row, on_conflict="match_id").execute()
                             known[match_id] = True
