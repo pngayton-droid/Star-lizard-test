@@ -7,6 +7,8 @@ import pandas as pd
 from supabase import create_client
 from research.chronological_validation import chronological_split, chronological_three_way_split, evaluate_binary_baseline, wilson_interval
 from research.conditional_model import fit_conditional_rates, evaluate as evaluate_conditional, calibration_bins
+from research.goal_timeline import validated_goal_sequence, first_second_half_goal
+from collections import Counter
 
 st.set_page_config(page_title="PRO STARLIZARD 2.0", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>
@@ -536,6 +538,54 @@ def raw_integrity_counts():
         "Missing halftime xG pairs": int((frame.home_ht_xg.isna() | frame.away_ht_xg.isna()).sum()),
     }
 
+@st.cache_data(ttl=900)
+def goal_timeline_audit():
+    """Verify stored goal events against historical score records, without writes."""
+    match_rows = {}
+    fields = ("match_id,home_team,away_team,home_ht_goals,away_ht_goals,"
+              "home_goals,away_goals")
+    for offset in range(0, 100000, 1000):
+        batch = (db().table("historical_xg").select(fields)
+                 .order("match_id").range(offset, offset + 999).execute().data or [])
+        match_rows.update({str(row["match_id"]): row for row in batch})
+        if len(batch) < 1000:
+            break
+    reasons = Counter()
+    scorers = Counter()
+    checked = 0
+    for offset in range(0, 100000, 1000):
+        batch = (db().table("historical_match_events")
+                 .select("match_id,timeline_data,timeline_status")
+                 .order("match_id").range(offset, offset + 999).execute().data or [])
+        for row in batch:
+            checked += 1
+            match = match_rows.get(str(row.get("match_id")))
+            if not match:
+                reasons["missing_match_record"] += 1
+                continue
+            try:
+                score = tuple(int(match[key]) for key in (
+                    "home_ht_goals", "away_ht_goals", "home_goals", "away_goals"))
+                if any(match[key] != value for key, value in zip(
+                    ("home_ht_goals", "away_ht_goals", "home_goals", "away_goals"), score)):
+                    raise ValueError("non-integer scores")
+            except (ValueError, TypeError):
+                reasons["invalid_score_record"] += 1
+                continue
+            if row.get("timeline_status") != 200:
+                reasons["non_200_timeline"] += 1
+                continue
+            timeline = row.get("timeline_data")
+            goals, reason = validated_goal_sequence(
+                timeline, match.get("home_team"), match.get("away_team"), *score)
+            if reason:
+                reasons[reason] += 1
+            else:
+                scorers[first_second_half_goal(goals)] += 1
+        if len(batch) < 1000:
+            break
+    return checked, dict(reasons), dict(scorers)
+
 with tab9:
     st.subheader("Historical data integrity — existing records only")
     st.caption("Checks match IDs, halftime/full-time score consistency, match dates and halftime xG coverage. Does not repair or delete records.")
@@ -551,3 +601,21 @@ with tab9:
         except Exception as exc:
             st.error(f"Integrity audit unavailable: {type(exc).__name__}: {exc}")
     st.warning("This score-level audit does not validate goal-event timelines or resolve VAR anomalies. Timeline-based strategies require separate event-level verification.")
+
+    if st.button("Verify stored goal timelines", type="secondary"):
+        try:
+            checked, excluded, scorers = goal_timeline_audit()
+            verified = sum(scorers.values())
+            st.metric("Timelines checked", f"{checked:,}")
+            st.metric("Score-consistent verified timelines", f"{verified:,}")
+            st.metric("Excluded / ambiguous timelines", f"{sum(excluded.values()):,}")
+            st.caption("First second-half scorer among verified matches only. This is descriptive, not a betting signal.")
+            st.dataframe(pd.DataFrame([{"First 2H scorer": k, "Matches": v}
+                                       for k, v in sorted(scorers.items())]),
+                         use_container_width=True, hide_index=True)
+            st.subheader("Exclusion reasons")
+            st.dataframe(pd.DataFrame([{"Reason": k, "Matches": v}
+                                       for k, v in sorted(excluded.items())]),
+                         use_container_width=True, hide_index=True)
+        except Exception as exc:
+            st.error(f"Goal timeline verification failed: {type(exc).__name__}: {exc}")
