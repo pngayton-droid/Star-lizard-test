@@ -395,6 +395,7 @@ with tab7:
             test = frame[frame.match_id.isin(testing_ids)]
             base_rate = train[outcome].mean()
             discoveries = []
+            tested_candidates = 0
             for league in sorted(frame["League"].unique()):
                 for state in ("Draw", "Home leading", "Away leading"):
                     for xg in ("Home", "Away", "Equal"):
@@ -406,6 +407,7 @@ with tab7:
                                   (test["HT xG leader"] == xg)]
                         if len(tr) < min_samples or len(te) < min_test:
                             continue
+                        tested_candidates += 1
                         training_rate = tr[outcome].mean()
                         testing_rate = te[outcome].mean()
                         lo, hi = wilson_interval(int(te[outcome].sum()), len(te))
@@ -421,12 +423,13 @@ with tab7:
                             "Direction held": bool((training_rate-base_rate)*(testing_rate-base_rate) > 0),
                         })
             st.caption(f"Train before {cutoff}; validation from {cutoff}; final test starts {final_cutoff}. Final-test outcomes are deliberately withheld to reduce selection leakage.")
+            st.caption(f"{tested_candidates} eligible candidate patterns screened for this outcome. Confidence intervals below are unadjusted for multiple comparisons.")
             if discoveries:
                 result = pd.DataFrame(discoveries).sort_values(
                     ["Direction held", "Validation n"], ascending=[False, False])
                 st.metric("Patterns meeting sample thresholds", len(result))
                 st.metric("Same direction in training and validation", int(result["Direction held"].sum()))
-                st.caption("Direction consistency is exploratory, not evidence of profit. Review uncertainty and sample size.")
+                st.caption("Direction consistency is exploratory, not evidence of profit. Testing many patterns can produce chance findings; confidence intervals are not multiplicity-adjusted.")
                 st.dataframe(result, use_container_width=True, hide_index=True)
                 st.download_button("Export pattern search", result.to_csv(index=False),
                                    "starlizard_pattern_search.csv", "text/csv")
