@@ -6,6 +6,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from research.chronological_validation import chronological_split, evaluate_binary_baseline, wilson_interval
+from research.conditional_model import fit_conditional_rates, evaluate as evaluate_conditional
 
 st.set_page_config(page_title="PRO STARLIZARD 2.0", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>
@@ -60,7 +61,7 @@ LEAGUE_NAMES = {
     "comp_6387":"Scotland · Premiership",
 }
 
-tab1,tab2,tab3,tab4,tab5,tab6,tab7=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test","💷 Odds quality","🔬 Pattern search"])
+tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test","💷 Odds quality","🔬 Pattern search","📈 Model check"])
 with tab1:
     st.subheader("Our existing football database")
     try:
@@ -424,3 +425,48 @@ with tab7:
         except Exception as exc:
             st.error(f"Pattern search failed: {type(exc).__name__}: {exc}")
     st.warning("Exploratory screen, not a betting signal. Testing many candidates creates selection bias; promising results need an untouched second validation period and real time-aligned market quotes.")
+
+with tab8:
+    st.subheader("Out-of-sample conditional probability model")
+    st.caption("Learns from older matches only. Compares a shrinkage model with a global historical baseline on later matches.")
+    target = st.selectbox("Prediction target", [
+        "2H goal", "2H over 1.5", "2H draw", "Home FT win", "Away FT win",
+        "FT draw", "Home won both halves", "Away won both halves",
+        "Both halves home scored", "Both halves away scored",
+    ], key="model_target")
+    features = st.multiselect("Available halftime predictors",
+                              ["League", "HT state", "HT xG leader"],
+                              default=["League", "HT state", "HT xG leader"])
+    strength = st.slider("Small-sample shrinkage", 10, 200, 50, 10)
+    if st.button("Evaluate model on later matches", type="primary"):
+        try:
+            frame = halftime_research_data().copy()
+            frame["match_date"] = pd.to_datetime(frame["match_date"], errors="coerce")
+            frame = frame.dropna(subset=["match_date", target])
+            # Do not evaluate without an actual calendar date for each match.
+            frame["match_date"] = frame["match_date"].dt.strftime("%Y-%m-%d")
+            training, testing, cutoff = chronological_split(
+                frame.to_dict("records"), .70)
+            model = fit_conditional_rates(training, features, target, strength)
+            scores = evaluate_conditional(model, testing, target)
+            if scores is None:
+                st.warning("No eligible test matches.")
+            else:
+                a, b, d = st.columns(3)
+                a.metric("Training matches", f"{scores['train_n']:,}")
+                b.metric("Held-out matches", f"{scores['test_n']:,}")
+                d.metric("Holdout starts", cutoff)
+                st.write({
+                    "Model Brier score (lower is better)": round(scores["model_brier"], 5),
+                    "Global training baseline Brier": round(scores["global_train_baseline_brier"], 5),
+                    "Predicted event frequency": round(scores["predicted_rate"], 4),
+                    "Actual event frequency": round(scores["observed_rate"], 4),
+                    "Unseen feature combinations in test": scores["unseen_group_test_n"],
+                })
+                if scores["model_brier"] < scores["global_train_baseline_brier"]:
+                    st.success("Model beats the global baseline on this holdout. This is not proof of a betting edge.")
+                else:
+                    st.info("Model does not beat the global baseline on this holdout.")
+        except Exception as exc:
+            st.error(f"Model evaluation failed: {type(exc).__name__}: {exc}")
+    st.warning("These are conditional historical probabilities, not tradable market prices. Predictor choices are user-selected; repeated tuning on this holdout invalidates it as untouched confirmation.")
