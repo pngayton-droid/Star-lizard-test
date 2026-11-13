@@ -91,12 +91,13 @@ class DashboardSmokeTests(unittest.TestCase):
             for label in ("Run read-only coverage audit", "Load stored halftime outcomes", "Audit stored Bet365 odds", "Search for stable patterns", "Evaluate model on later matches", "Audit match integrity", "Verify stored goal timelines"):
                 next(x for x in app.button if x.label == label).click().run()
                 self.assertFalse(app.exception, [str(x.message) for x in app.exception])
-            metrics = {m.label: m.value for m in app.metric}
-            self.assertEqual(metrics["Stored match rows"], "3")
-            self.assertEqual(metrics["Incomplete score rows"], "1")
-            self.assertEqual(metrics["Missing match dates"], "1")
-            self.assertEqual(metrics["Missing halftime xG pairs"], "1")
-            self.assertEqual(metrics["Negative or fractional scores"], "1")
+                if label == "Audit match integrity":
+                metrics = {m.label: m.value for m in app.metric}
+                self.assertEqual(metrics["Stored match rows"], "3")
+                self.assertEqual(metrics["Incomplete score rows"], "1")
+                self.assertEqual(metrics["Missing match dates"], "1")
+                self.assertEqual(metrics["Missing halftime xG pairs"], "1")
+                self.assertEqual(metrics["Negative or fractional scores"], "1")
         self.assertFalse(app.exception, [str(x.message) for x in app.exception])
         self.assertTrue(any("PRO STARLIZARD" in x.value for x in app.title))
 
