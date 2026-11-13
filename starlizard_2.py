@@ -5,6 +5,7 @@ Run with: streamlit run starlizard_2.py
 import streamlit as st
 import pandas as pd
 from supabase import create_client
+from research.chronological_validation import chronological_split, evaluate_binary_baseline
 
 st.set_page_config(page_title="PRO STARLIZARD 2.0", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>
@@ -59,7 +60,7 @@ LEAGUE_NAMES = {
     "comp_6387":"Scotland · Premiership",
 }
 
-tab1,tab2,tab3,tab4=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research"])
+tab1,tab2,tab3,tab4,tab5=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test"])
 with tab1:
     st.subheader("Our existing football database")
     try:
@@ -241,3 +242,49 @@ with tab4:
             st.download_button("Export filtered results", result.to_csv(index=False),
                                "starlizard_halftime_patterns.csv", "text/csv")
             st.caption("All results are in-sample descriptive counts; no market odds, EV or ROI is inferred.")
+
+with tab5:
+    st.subheader("Chronological out-of-sample baseline")
+    st.caption("Training matches precede testing matches. A whole match date stays on one side of the split.")
+    fraction = st.slider("Training fraction", 0.50, 0.85, 0.70, 0.05)
+    min_train = st.number_input("Minimum training matches per league", 30, 500, 100, 10)
+    metric = st.selectbox("Historical outcome", [
+        "2H goal", "2H over 1.5", "2H draw", "Home FT win",
+        "Away FT win", "FT draw", "Home won both halves",
+        "Away won both halves", "Both halves home scored", "Both halves away scored",
+    ])
+    if st.button("Run holdout evaluation", type="primary"):
+        try:
+            frame = halftime_research_data()
+            records = []
+            for league, group in frame.groupby("League"):
+                rows = group[["match_id", "match_date", metric]].dropna().copy()
+                rows["match_date"] = pd.to_datetime(rows["match_date"], errors="coerce").dt.strftime("%Y-%m-%d")
+                rows = rows.dropna()
+                if len(rows) < 2:
+                    continue
+                train, test, split_date = chronological_split(rows.to_dict("records"), fraction)
+                result = evaluate_binary_baseline(train, test, metric, int(min_train))
+                if result is None:
+                    continue
+                records.append({
+                    "League": league,
+                    "Test from": split_date,
+                    "Train n": result["train_n"],
+                    "Test n": result["test_n"],
+                    "Train rate %": round(100*result["train_rate"], 2),
+                    "Test rate %": round(100*result["test_rate"], 2),
+                    "Test Brier": round(result["test_brier"], 4),
+                    "Test uncertainty low %": round(100*result["test_wilson_low"], 2),
+                    "Test uncertainty high %": round(100*result["test_wilson_high"], 2),
+                })
+            if records:
+                report = pd.DataFrame(records).sort_values("Test n", ascending=False)
+                st.dataframe(report, use_container_width=True, hide_index=True)
+                st.download_button("Export holdout report", report.to_csv(index=False),
+                                   "starlizard_holdout_baseline.csv", "text/csv")
+            else:
+                st.warning("No leagues passed the minimum sample requirements.")
+        except Exception as exc:
+            st.error(f"Holdout evaluation failed: {type(exc).__name__}: {exc}")
+    st.warning("Baseline only: it does not use time-aligned bookmaker quotes and cannot establish a profitable edge.")
