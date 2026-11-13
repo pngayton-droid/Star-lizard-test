@@ -178,6 +178,13 @@ Read-only Supabase SQL committed as `research/ht_next_goal_four_xg_bands_brier.s
 - Later test longer-priced n=543: binary 0.207608, four-band 0.208827; shorter-priced n=309: binary 0.245107, four-band 0.244659. Equal-price group tiny.
 - Thus four-band complexity **does not improve aggregate out-of-time Brier** over simple binary filter. No edge or ROI; relative strength based on unverified Bet365 last_seen; score-reconciled SQL, not strict event chronology. Keep binary model as current benchmark; do not overfit bins after seeing later-test results.
 
+### Score-deficit incremental model test (November 13)
+Read-only Supabase experiment extended reconciled event data to **all halftime trailing margins**, with train-only smoothing and relative Bet365 last_seen shorter/longer/equal quote (NOT verified pre-match). Models: strength only; strength + binary trailing HT xG >=0.20; strength + deficit category (1, 2, 3+); strength + xG + deficit. Training before 2025-07-01; validation Jul–Dec 2025, later test Jan–Nov 2026. Smoothing baseline 2/4, strength+xG 4 pseudo-observations, strength+deficit 8, both 12, all toward train-only strength baseline.
+- Validation n=977 Brier: strength 0.228424, **strength+xG 0.225388**, strength+deficit 0.228125, strength+xG+deficit 0.225771.
+- Later test n=1,235 Brier: strength 0.222351, **strength+xG 0.221394**, strength+deficit 0.222775, strength+xG+deficit 0.222015.
+- Later test deficit one n=860: 0.221951 / **0.221392** / 0.221942 / 0.221493 (same model order). Deficit two n=300: 0.228440 / **0.225948** / 0.230211 / 0.228540. Deficit 3+ n=75: 0.202581 / 0.203198 / 0.202575 / **0.201900**, very small sample.
+- **No aggregate gain from adding deficit** with this particular smoothed categorical model. Different data cohort and train priors from earlier one-goal-only experiment, so Brier values should not be directly compared between those experiments. Still no verified pre-match price timestamps, no halftime next-goal odds or tradable edge, no pristine prospective holdout, and no full chronological goal-event validator pass. No provider requests or DB mutations.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
