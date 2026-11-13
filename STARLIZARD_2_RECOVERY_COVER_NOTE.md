@@ -272,3 +272,7 @@ Read-only SQL on 2,033 2026 matches with Bet365 last_seen home/draw/away prices 
 - Away xG-form gap >0.5: 171 games, away win 56.1% versus market 56.7%; home win 21.1% versus market 20.5%.
 - Gap within ±0.5: 781 games, home win 33.4% versus market 35.3%; away win 39.9% versus market 37.8%.
 **Important:** exploratory 2026 group diagnostic, not out-of-sample fitted residual model, not a true 10 overall match rating and not ROI. Initial full historical SQL timed out. Need compute proper time-split residual fit with fixed coefficients and test Brier/log loss and ROI, not claim predictive improvement.
+
+
+### Exploratory halftime trailing-team segmentation (13 November)
+Read-only Supabase SQL on 2026 matches with HT/full-time scores, HT xG, and Bet365 last_seen pre-match 1X2 prices. Grouped trailing team by de-vigged pre-match win probability and halftime xG. Outcome **wins second half** (second-half goal differential >0), NOT first second-half goal or full-time win. Strong pre-match team (probability >=50%) trailing HT: 155 matches, 57.4% won second half; xG>=0.60 subgroup 67 matches, 65.7% (44/67). Medium 35-50%: all 274 43.1%, xG>=0.60 93 39.8%. Weak <35%: all 805 22.5%, xG>=0.60 171 25.1%. Exploratory bins selected after inspecting data, 2026 sample already examined; **not an independent holdout or betting edge**, and no historical HT 2H-win or next-goal prices. Must test earlier years, goal margin, home/away and event labels before considering dashboard flags.
