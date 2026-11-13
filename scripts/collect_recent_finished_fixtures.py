@@ -61,7 +61,7 @@ def existing_ids():
     result = {}
     offset = 0
     while True:
-        rows = db.table("historical_xg").select("match_id,home_ht_xg,away_ht_xg,home_goals,away_goals,home_ht_goals,away_ht_goals").order("match_id").range(offset, offset + 999).execute().data or []
+        rows = db.table("historical_xg").select("match_id,match_date,home_ht_xg,away_ht_xg,home_goals,away_goals,home_ht_goals,away_ht_goals").order("match_id").range(offset, offset + 999).execute().data or []
         for r in rows:
             result[str(r["match_id"])] = r
         if len(rows) < 1000:
@@ -69,16 +69,13 @@ def existing_ids():
         offset += 1000
     return result
 
-def existing_events():
+def existing_events(recent_match_ids):
     result = {}
-    offset = 0
-    while True:
-        rows = db.table("historical_match_events").select("match_id,stats_data,timeline_data").order("match_id").range(offset, offset + 999).execute().data or []
+    ids = list(recent_match_ids)
+    for i in range(0, len(ids), 50):
+        rows = db.table("historical_match_events").select("match_id,stats_data,timeline_data").in_("match_id", ids[i:i + 50]).execute().data or []
         for row in rows:
             result[str(row["match_id"])] = row
-        if len(rows) < 1000:
-            break
-        offset += 1000
     return result
 
 def save_events(match_id, stats=None, timeline=None):
@@ -94,7 +91,7 @@ def main():
     today = datetime.now(timezone.utc).date()
     start = today - timedelta(days=DAYS_BACK)
     known = existing_ids()
-    events = existing_events()
+    events = existing_events([mid for mid, row in known.items() if str(row.get("match_date") or "") >= start.isoformat()])
     added = skipped = missing = event_updates = 0
     # Finish already-discovered fixtures first, reserving calls for league discovery.
     # This avoids repeatedly spending the entire budget on the first league.
