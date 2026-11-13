@@ -236,3 +236,10 @@ Read-only Supabase comparison on reconciled one-goal HT trailing cases. Fixed tr
 - Development-only commit: `2f6dac9c6086b03731d5a7c812f530254b411427`. Production `main` unchanged; no StatsAPI requests or database writes.
 - Existing offline workflow `.github/workflows/starlizard2-research-tests.yml` already defines research unit tests, mocked Streamlit dashboard test, and headless HTTP health check. A successful current run has **not** been independently confirmed here.
 - Next: verify workflow outcome, fix failures if any, then integrate read-only timeline-verified favourite-trailing research into the new dashboard. Do not use `last_seen` as information available before its pre-in-play observation time.
+
+
+### Team Strength Rating prototype (13 November)
+- Added `research/team_strength.py`: leakage-safe 10-game rolling team ratings with initial 100-point weights (results 15, venue 15, goals 15, xG 25, shots-on-target 15, corners 10, trend 5). Available features are reweighted rather than imputing missing shots/corners as zeros. These are exploratory ratings, not probabilities or proven edge. Uses league/team key and excludes all same-day fixtures from training history.
+- Added `tests/test_team_strength.py` and included it in existing offline CI `.github/workflows/starlizard2-research-tests.yml`. Commits `9b89b63`, `0a9bf1e`, `3bf1467`. CI pass **not yet confirmed**.
+- Read-only Supabase SQL preliminary eligibility check: 10,471 matches have both teams with 10 prior results in the same competition; 515 additional matches have only one eligible side. This is an eligibility count, **not a model backtest**. SQL used ROWS preceding and ordered same-day match IDs, so production Python's stricter same-day exclusion may reduce the count.
+- Next: run CI and fix issues, audit availability of shots/corners, build historical chronological comparison versus simple results/xG baselines and closing 1X2 implied probabilities. Never claim profit from ratings without matched quotes.
