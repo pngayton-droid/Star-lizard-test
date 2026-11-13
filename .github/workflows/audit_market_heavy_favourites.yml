@@ -1,0 +1,32 @@
+name: Audit heavy favourites against actual results
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit_market_heavy_favourites.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: comp_3039
+          - id: comp_8814
+          - id: comp_0256
+          - id: comp_5840
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy scipy supabase
+      - name: Audit Bet365 favourites
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LEAGUE_ID: ${{ matrix.id }}
+        run: python -u research/audit_market_heavy_favourites.py
