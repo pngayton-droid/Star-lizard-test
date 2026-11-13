@@ -6,6 +6,7 @@ from supabase import create_client
 from research.independent_pricing import load, walk_forward, probabilities, estimate
 from research.opponent_strength import predict as strength_predict
 import math
+from collections import defaultdict
 
 def main():
     db=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
@@ -44,15 +45,30 @@ def main():
             actual_home=sum(o==0 for _,_,o,_,_ in predictions)/n
             actual_away=sum(o==2 for _,_,o,_,_ in predictions)/n
             # Paired holdout: identical fixtures and strictly earlier-day training.
-            # Limit to the latest 60 evaluable fixtures per league for a fast research check.
-            sample=predictions[-60:]
+            # Expanded holdout: 240 most recent eligible matches per league.
+            sample=predictions[-240:]
             baseline_total=adjusted_total=0.
+            newly_seen=defaultdict(int)
+            for old in matches:
+                if old['date']<sample[0][0]['date']:
+                    newly_seen[old['home_team']]+=1
+                    newly_seen[old['away_team']]+=1
+            cold_count=cold_baseline=cold_adjusted=0.
             for m,p,o,_,_ in sample:
                 prior_matches=[old for old in matches if old["date"]<m["date"]]
                 sh,sa=strength_predict(prior_matches,m["home_team"],m["away_team"],m["date"])
                 adjusted=probabilities(sh,sa)
                 baseline_total-=math.log(max(1e-12,p[o]))
                 adjusted_total-=math.log(max(1e-12,adjusted[o]))
+                # Cold-start proxy: teams with fewer than 10 prior league fixtures.
+                if newly_seen[m['home_team']]<10 or newly_seen[m['away_team']]<10:
+                    cold_count+=1
+                    cold_baseline-=math.log(max(1e-12,p[o]))
+                    cold_adjusted-=math.log(max(1e-12,adjusted[o]))
+                newly_seen[m['home_team']]+=1
+                newly_seen[m['away_team']]+=1
+            if cold_count:
+                print(f"{league}: cold_start_n={cold_count}, baseline={cold_baseline/cold_count:.4f}, adjusted={cold_adjusted/cold_count:.4f}")
             print(f"{league}: paired_n={len(sample)}, baseline_logloss={baseline_total/len(sample):.4f}, opponent_adjusted_logloss={adjusted_total/len(sample):.4f}")
             print(f"{league}: n={n}, logloss={loss:.4f}, poisson_logloss={poisson_loss:.4f}, brier={brier:.4f}, "
                   f"home_pred={home:.3f}, home_actual={actual_home:.3f}, draw_pred={draw:.3f}, draw_actual={actual_draw:.3f}, away_actual={actual_away:.3f}")
