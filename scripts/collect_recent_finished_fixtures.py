@@ -18,7 +18,7 @@ LEAGUES = {
     "Belgian Pro League": "comp_8531", "Scottish Premiership": "comp_6387",
 }
 LIVE = os.getenv("ENABLE_LIVE_FIXTURE_COLLECTION") == "1"
-MAX_CALLS = int(os.getenv("LIVE_FIXTURE_MAX_REQUESTS", "60"))
+MAX_CALLS = int(os.getenv("LIVE_FIXTURE_MAX_REQUESTS", "30"))
 DAYS_BACK = min(14, max(2, int(os.getenv("LIVE_FIXTURE_LOOKBACK_DAYS", "4"))))
 if MAX_CALLS < len(LEAGUES) + 1:
     raise ValueError("LIVE_FIXTURE_MAX_REQUESTS must allow all league-list calls")
@@ -79,7 +79,7 @@ def main():
             payload = get("/football/matches", {
                 "competition_id": competition_id, "status": "finished",
                 "date_from": start.isoformat(), "date_to": today.isoformat(),
-                "per_page": 100, "page": page, "sort": "-utc_date",
+                "per_page": 20, "page": page, "sort": "-utc_date",
             })
             matches = (payload or {}).get("data") or []
             if not isinstance(matches, list):
@@ -114,7 +114,7 @@ def main():
                 db.table("historical_xg").upsert(row, on_conflict="match_id").execute()
                 known[match_id] = True
                 added += 1
-            if len(matches) < 100 or calls >= MAX_CALLS:
+            if len(matches) < 20 or calls >= MAX_CALLS:
                 break
             page += 1
         print(f"{name}: finished; calls={calls}", flush=True)
