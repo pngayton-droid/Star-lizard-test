@@ -90,6 +90,9 @@ Added `tests/test_streamlit_dashboard.py` using Streamlit `AppTest` and mocked S
 ### Real stored-data integrity verification
 Read-only Supabase SQL confirmed `historical_xg` has **11,964 rows**, all with match dates (2022-08-05 through 2026-11-03), **11,932 complete HT/FT score and HT xG rows**. All 11,932 complete-score rows have distinct match IDs, nonnegative second-half team goals, and non-null competition IDs. No TheStatsAPI requests were made. CI run `43421870215` completed **successfully** including Streamlit AppTest render, Python unit tests, and server startup. Expanded AppTest (commit `354f1a4160af12425ea0ab737c875b361ecc90f6`) to click coverage, halftime and bookmaker audit controls with mocked Supabase; status not yet confirmed. **Actual authenticated dashboard database access and Streamlit Cloud deployment remain unverified.**
 
+### Model isolation and expanded UI coverage
+GitHub Actions run `43422462577` was **green**, including click-through tests for coverage, halftime research and odds audit with mocked records. Subsequent commits `0811bc6d3a799f065fe44cf63dded20982a51e01` and `b95bb72fe0eff6fb6f93ed43be10a41819d485da` reserve the final chronological period without even filtering it for candidate group counts, and move the conditional model to train/validation/final-period separation. Commit `3da29bd1e066e8ba7cb983cc5a03c7442c9bea4a` expands UI test clicks to pattern search and conditional model. Latest CI pending verification. Existing production branch, provider keys and data unchanged.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
