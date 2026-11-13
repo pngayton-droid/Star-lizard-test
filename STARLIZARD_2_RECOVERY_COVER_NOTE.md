@@ -49,6 +49,9 @@ Created `research/strong_favourite_first_goal.sql` (commit `1874967b097407516eb4
 ### New build — halftime pattern explorer (2026-11-13)
 Commit `bb62378eb9ce356004e842983f7135d15af2bdc6`: added fourth tab `HT research` in `starlizard_2.py`. It reads stored `historical_xg` in pages and filters by league, HT lead/draw state and HT xG leader. Reports descriptive counts and rates for home/away scored both halves, home/away won both halves, second-half draw, 2H 1+/2+ goals, FT home/away/draw, with CSV export. Removes incomplete and internally inconsistent score records. This is **multi-market descriptive research**, not a validated edge, fair odds model or live scanner. No TheStatsAPI requests. **Streamlit runtime smoke test still pending.**
 
+### Independent SQL cross-check of halftime calculations
+Read-only SQL against `historical_xg` returned **11,932 valid matches with nonnegative 2H goals and complete HT/FT scores**. Home scored in both halves: 3,474; away scored both: 2,527; home won both halves: 1,626; away won both: 911; second half draw: 4,124; second half 2+ goals: 5,544. These counts are full-archive descriptive checks, not app runtime test or evidence of profitability. SQL and Python definitions should be kept consistent.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
