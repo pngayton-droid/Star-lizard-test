@@ -31,8 +31,17 @@ class TimelineTests(unittest.TestCase):
         goals, reason = validated_goal_sequence(
             {"events": [event(1, "own_goal", "second_half", "Away")]},
             "Home", "Away", 0, 0, 1, 0)
-        self.assertIsNone(goals)
-        self.assertEqual(reason, "own_goal_requires_manual_review")
+        self.assertIsNone(reason)
+        self.assertEqual(first_second_half_goal(goals), "home")
+
+    def test_own_goal_counts_against_opponent(self):
+        events = [event(1, "goal", "first_half", "Away", 43),
+                  event(2, "own_goal", "second_half", "Home", 68),
+                  event(3, "goal", "second_half", "Home", 87)]
+        goals, reason = validated_goal_sequence(
+            {"events": events}, "Home", "Away", 0, 1, 1, 2)
+        self.assertIsNone(reason)
+        self.assertEqual(first_second_half_goal(goals), "away")
 
     def test_reject_unmatched_team(self):
         goals, reason = validated_goal_sequence(
