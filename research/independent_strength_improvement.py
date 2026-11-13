@@ -105,7 +105,7 @@ def metrics(beta, matches):
   p=probs(beta,m["home_team"],m["away_team"],"poisson")
   y=0 if m["home_goals"]>m["away_goals"] else 1 if m["home_goals"]==m["away_goals"] else 2
   ll-=math.log(max(float(p[y]),1e-12))
-  br+=sum((float(p[k])-int(k==y))**2) for k in range(3))
+  br+=sum((float(p[k])-int(k==y))**2 for k in range(3))
   side=0 if p[0]>p[2] else 2
   strength=float(p[side])
   key="strong" if strength>=.65 else "medium" if strength>=.5 else "other"
