@@ -77,7 +77,10 @@ def chronological_three_way_split(rows, train_fraction=0.60, validation_fraction
     train, remainder, first_cutoff = chronological_split(rows, train_fraction)
     # Adjust validation proportion to the size of the remaining timeline.
     val_share = validation_fraction / (1 - train_fraction)
-    validation, final_test, second_cutoff = chronological_split(remainder, val_share)
+    try:
+        validation, final_test, second_cutoff = chronological_split(remainder, val_share)
+    except ValueError as exc:
+        raise ValueError("Three-way split requires enough distinct dates for validation and final test") from exc
     return train, validation, final_test, first_cutoff, second_cutoff
 
 
