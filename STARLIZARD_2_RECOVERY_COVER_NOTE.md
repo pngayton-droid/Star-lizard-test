@@ -117,6 +117,9 @@ GitHub Actions run `43437180492` passed after score validity hardening. Commit `
 ### Calibration diagnostics
 GitHub Actions run `43437404262` **passed** for the validation-baseline screen. Added fixed-bin calibration analysis to `research/conditional_model.py` (commit `ea87cf786ecd56c7ce34d0e9530e671c2a64eca5`), a predicted-vs-observed validation table in the model tab (commit `130eb5951dd556a7a391fa7d3e4ef2118fd347f8`), and offline regression test (commit `fb2f72720c8c14065d62131a1bed374e4839c07b`). The table shows validation calibration only; no final-test peeking, no market-odds assumptions. CI pending.
 
+### Additional malformed score fixture
+Commit `fcc9623d5430cb995983a8856e26ca9717c6d92f` adds a synthetic fractional halftime score to the Streamlit AppTest fixture and asserts the integrity dashboard flags exactly one invalid score row. The historical research loader already excludes such records. Latest CI pending. No actual historical records altered.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
