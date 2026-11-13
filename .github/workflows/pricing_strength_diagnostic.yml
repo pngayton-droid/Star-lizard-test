@@ -1,0 +1,28 @@
+name: Pricing strength diagnostic
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/pricing_strength_diagnostic.yml', 'research/pricing_strength_diagnostic.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        id: [comp_3039, comp_8814, comp_0256, comp_5840]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy scipy supabase
+      - name: Compare frozen pricing alternatives
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LEAGUE_ID: ${{ matrix.id }}
+        run: python -u research/pricing_strength_diagnostic.py
