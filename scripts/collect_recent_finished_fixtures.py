@@ -7,7 +7,6 @@ import os
 import time
 from datetime import datetime, timedelta, timezone
 import requests
-from supabase import create_client
 
 BASE = "https://api.thestatsapi.com/api"
 LEAGUES = {
@@ -27,6 +26,8 @@ if LIVE and not all(os.getenv(k) for k in ("STATS_API_KEY", "SUPABASE_URL", "SUP
 if not LIVE:
     print("DRY RUN: no API requests and no database changes. Set ENABLE_LIVE_FIXTURE_COLLECTION=1 to collect.")
     raise SystemExit(0)
+
+from supabase import create_client
 
 db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SECRET_KEY"])
 http = requests.Session()
