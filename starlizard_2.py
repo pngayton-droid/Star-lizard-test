@@ -303,7 +303,7 @@ def bookmaker_odds_quality():
         for row in batch:
             payload = row.get("odds_payload") or {}
             data = payload.get("data") or {}
-            books = data.get("bookmakers") or [] if isinstance(data, dict) else []
+            books = (data.get("bookmakers") or []) if isinstance(data, dict) else []
             book = next((b for b in books if isinstance(b, dict) and b.get("bookmaker") == "Bet365"), None)
             if book is None:
                 continue
