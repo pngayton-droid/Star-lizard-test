@@ -433,7 +433,7 @@ with tab7:
 
 with tab8:
     st.subheader("Out-of-sample conditional probability model")
-    st.caption("Learns from older matches only. Compares a shrinkage model with a global historical baseline on later matches.")
+    st.caption("Halftime-only predictors. Learns from older matches and scores against later dates; this is model development, not an untouched final confirmation.")
     target = st.selectbox("Prediction target", [
         "2H goal", "2H over 1.5", "2H draw", "Home FT win", "Away FT win",
         "FT draw", "Home won both halves", "Away won both halves",
@@ -450,8 +450,8 @@ with tab8:
             frame = frame.dropna(subset=["match_date", target])
             # Do not evaluate without an actual calendar date for each match.
             frame["match_date"] = frame["match_date"].dt.strftime("%Y-%m-%d")
-            training, testing, cutoff = chronological_split(
-                frame.to_dict("records"), .70)
+            training, testing, reserved, cutoff, reserved_from = chronological_three_way_split(
+                frame.to_dict("records"))
             model = fit_conditional_rates(training, features, target, strength)
             scores = evaluate_conditional(model, testing, target)
             if scores is None:
@@ -459,8 +459,9 @@ with tab8:
             else:
                 a, b, d = st.columns(3)
                 a.metric("Training matches", f"{scores['train_n']:,}")
-                b.metric("Held-out matches", f"{scores['test_n']:,}")
-                d.metric("Holdout starts", cutoff)
+                b.metric("Validation matches", f"{scores['test_n']:,}")
+                d.metric("Validation starts", cutoff)
+                st.caption(f"Final confirmation period from {reserved_from} is reserved and excluded from scoring.")
                 st.write({
                     "Model Brier score (lower is better)": round(scores["model_brier"], 5),
                     "Global training baseline Brier": round(scores["global_train_baseline_brier"], 5),
@@ -469,9 +470,9 @@ with tab8:
                     "Unseen feature combinations in test": scores["unseen_group_test_n"],
                 })
                 if scores["model_brier"] < scores["global_train_baseline_brier"]:
-                    st.success("Model beats the global baseline on this holdout. This is not proof of a betting edge.")
+                    st.success("Model beats the global baseline on this validation period. This is not proof of a betting edge.")
                 else:
-                    st.info("Model does not beat the global baseline on this holdout.")
+                    st.info("Model does not beat the global baseline on this validation period.")
         except Exception as exc:
             st.error(f"Model evaluation failed: {type(exc).__name__}: {exc}")
-    st.warning("These are conditional historical probabilities, not tradable market prices. Predictor choices are user-selected; repeated tuning on this holdout invalidates it as untouched confirmation.")
+    st.warning("These are conditional historical probabilities, not tradable market prices. Validation may be reused for model development; the final test is reserved for a locked model. No in-play ROI can be inferred.")
