@@ -58,6 +58,11 @@ Commits `ebd66b81ec57be3de4e4b20f9aa490dc36f4582b` and `a1fbeea5900d72ef527bb2ab
 ### Bookmaker odds quality audit (2026-11-13)
 Commit `f8c67f60fa2f5372d063e77c04a3c73c067d3bcf`: sixth tab `Odds quality` computes Bet365 match-odds 1X2 complete opening/last_seen quote coverage by league from stored odds JSON; read-only, CSV export, no provider calls. Independent Supabase SQL verified raw quote-presence counts (not price validation) by league: Championship opening 115 / last_seen 1771; Premier League 55/1556; La Liga 10/1525; Serie A 10/1521; Ligue 1 15/1302; Bundesliga 15/1234; Belgium 15/948; Eredivisie 15/930; Portugal 9/908; Scotland 15/185. **Opening quotes are extremely sparse. Last_seen timestamps not validated as pre-match closing. No live odds for ROI.** Dashboard counts may differ slightly because it rejects invalid numeric odds. Runtime testing pending.
 
+### Pattern discovery and offline checks (2026-11-13)
+- `starlizard_2.py` commit `0c318d2f81b5baae91f79b447730644f3eae9f15`: seventh tab searches league × HT score state × HT xG leader across ten outcomes, with a shared chronological train/test date cutoff and sample thresholds. Shows both training and held-out rates and Wilson intervals. Exploratory, not a confirmed signal; test-based sorting itself is selection bias, so a further untouched test period is mandatory.
+- `tests/test_chronological_validation.py` commit `3dcdb97185bd207c761a74ab72534ccab344e96d`: regression tests for no same-date leakage, duplicates, training-only baseline and Wilson interval.
+- `.github/workflows/starlizard2-research-tests.yml` commit `0febc706ceda3232cade2c9a0ce88a5a08ed2471`: automated syntax and no-network regression checks on pushes to development branch, and manual workflow dispatch. This workflow does not use provider credentials or Supabase. **Workflow execution status not verified**. Inspect GitHub Actions before claiming tests pass.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
