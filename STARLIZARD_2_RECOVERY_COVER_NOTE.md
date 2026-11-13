@@ -191,6 +191,14 @@ Read-only Supabase SQL `research/ht_next_goal_relative_price_ratio_brier.sql` (c
 - Later test n=860 Brier: coarse 0.221958; coarse+xG 0.221496; **ratio 0.220027**; ratio+xG 0.220092.
 - Detailed ratio improves later-test predictions; adding xG to ratio yields **slightly worse** later-test Brier (+0.000065) despite improving validation. May indicate prior xG gain partly captures strength, but not conclusive. Ratio bins selected during exploratory development, so not pristine out-of-sample design; Bet365 last_seen not timestamp-verified as pre-match, possible hindsight leakage. No aligned next-goal odds, no ROI or betting edge. Full goal chronology validation still pending.
 
+### CRITICAL odds provenance audit (November 13)
+Read-only Supabase SQL preserved at `research/historical_odds_provenance_audit.sql` (commit `268244af998143d5c8ae4a867fae0ed8e5b8ab57`).
+- `historical_match_odds` has 11,934 rows, 11,882 non-null payloads; all 11,934 joined historical matches have `match_date` **before** `fetched_at`. Fetch window Nov 11–12, 2026; underlying matches Aug 5, 2022–Nov 3, 2026.
+- Odds JSON data has only `bookmakers`, `match_id`; Bet365 bookmaker objects only `bookmaker`, `markets`; match_odds home objects only `opening`, `last_seen`. **No quote-validity timestamp in these fields**. Collector fetch time is NOT quote creation time. Last_seen cannot be certified as a pre-kickoff quote; earlier strength-ratio model results could be hindsight contaminated.
+- 11,881 Bet365 rows with paired home/away last_seen, only **274** with paired opening prices. Opening-price match dates Sep 5–Nov 3 2026; 175 of 274 have HT deficit >=1 with HT xG present, before further goal-timeline validation.
+- Treat all earlier last_seen-based modelling as **exploratory only**; do NOT present its Brier as verified actionable prediction or use for betting flags. Opening prices may reflect pre-match markets by definition, but their source semantics and quote timestamps still need verification; sparse 274 sample insufficient for broad multi-year validation.
+- No provider API calls, no Supabase writes, production main untouched. Next priority build a strictly pre-match-only historical strength model using earlier team match results or verified opening odds, then time-split evaluation.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
