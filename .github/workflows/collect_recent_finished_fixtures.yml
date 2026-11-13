@@ -26,7 +26,7 @@ jobs:
       - name: Collect recent finished fixtures
         env:
           ENABLE_LIVE_FIXTURE_COLLECTION: "1"
-          LIVE_FIXTURE_MAX_REQUESTS: "60"
+          LIVE_FIXTURE_MAX_REQUESTS: "30"
           LIVE_FIXTURE_LOOKBACK_DAYS: "4"
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
