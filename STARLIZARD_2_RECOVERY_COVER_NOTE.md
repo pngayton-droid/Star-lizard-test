@@ -63,6 +63,9 @@ Commit `f8c67f60fa2f5372d063e77c04a3c73c067d3bcf`: sixth tab `Odds quality` comp
 - `tests/test_chronological_validation.py` commit `3dcdb97185bd207c761a74ab72534ccab344e96d`: regression tests for no same-date leakage, duplicates, training-only baseline and Wilson interval.
 - `.github/workflows/starlizard2-research-tests.yml` commit `0febc706ceda3232cade2c9a0ce88a5a08ed2471`: automated syntax and no-network regression checks on pushes to development branch, and manual workflow dispatch. This workflow does not use provider credentials or Supabase. **Workflow execution status not verified**. Inspect GitHub Actions before claiming tests pass.
 
+### Conditional model checkpoint (2026-11-13)
+Added `research/conditional_model.py` (commit `6d37c1e5c1408e5e67df83a054b5392e0f6c89e5`): small-sample-smoothed categorical rates with a training-only global prior, prediction fallback for unseen feature combinations and held-out Brier scoring. Added eighth `Model check` dashboard tab (commit `c6fcb07580bef4dfcfdaafaf142f56c122d929be`) to compare chronological test Brier with a global training baseline, with user-selectable HT predictors. Added tests `tests/test_conditional_model.py` and expanded GitHub Actions offline check workflow. **These commits are untested in a live Streamlit runtime and Actions status has not been verified.** This is a predictive baseline, not a market-beating strategy. Critical next milestone: obtain reliable time-aligned bookmaker quotes for ROI validation, avoid repeated tuning on holdout, and verify runtime.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
