@@ -138,6 +138,16 @@ GitHub CI run `43439858013` passed after the Streamlit test fix. Read-only Supab
 ### Score-consistent second-half scorer cross-check
 Read-only SQL grouped score-consistent goal-bearing timelines by first 2H scoring event sequence: **home 5,213**, **away 4,286**, **no 2H scoring event 1,674**. Add **737** score-consistent 0–0 games with no scoring events, yielding **home 5,213 / away 4,286 / none 2,411**, total **11,910**. This is a SQL cross-check of scoring event sequences, NOT a full Python timeline chronology pass and NOT a betting edge. The 22 discrepant matches include examples of more goal events than the official final score, consistent with possible VAR-cancelled goal entries; investigate, don't delete. GitHub CI run `43441176470` passed for scored-penalty regression. Preserve these counts as independently reproduced baseline for the new UI audit.
 
+### November 13 next-goal segmentation — real stored SQL results
+Read-only Supabase research (no StatsAPI calls) on reconciled event timelines. **Trailing by exactly one goal at halftime**, grouped by trailing team's halftime xG: below 0.20: **477/1,480 = 32.23%** first second-half scorer; at least 0.20: **1,579/3,631 = 43.49%**. Trailing by two: below 0.20 **147/540 = 27.22%**, at least 0.20 **403/1,022 = 39.43%**. Trailing by 3+: below 0.20 **50/193 = 25.91%**, at least 0.20 **89/277 = 32.13%**. These are descriptive and not chronological holdout tests.
+
+Joining Bet365 stored **last_seen** home/away quotes to identify relative shorter-/longer-priced teams (NOT verified pre-match quotes), for one-goal halftime deficits:
+- Longer-priced trailing team, HT xG below 0.20: **317/1,140 = 27.81%**; xG 0.20+: **710/2,049 = 34.65%** (empirical fair decimal **2.89**).
+- Shorter-priced trailing team, HT xG below 0.20: **156/322 = 48.45%**; xG 0.20+: **836/1,517 = 55.11%** (empirical fair decimal **1.81**).
+- Equal quote: xG below 0.20 **3/12 = 25%**, xG 0.20+ **23/44 = 52.27%**.
+- These are not market-odds comparisons: **no verified time-aligned halftime next-goal quotes**. Relative favourite proxy may reflect later odds, introducing hindsight bias. Do not label them pre-match favourite/underdog without validated timestamps. No claimed edge or ROI.
+- Reproducible read-only SQL committed as `research/ht_trailing_next_goal_by_quote.sql` (`e7523d0191571dcb628e1b1eb413832d2a2defd6`). SQL only score-reconciles scoring events, does not yet apply full chronological timeline validator.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
