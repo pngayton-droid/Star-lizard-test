@@ -82,12 +82,12 @@ for start in range(0,20000,500):
   for book in data.get("bookmakers") or []:
    if str(book.get("bookmaker","")).lower()=="bet365":
     m=(book.get("markets") or {}).get("match_odds") or {}
-    try:
-     for phase in ("opening","last_seen"):
+    for phase in ("opening","last_seen"):
+     try:
       vals=[float(m[k][phase]) for k in ("home","draw","away")]
       if min(vals)>1 and max(vals)<1000:
        odds.setdefault(item["match_id"],{})[phase]=vals
-    except (KeyError,TypeError,ValueError):pass
+     except (KeyError,TypeError,ValueError):pass
     break
  if len(batch)<500:break
 print("ODDS_MATCHES",len(odds),"OPENING",sum("opening" in x for x in odds.values()),"LAST_SEEN",sum("last_seen" in x for x in odds.values()),flush=True)
