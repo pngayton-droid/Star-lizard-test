@@ -59,7 +59,7 @@ LEAGUE_NAMES = {
     "comp_6387":"Scotland · Premiership",
 }
 
-tab1,tab2,tab3=st.tabs(["🏠 Overview","🏆 Existing leagues","🔎 Research queue"])
+tab1,tab2,tab3=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage"])
 with tab1:
     st.subheader("Our existing football database")
     try:
@@ -90,10 +90,57 @@ with tab2:
         st.caption("Inventory comes from historical_xg; event/odds coverage can differ. No leagues are fetched from TheStatsAPI.")
     except Exception as exc:
         st.error(f"League inventory unavailable: {type(exc).__name__}")
+@st.cache_data(ttl=900)
+def coverage_ids(table):
+    ids = set()
+    for offset in range(0, 100000, 1000):
+        batch = (db().table(table).select("match_id")
+                 .order("match_id").range(offset, offset + 999).execute().data or [])
+        ids.update(str(row["match_id"]) for row in batch if row.get("match_id") is not None)
+        if len(batch) < 1000:
+            break
+    return ids
+
+@st.cache_data(ttl=900)
+def coverage_by_league():
+    odds_ids = coverage_ids("historical_match_odds")
+    event_ids = coverage_ids("historical_match_events")
+    rows = []
+    for offset in range(0, 100000, 1000):
+        batch = (db().table("historical_xg")
+                 .select("match_id,competition_id,home_xg,away_xg,home_ht_xg,away_ht_xg")
+                 .order("match_id").range(offset, offset + 999).execute().data or [])
+        for m in batch:
+            match_id = str(m["match_id"])
+            rows.append({
+                "League": LEAGUE_NAMES.get(m.get("competition_id"), "Unassigned"),
+                "Match ID": match_id,
+                "Odds stored": int(match_id in odds_ids),
+                "Events stored": int(match_id in event_ids),
+                "Full-time xG": int(m.get("home_xg") is not None and m.get("away_xg") is not None),
+                "Half-time xG": int(m.get("home_ht_xg") is not None and m.get("away_ht_xg") is not None),
+            })
+        if len(batch) < 1000:
+            break
+    if not rows:
+        return pd.DataFrame()
+    frame = pd.DataFrame(rows).drop_duplicates("Match ID")
+    return (frame.groupby("League", as_index=False)
+            .agg(Matches=("Match ID", "count"),
+                 Odds_records=("Odds stored", "sum"),
+                 Event_records=("Events stored", "sum"),
+                 FT_xG=("Full-time xG", "sum"),
+                 HT_xG=("Half-time xG", "sum"))
+            .sort_values("Matches", ascending=False))
+
 with tab3:
-    st.subheader("Research priorities")
-    st.write("**1.** Check stored odds, timeline and xG completeness for each league.")
-    st.write("**2.** Reconstruct matches where pre-match favourites fell behind, without future-information leakage.")
-    st.write("**3.** Compare historical model prices with time-aligned market quotes where available.")
-    st.write("**4.** Use chronological holdout testing before flagging any potential value.")
-    st.caption("This page is a build foundation, not a completed live odds scanner.")
+    st.subheader("Stored match data coverage")
+    st.caption("Matches joined by match ID across existing Supabase tables. Odds record presence does not guarantee usable prices.")
+    if st.button("Run read-only coverage audit", type="primary"):
+        try:
+            report = coverage_by_league()
+            st.dataframe(report, use_container_width=True, hide_index=True)
+            st.download_button("Download coverage CSV", report.to_csv(index=False), "starlizard_coverage.csv", "text/csv")
+        except Exception as exc:
+            st.error(f"Coverage audit failed: {type(exc).__name__}: {exc}")
+    st.info("No external StatsAPI requests. The audit reads stored Supabase records only.")
