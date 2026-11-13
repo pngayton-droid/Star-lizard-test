@@ -1,0 +1,27 @@
+name: Independent pricing research backtest
+on:
+  push:
+    branches:
+      - starlizard-2-existing-data-only
+    paths:
+      - 'research/**'
+      - '.github/workflows/pricing_research.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install supabase
+      - run: python -m unittest discover -s research -p 'test_*.py'
+      - name: Walk-forward historical backtest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -m research.backtest_supabase
