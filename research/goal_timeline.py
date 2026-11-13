@@ -36,8 +36,6 @@ def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft
                 previous_minute = minute_value
         if event.get("type") not in GOAL_TYPES:
             continue
-        if event.get("type") == "own_goal":
-            return None, "own_goal_requires_manual_review"
         period = event.get("period")
         if period not in ("first_half", "second_half"):
             return None, "invalid_goal_period"
@@ -52,6 +50,10 @@ def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft
             side = "away"
         else:
             return None, "unmatched_goal_team"
+        # An own-goal event names the conceding player's team.
+        # The opposition receives the goal; HT/FT counts verify it.
+        if event.get("type") == "own_goal":
+            side = "away" if side == "home" else "home"
         goals.append({"side": side, "half": 1 if period == "first_half" else 2,
                       "minute": minute, "sequence": sequence})
     actual = (
