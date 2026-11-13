@@ -3,7 +3,8 @@ import csv
 import os
 import tempfile
 from supabase import create_client
-from research.independent_pricing import load, walk_forward, probabilities
+from research.independent_pricing import load, walk_forward, probabilities, estimate
+from research.opponent_strength import predict as strength_predict
 import math
 
 def main():
@@ -42,6 +43,17 @@ def main():
             poisson_loss=sum(-math.log(max(1e-12,probabilities(lh,la,rho=0)[o])) for _,_,o,lh,la in predictions)/n
             actual_home=sum(o==0 for _,_,o,_,_ in predictions)/n
             actual_away=sum(o==2 for _,_,o,_,_ in predictions)/n
+            # Paired holdout: identical fixtures and strictly earlier-day training.
+            # Limit to the latest 60 evaluable fixtures per league for a fast research check.
+            sample=predictions[-60:]
+            baseline_total=adjusted_total=0.
+            for m,p,o,_,_ in sample:
+                prior_matches=[old for old in matches if old["date"]<m["date"]]
+                sh,sa=strength_predict(prior_matches,m["home_team"],m["away_team"],m["date"])
+                adjusted=probabilities(sh,sa)
+                baseline_total-=math.log(max(1e-12,p[o]))
+                adjusted_total-=math.log(max(1e-12,adjusted[o]))
+            print(f"{league}: paired_n={len(sample)}, baseline_logloss={baseline_total/len(sample):.4f}, opponent_adjusted_logloss={adjusted_total/len(sample):.4f}")
             print(f"{league}: n={n}, logloss={loss:.4f}, poisson_logloss={poisson_loss:.4f}, brier={brier:.4f}, "
                   f"home_pred={home:.3f}, home_actual={actual_home:.3f}, draw_pred={draw:.3f}, draw_actual={actual_draw:.3f}, away_actual={actual_away:.3f}")
 if __name__=="__main__":
