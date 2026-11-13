@@ -1,6 +1,7 @@
 
 import os
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,7 +27,7 @@ TABLES = [
     "archive_understat_goal_events",
     "pattern_scan_history",
 ]
-PAGE_SIZE = 500
+PAGE_SIZE = 50
 backup_dir = Path("backup_output")
 backup_dir.mkdir(exist_ok=True)
 
@@ -52,14 +53,26 @@ for table in TABLES:
     offset = 0
 
     while offset < expected:
-        response = (
-            db.table(table)
-            .select("*")
-            .range(offset, offset + PAGE_SIZE - 1)
-            .execute()
-        )
-
-        batch = response.data or []
+        batch = None
+        for attempt in range(5):
+            try:
+                response = (
+                    db.table(table)
+                    .select("*")
+                    .range(offset, min(expected - 1, offset + PAGE_SIZE - 1))
+                    .execute()
+                )
+                batch = response.data or []
+                break
+            except Exception as exc:
+                if attempt == 4 or not any(
+                    token in str(exc).lower()
+                    for token in ("timeout", "57014", "connection")
+                ):
+                    raise
+                wait = 2 ** attempt
+                print(f"  Temporary query failure at {offset}; retrying in {wait}s", flush=True)
+                time.sleep(wait)
 
         if not batch:
             raise RuntimeError(
