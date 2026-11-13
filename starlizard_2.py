@@ -410,9 +410,9 @@ with tab7:
                         lo, hi = wilson_interval(int(te[outcome].sum()), len(te))
                         discoveries.append({
                             "League": league, "HT state": state, "HT xG leader": xg,
-                            "Train n": len(tr), "Test n": len(te),
+                            "Train n": len(tr), "Validation n": len(te),
                             "Train rate %": round(100*training_rate, 2),
-                            "Test rate %": round(100*testing_rate, 2),
+                            "Validation rate %": round(100*testing_rate, 2),
                             "Validation low %": round(100*lo, 2),
                             "Validation high %": round(100*hi, 2),
                             "Final test n": len(final_group),
