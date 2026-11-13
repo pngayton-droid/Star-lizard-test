@@ -66,6 +66,9 @@ Commit `f8c67f60fa2f5372d063e77c04a3c73c067d3bcf`: sixth tab `Odds quality` comp
 ### Conditional model checkpoint (2026-11-13)
 Added `research/conditional_model.py` (commit `6d37c1e5c1408e5e67df83a054b5392e0f6c89e5`): small-sample-smoothed categorical rates with a training-only global prior, prediction fallback for unseen feature combinations and held-out Brier scoring. Added eighth `Model check` dashboard tab (commit `c6fcb07580bef4dfcfdaafaf142f56c122d929be`) to compare chronological test Brier with a global training baseline, with user-selectable HT predictors. Added tests `tests/test_conditional_model.py` and expanded GitHub Actions offline check workflow. **These commits are untested in a live Streamlit runtime and Actions status has not been verified.** This is a predictive baseline, not a market-beating strategy. Critical next milestone: obtain reliable time-aligned bookmaker quotes for ROI validation, avoid repeated tuning on holdout, and verify runtime.
 
+### Performance fix and checkpoint
+Chronological holdout split now counts match dates in one pass and selects the nearest whole-date boundary without rescanning all matches per candidate (commits `811424574b88ee42a179f589e763f51a01410f74`, `37a7f5dd7ec4f747b24312ffb9a95fff3f0ace56`). This matters for roughly 12,000 stored matches. **Tests and Streamlit runtime have not yet been confirmed as passing.** No production changes, provider requests or data mutations.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
