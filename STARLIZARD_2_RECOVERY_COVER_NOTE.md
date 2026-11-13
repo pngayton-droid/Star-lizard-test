@@ -108,6 +108,9 @@ After verified green GitHub Actions run `43436489852`, corrected ninth integrity
 ### Raw integrity regression verification
 GitHub Actions run `43436682141` **passed**, confirming the raw-integrity correction boots and its mocked UI runs. Added stronger AppTest fixture with a second deliberately incomplete record and assertions that the raw audit reports 2 records, 1 incomplete score, 1 missing date, and 1 missing halftime xG pair (commit `193c61fc61b25041495429cc592ae4ed4e2a9d8a`). Latest CI pending. No new provider calls.
 
+### Score validation hardening
+GitHub Actions run `43436941716` **passed**, including assertions for missing raw dates, scores and halftime xG. Commit `8deaaf5ecb1db181e8e4812bd0195ec966a47f65` now rejects negative and fractional score values from research outcome construction. Commit `70449724ba43b8faa4d4da9f8818ed5d29ad3427` exposes those anomalies in the raw integrity audit; `4de7307eee299b237e54bc77c025754fed1f0e23` adds an integration assertion. Latest CI pending. Production app and historical rows remain untouched.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
