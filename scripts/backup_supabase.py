@@ -15,10 +15,17 @@ db = create_client(
 # Our existing football database tables.
 TABLES = [
     "historical_xg",
+    "historical_match_odds",
+    "historical_match_events",
     "collector_progress",
     "historical_xg_legacy_backup",
+    "starlizard_next_goal_research",
+    "archive_football_data",
+    "archive_source_links",
+    "archive_understat",
+    "archive_understat_goal_events",
+    "pattern_scan_history",
 ]
-
 PAGE_SIZE = 500
 backup_dir = Path("backup_output")
 backup_dir.mkdir(exist_ok=True)
