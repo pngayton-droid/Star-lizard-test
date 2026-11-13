@@ -104,11 +104,17 @@ def main():
         league_start_calls = calls
         page = 1
         while calls < MAX_CALLS and calls - league_start_calls < per_league_budget:
-            payload = get("/football/matches", {
-                "competition_id": competition_id, "status": "finished",
-                "date_from": start.isoformat(), "date_to": today.isoformat(),
-                "per_page": 20, "page": page, "sort": "-utc_date",
-            })
+            try:
+                payload = get("/football/matches", {
+                    "competition_id": competition_id, "status": "finished",
+                    "date_from": start.isoformat(), "date_to": today.isoformat(),
+                    "per_page": 20, "page": page, "sort": "-utc_date",
+                })
+            except requests.HTTPError as exc:
+                if exc.response is not None and exc.response.status_code == 400 and page > 1:
+                    print(f"{name}: API rejected page {page}; moving to next league", flush=True)
+                    break
+                raise
             matches = (payload or {}).get("data") or []
             if not isinstance(matches, list):
                 raise RuntimeError("Unexpected matches response")
