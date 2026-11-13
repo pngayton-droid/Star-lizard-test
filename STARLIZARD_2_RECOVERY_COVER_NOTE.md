@@ -120,6 +120,9 @@ GitHub Actions run `43437404262` **passed** for the validation-baseline screen. 
 ### Additional malformed score fixture
 Commit `fcc9623d5430cb995983a8856e26ca9717c6d92f` adds a synthetic fractional halftime score to the Streamlit AppTest fixture and asserts the integrity dashboard flags exactly one invalid score row. The historical research loader already excludes such records. Latest CI pending. No actual historical records altered.
 
+### First goal-timeline verification module
+Read-only Supabase inspection verified timeline JSON has an `events` array with `sequence`, `period`, `minute`, `type`, and `team.name`; `timeline_status` is numeric HTTP status (e.g. 200), not text. Added `research/goal_timeline.py` in commit `bdcdcdcca66b956ff355a053673801be2b5509a6`. It validates sequence order, team attribution, halftime/full-time score counts and rejects ambiguous own goals, unmatched teams and score mismatches (including suspect VAR duplicates) rather than silently accepting them. Added six synthetic regression tests (`7f894dd94e797a1618a149ba1511ad332f9b9f79`) and wired them into GitHub CI (`fdfdabcd984f464cda563d951f1b3b6dc54e2a09`). **Not yet integrated into dashboard or run across all 11k stored timelines**. CI pending. The module is a foundation for next-goal research, not a verified historical result.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
