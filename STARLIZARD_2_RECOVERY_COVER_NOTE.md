@@ -99,6 +99,9 @@ GitHub Actions run `43425783567` completed **successfully** including extended m
 ### Multiple-testing and split safety (2026-11-13)
 GitHub Actions run `43426001834` **passed** with UI tests and mobile summary changes. Pattern discovery now reports how many candidate patterns passed thresholds and explicitly warns that Wilson intervals are unadjusted for multiple comparisons (commit `5bb44954e52fca008d14d8699f0b4e1c718c4888`). Three-way chronological split now gives a clear error when too few distinct match dates remain (commit `e115d04faaff57451d618d63217133bed8428c6e`) and has a regression test (commit `7f77ee3b40afb2ee9163e8723b038d33a2bbe364`). New CI pending. No final-test outcomes accessed during exploratory pattern selection. Still no time-aligned in-play prices, so no ROI claims.
 
+### Integrity audit tab
+CI run `43426479974` completed **successfully**. Added a ninth read-only `Integrity` tab (`54cb7c8aea18f8f805e81f1ed3696a7ab72a0294`) displaying completeness among score-consistent records and clearly warning that this does **not** audit goal timelines or VAR anomalies. Added a UI click-through test (`9f06160c0733738cda338237809c9192e3791c67`). New CI pending. Important limitation: this tab calls `halftime_research_data`, which excludes missing/inconsistent score records, so it is **not** an exhaustive raw-record audit; data coverage tab and independent SQL are needed for excluded-record counts.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
