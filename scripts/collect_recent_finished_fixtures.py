@@ -68,11 +68,33 @@ def existing_ids():
         offset += 1000
     return result
 
+def existing_events():
+    result = {}
+    offset = 0
+    while True:
+        rows = db.table("historical_match_events").select("match_id,stats_data,timeline_data").range(offset, offset + 999).execute().data or []
+        for row in rows:
+            result[str(row["match_id"])] = row
+        if len(rows) < 1000:
+            break
+        offset += 1000
+    return result
+
+def save_events(match_id, stats=None, timeline=None):
+    row = {"match_id": match_id}
+    if isinstance(stats, dict):
+        row.update(stats_data=stats, stats_status=200)
+    if isinstance(timeline, dict):
+        row.update(timeline_data=timeline, timeline_status=200)
+    if len(row) > 1:
+        db.table("historical_match_events").upsert(row, on_conflict="match_id").execute()
+
 def main():
     today = datetime.now(timezone.utc).date()
     start = today - timedelta(days=DAYS_BACK)
     known = existing_ids()
-    added = skipped = missing = 0
+    events = existing_events()
+    added = skipped = missing = event_updates = 0
     for name, competition_id in LEAGUES.items():
         page = 1
         while calls < MAX_CALLS:
@@ -88,37 +110,52 @@ def main():
                 match_id = str(match.get("id") or match.get("match_id") or "")
                 if not match_id:
                     continue
-                if known.get(match_id):
+                old = events.get(match_id) or {}
+                stats = old.get("stats_data")
+                timeline = old.get("timeline_data")
+                if known.get(match_id) and stats is not None and timeline is not None:
                     skipped += 1
                     continue
-                if match.get("xg_available") is False or calls >= MAX_CALLS:
+                if calls >= MAX_CALLS:
                     missing += 1
                     continue
-                detail = get(f"/football/matches/{match_id}/stats")
-                expected = (((detail or {}).get("data") or {}).get("overview") or {}).get("expected_goals") or {}
-                full, half = expected.get("all") or {}, expected.get("first_half") or {}
-                values = (full.get("home"), full.get("away"), half.get("home"), half.get("away"))
-                if any(v is None for v in values):
-                    missing += 1
-                    continue
-                row = {
-                    "match_id": match_id, "match_date": str(match.get("utc_date") or "")[:10],
-                    "home_team": (match.get("home_team") or {}).get("name", ""),
-                    "away_team": (match.get("away_team") or {}).get("name", ""),
-                    "home_xg": values[0], "away_xg": values[1],
-                    "home_ht_xg": values[2], "away_ht_xg": values[3],
-                }
-                if not row["match_date"] or not row["home_team"] or not row["away_team"]:
-                    missing += 1
-                    continue
-                db.table("historical_xg").upsert(row, on_conflict="match_id").execute()
-                known[match_id] = True
-                added += 1
+                if stats is None:
+                    payload = get(f"/football/matches/{match_id}/stats")
+                    stats = (payload or {}).get("data")
+                    if isinstance(stats, dict):
+                        save_events(match_id, stats=stats)
+                        event_updates += 1
+                if not known.get(match_id):
+                    expected = ((stats or {}).get("overview") or {}).get("expected_goals") or {}
+                    full, half = expected.get("all") or {}, expected.get("first_half") or {}
+                    values = (full.get("home"), full.get("away"), half.get("home"), half.get("away"))
+                    if any(v is None for v in values):
+                        missing += 1
+                    else:
+                        row = {
+                            "match_id": match_id, "match_date": str(match.get("utc_date") or "")[:10],
+                            "home_team": (match.get("home_team") or {}).get("name", ""),
+                            "away_team": (match.get("away_team") or {}).get("name", ""),
+                            "competition_id": competition_id,
+                            "home_xg": values[0], "away_xg": values[1],
+                            "home_ht_xg": values[2], "away_ht_xg": values[3],
+                        }
+                        if row["match_date"] and row["home_team"] and row["away_team"]:
+                            db.table("historical_xg").upsert(row, on_conflict="match_id").execute()
+                            known[match_id] = True
+                            added += 1
+                if timeline is None and calls < MAX_CALLS:
+                    payload = get(f"/football/matches/{match_id}/timeline")
+                    timeline = (payload or {}).get("data")
+                    if isinstance(timeline, dict):
+                        save_events(match_id, timeline=timeline)
+                        event_updates += 1
+                events[match_id] = {"stats_data": stats, "timeline_data": timeline}
             if len(matches) < 20 or calls >= MAX_CALLS:
                 break
             page += 1
         print(f"{name}: finished; calls={calls}", flush=True)
-    print(f"Added={added} complete_skipped={skipped} missing_xg={missing} api_calls={calls}", flush=True)
+    print(f"Added={added} complete_skipped={skipped} missing_xg={missing} event_updates={event_updates} api_calls={calls}", flush=True)
 
 if __name__ == "__main__":
     main()
