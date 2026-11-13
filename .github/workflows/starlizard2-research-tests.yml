@@ -30,6 +30,8 @@ jobs:
           python-version: '3.11'
       - name: Install app dependencies
         run: pip install -r requirements.txt
+      - name: Exercise dashboard with mocked Supabase data
+        run: python -m unittest tests.test_streamlit_dashboard -v
       - name: Start headless preview server
         run: |
           streamlit run starlizard_2.py --server.headless true --server.port 8501 > /tmp/starlizard-streamlit.log 2>&1 &
