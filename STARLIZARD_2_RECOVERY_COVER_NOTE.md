@@ -126,6 +126,9 @@ Read-only Supabase inspection verified timeline JSON has an `events` array with 
 ### Timeline ordering tests and real event inventory
 GitHub Actions run `43438500573` **passed**, including chronology regression tests. Timeline validator now rejects reversed match periods or clock minutes (`8d992f6940de8d052b84315a1dc1d0f00a8847ca`, tests `1a8a3d1c45ce0e5cee149d14933874805a4a5a15`). Read-only Supabase SQL independently confirmed **11,932** event rows with valid HTTP-200 timeline event arrays, **0** empty event arrays, **978** timelines containing an `own_goal` event and **10,934** containing a `goal` event. Own-goal timelines are **intentionally excluded by the conservative initial validator**, not proven corrupt; investigate correct goal attribution before incorporating them into research. These are event-coverage counts, not 11,932 validated goal sequences. No StatsAPI requests consumed.
 
+### Own-goal attribution breakthrough
+Read-only Supabase SQL inspected actual own-goal examples. In match `mt_466286966` Blackburn Rovers 1–2 Stoke City, event `own_goal` names Blackburn (the conceding player's team), while Stoke receives the goal. This was independently cross-checked against halftime/fulltime scores and the ordered goal events. Updated validator (`2f720870746f780a9512e7c60c5a36a6d8be89be`) to credit own goals to the **opponent** and still require exact HT/FT agreement. Updated and expanded offline tests (`775729ead3b3a3706f073e57eb91956f0f976607`). Earlier conservative exclusion of all 978 own-goal timelines is now superseded; remaining ambiguous cases will still fail score validation. CI pending. No external StatsAPI requests or data changes.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
