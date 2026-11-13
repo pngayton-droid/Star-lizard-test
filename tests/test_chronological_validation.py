@@ -35,6 +35,11 @@ class ChronologicalValidationTests(unittest.TestCase):
         self.assertLess(max(r["match_date"] for r in validation), second)
         self.assertGreaterEqual(min(r["match_date"] for r in final_test), second)
 
+    def test_three_way_requires_three_dates(self):
+        rows = [{"match_id": str(i), "match_date": f"2026-01-{i+1:02d}"} for i in range(2)]
+        with self.assertRaisesRegex(ValueError, "enough distinct dates"):
+            chronological_three_way_split(rows)
+
     def test_fractional_labels_rejected(self):
         with self.assertRaises(ValueError):
             evaluate_binary_baseline(
