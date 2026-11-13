@@ -1,0 +1,28 @@
+name: Independent strength improvement
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/independent_strength_improvement.yml','research/independent_strength_improvement.py']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        league: [comp_3039, comp_8814, comp_0256, comp_5840]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy scipy supabase
+      - name: Select on 2025 and validate on 2026
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LEAGUE_ID: ${{ matrix.league }}
+        run: python -u research/independent_strength_improvement.py
