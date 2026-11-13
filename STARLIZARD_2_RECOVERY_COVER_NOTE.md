@@ -111,6 +111,9 @@ GitHub Actions run `43436682141` **passed**, confirming the raw-integrity correc
 ### Score validation hardening
 GitHub Actions run `43436941716` **passed**, including assertions for missing raw dates, scores and halftime xG. Commit `8deaaf5ecb1db181e8e4812bd0195ec966a47f65` now rejects negative and fractional score values from research outcome construction. Commit `70449724ba43b8faa4d4da9f8818ed5d29ad3427` exposes those anomalies in the raw integrity audit; `4de7307eee299b237e54bc77c025754fed1f0e23` adds an integration assertion. Latest CI pending. Production app and historical rows remain untouched.
 
+### Validation baseline screen
+GitHub Actions run `43437180492` passed after score validity hardening. Commit `0dd55edf7edfa1b6294e15a289671b594f245794` adds a conservative **exploratory** screen for whether each candidate pattern's validation Wilson interval excludes the global training-period event frequency. Shows the difference in percentage points and count of such patterns. Not adjusted for multiple testing, not odds-based, not ROI; final-test outcomes still reserved. New CI pending.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
