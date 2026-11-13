@@ -64,6 +64,23 @@ def chronological_split(rows: Iterable[dict], train_fraction: float = 0.70):
     return train, test, split.isoformat()
 
 
+def chronological_three_way_split(rows, train_fraction=0.60, validation_fraction=0.20):
+    """Disjoint calendar-day train, validation, and untouched final test sets.
+
+    A candidate can be selected on validation data; report final-test results
+    only once, after selection rules have been frozen.
+    """
+    if not 0 < train_fraction < 1 or not 0 < validation_fraction < 1:
+        raise ValueError("Fractions must be between 0 and 1")
+    if train_fraction + validation_fraction >= 1:
+        raise ValueError("A nonempty final test fraction is required")
+    train, remainder, first_cutoff = chronological_split(rows, train_fraction)
+    # Adjust validation proportion to the size of the remaining timeline.
+    val_share = validation_fraction / (1 - train_fraction)
+    validation, final_test, second_cutoff = chronological_split(remainder, val_share)
+    return train, validation, final_test, first_cutoff, second_cutoff
+
+
 def evaluate_binary_baseline(train, test, outcome: str, min_train: int = 100):
     """Predict test events using only the historical training frequency.
 
