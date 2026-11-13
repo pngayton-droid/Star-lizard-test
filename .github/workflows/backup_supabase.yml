@@ -3,6 +3,9 @@ name: Backup Starlizard Database
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/backup_supabase.yml']
 
 permissions:
   contents: read
