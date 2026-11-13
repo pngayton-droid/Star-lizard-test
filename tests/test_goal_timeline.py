@@ -19,6 +19,14 @@ class TimelineTests(unittest.TestCase):
         self.assertIsNone(reason)
         self.assertEqual(first_second_half_goal(goals), "away")
 
+    def test_penalty_scored_is_goal(self):
+        events = [event(1, "goal", "first_half", "Home", 31),
+                  event(2, "penalty_scored", "second_half", "Home", 70)]
+        goals, reason = validated_goal_sequence(
+            {"events": events}, "Home", "Away", 1, 0, 2, 0)
+        self.assertIsNone(reason)
+        self.assertEqual(first_second_half_goal(goals), "home")
+
     def test_reject_var_duplicate_goal(self):
         goals, reason = validated_goal_sequence(
             {"events": [event(1, "goal", "first_half", "Home"),
