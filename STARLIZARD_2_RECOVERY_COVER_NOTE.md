@@ -148,6 +148,14 @@ Joining Bet365 stored **last_seen** home/away quotes to identify relative shorte
 - These are not market-odds comparisons: **no verified time-aligned halftime next-goal quotes**. Relative favourite proxy may reflect later odds, introducing hindsight bias. Do not label them pre-match favourite/underdog without validated timestamps. No claimed edge or ROI.
 - Reproducible read-only SQL committed as `research/ht_trailing_next_goal_by_quote.sql` (`e7523d0191571dcb628e1b1eb413832d2a2defd6`). SQL only score-reconciles scoring events, does not yet apply full chronological timeline validator.
 
+### Chronological 0.20 HT xG screen cross-check (November 13)
+Read-only SQL on score-reconciled stored TheStatsAPI scoring events (goal, own_goal credited to opponent, penalty_scored), trailing **one goal** at halftime, compares trailing team's HT xG >=0.20 versus below 0.20:
+- Training match_date before 2025-07-01: >=0.20 **1,074/2,496 (43.03%)**, below **344/1,025 (33.56%)**.
+- Later validation 2025-07-01 through 2025-12-31: >=0.20 **240/514 (46.69%)**, below **56/215 (26.05%)**.
+- Later test 2026-01-01 onward: >=0.20 **265/621 (42.67%)**, below **77/240 (32.08%)**.
+- Advantage persists descriptively, but 0.20 threshold was explored before this test, so **not a pristine untouched prospective holdout**. No odds-aligned next-goal quotes, no ROI, no verified betting edge. SQL checks score reconciliation, not full event chronology.
+- Reproducible query `research/ht_next_goal_chronological_validation.sql`, commit `2b2907d484f5c17f593e5db615a03e50563204f6`. No new provider API calls or database writes.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
