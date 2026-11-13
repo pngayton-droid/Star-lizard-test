@@ -71,6 +71,13 @@ class DashboardSmokeTests(unittest.TestCase):
                 "home_goals": None, "away_goals": None,
                 "home_ht_xg": None, "away_ht_xg": None,
                 "home_xg": None, "away_xg": None,
+            }, {
+                "match_id": "m3", "competition_id": "comp_3039",
+                "match_date": "2026-01-03",
+                "home_ht_goals": 0.5, "away_ht_goals": 0,
+                "home_goals": 1, "away_goals": 0,
+                "home_ht_xg": 0.5, "away_ht_xg": 0.2,
+                "home_xg": 1.0, "away_xg": 0.2,
             }],
             "historical_match_odds": [{"match_id": "m1", "odds_payload": {}}],
             "historical_match_events": [{"match_id": "m1"}],
@@ -85,11 +92,11 @@ class DashboardSmokeTests(unittest.TestCase):
                 next(x for x in app.button if x.label == label).click().run()
                 self.assertFalse(app.exception, [str(x.message) for x in app.exception])
             metrics = {m.label: m.value for m in app.metric}
-            self.assertEqual(metrics["Stored match rows"], "2")
+            self.assertEqual(metrics["Stored match rows"], "3")
             self.assertEqual(metrics["Incomplete score rows"], "1")
             self.assertEqual(metrics["Missing match dates"], "1")
             self.assertEqual(metrics["Missing halftime xG pairs"], "1")
-            self.assertEqual(metrics["Negative or fractional scores"], "0")
+            self.assertEqual(metrics["Negative or fractional scores"], "1")
         self.assertFalse(app.exception, [str(x.message) for x in app.exception])
         self.assertTrue(any("PRO STARLIZARD" in x.value for x in app.title))
 
