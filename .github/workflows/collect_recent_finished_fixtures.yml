@@ -1,0 +1,34 @@
+name: Collect recent finished fixtures (incremental)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recent-finished-fixtures
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: vars.ENABLE_LIVE_FIXTURE_COLLECTION == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests supabase
+      - name: Collect recent finished fixtures
+        env:
+          ENABLE_LIVE_FIXTURE_COLLECTION: "1"
+          LIVE_FIXTURE_MAX_REQUESTS: "60"
+          LIVE_FIXTURE_LOOKBACK_DAYS: "4"
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/collect_recent_finished_fixtures.py
