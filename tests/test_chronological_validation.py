@@ -1,7 +1,7 @@
 """No-network regression tests for Starlizard research utilities."""
 import unittest
 from research.chronological_validation import (
-    chronological_split, evaluate_binary_baseline, wilson_interval,
+    chronological_split, chronological_three_way_split, evaluate_binary_baseline, wilson_interval,
 )
 
 
@@ -22,6 +22,23 @@ class ChronologicalValidationTests(unittest.TestCase):
         self.assertLess(max(r["match_date"] for r in train), cutoff)
         self.assertGreaterEqual(min(r["match_date"] for r in test), cutoff)
         self.assertEqual(len(train) + len(test), 30)
+
+    def test_three_way_date_boundaries(self):
+        rows = [
+            {"match_id": str(i), "match_date": f"2026-01-{i//2+1:02d}", "outcome": i % 2}
+            for i in range(50)
+        ]
+        train, validation, final_test, first, second = chronological_three_way_split(rows)
+        self.assertEqual(len(train) + len(validation) + len(final_test), 50)
+        self.assertTrue(train and validation and final_test)
+        self.assertLess(max(r["match_date"] for r in train), first)
+        self.assertLess(max(r["match_date"] for r in validation), second)
+        self.assertGreaterEqual(min(r["match_date"] for r in final_test), second)
+
+    def test_fractional_labels_rejected(self):
+        with self.assertRaises(ValueError):
+            evaluate_binary_baseline(
+                [{"outcome": 0.5}] * 100, [{"outcome": 1}], "outcome")
 
     def test_duplicate_rejected(self):
         rows = [{"match_id": "a", "match_date": "2026-01-01"},
