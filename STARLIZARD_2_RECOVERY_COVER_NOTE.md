@@ -74,7 +74,7 @@ Commits `210829e5647fc2d06367eaadd47e73be4c3412f9`, `34fc5ec1fe0f717c2d8eb3b309d
 - Reject fractional binary outcomes instead of silently truncating them.
 - Rename the test-outcome-prevalence Brier comparator to `test_oracle_brier` (it used the test labels, so it is **not** a valid predictive baseline).
 - Add whole-date 60% training / 20% validation / 20% final-test splitting, with regression tests.
-- Change pattern search to use separate validation and final-test groups; rank by validation only. It currently **displays final-test rates for all eligible candidates**, which means the final period is no longer truly untouched if a researcher uses those rates to select patterns. Future enhancement: lock candidate selection before revealing final results.
+- Change pattern search to use separate validation and final-test groups; rank by validation only. Subsequent commit `dd40aaf1de623a963f59fdada7693b2177f2c8cc` **withholds final-test outcomes** from the discovery table, reserving them for later one-time confirmation after candidate selection is frozen.
 - Fix mismatch between renamed validation column and sorting key.
 - No new provider requests or production changes. **Still awaiting verified automated test run and live Streamlit smoke test.**
 
