@@ -129,6 +129,9 @@ GitHub Actions run `43438500573` **passed**, including chronology regression tes
 ### Own-goal attribution breakthrough
 Read-only Supabase SQL inspected actual own-goal examples. In match `mt_466286966` Blackburn Rovers 1–2 Stoke City, event `own_goal` names Blackburn (the conceding player's team), while Stoke receives the goal. This was independently cross-checked against halftime/fulltime scores and the ordered goal events. Updated validator (`2f720870746f780a9512e7c60c5a36a6d8be89be`) to credit own goals to the **opponent** and still require exact HT/FT agreement. Updated and expanded offline tests (`775729ead3b3a3706f073e57eb91956f0f976607`). Earlier conservative exclusion of all 978 own-goal timelines is now superseded; remaining ambiguous cases will still fail score validation. CI pending. No external StatsAPI requests or data changes.
 
+### Archive-wide timeline verification UI
+GitHub Actions run `43438979188` passed for own-goal attribution. Commit `4b92d118fa74262143c3462929bcdb15da7f799c` adds a **read-only** `Verify stored goal timelines` action in the Integrity tab. It paginates all stored `historical_xg` match score/team records and `historical_match_events` timelines, checks numeric status=200, verifies ordered goals and halftime/full-time totals (including own-goal opponent attribution), counts first second-half scorer as home/away/none for verified matches and groups exclusions by reason. Commit `a98b034562c5be8190f0c0ce539db42d0a84afcb` adds mocked Streamlit button smoke coverage. **Not yet run on the real archive via authenticated Streamlit**; actual verified count unknown. CI pending. No provider API requests or database writes.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
