@@ -95,26 +95,31 @@ def main():
     added = skipped = missing = event_updates = 0
     # PRIORITY: discover and import missing fixtures before enriching old events.
     # Historical event backfill is deliberately excluded from catch-up runs.
-    # Rotate the starting league every scheduled run, so all ten leagues get coverage.
-    league_items = list(LEAGUES.items())
-    rotation = (datetime.now(timezone.utc).hour // 6 + datetime.now(timezone.utc).date().toordinal()) % len(league_items)
-    league_items = league_items[rotation:] + league_items[:rotation]
-    per_league_budget = max(5, MAX_CALLS // len(league_items))
+    # Date-window discovery avoids TheStatsAPI rejecting page=2.
+    # Catch up the lagging leagues first; preserve a fixed per-league budget.
+    league_items = sorted(LEAGUES.items(), key=lambda item: (
+        0 if item[0] == "Premier League" else
+        1 if item[0] == "Championship" else
+        2 if item[0] == "La Liga" else 3, item[0]))
     for name, competition_id in league_items:
         league_start_calls = calls
-        page = 1
-        while calls < MAX_CALLS and calls - league_start_calls < per_league_budget:
+        per_league_budget = 30 if name in ("Premier League", "Championship", "La Liga") else 10
+        day = today
+        while day >= start and calls < MAX_CALLS and calls - league_start_calls < per_league_budget:
+            # One day per query, always page 1; no invalid pagination.
             try:
                 payload = get("/football/matches", {
                     "competition_id": competition_id, "status": "finished",
-                    "date_from": start.isoformat(), "date_to": today.isoformat(),
-                    "per_page": 20, "page": page, "sort": "-utc_date",
+                    "date_from": day.isoformat(), "date_to": day.isoformat(),
+                    "per_page": 20, "page": 1, "sort": "-utc_date",
                 })
             except requests.HTTPError as exc:
-                if exc.response is not None and exc.response.status_code == 400 and page > 1:
-                    print(f"{name}: API rejected page {page}; moving to next league", flush=True)
-                    break
+                if exc.response is not None and exc.response.status_code == 400:
+                    print(f"{name}: rejected date {day}; continuing", flush=True)
+                    day -= timedelta(days=1)
+                    continue
                 raise
+            day -= timedelta(days=1)
             matches = (payload or {}).get("data") or []
             if not isinstance(matches, list):
                 raise RuntimeError("Unexpected matches response")
@@ -183,9 +188,8 @@ def main():
                 # Timelines are enrichment, not required to import finished fixtures.
                 # Collect separately once the missing fixture backlog is cleared.
                 events[match_id] = {"stats_data": stats, "timeline_data": timeline}
-            if len(matches) < 20 or calls >= MAX_CALLS or calls - league_start_calls >= per_league_budget:
+            if calls >= MAX_CALLS or calls - league_start_calls >= per_league_budget:
                 break
-            page += 1
         print(f"{name}: calls={calls - league_start_calls} total_calls={calls} added_so_far={added}", flush=True)
     print(f"Added={added} complete_skipped={skipped} missing_xg={missing} event_updates={event_updates} api_calls={calls}", flush=True)
 
