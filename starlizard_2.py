@@ -513,11 +513,16 @@ def raw_integrity_counts():
     complete = frame[score_fields].notna().all(axis=1)
     impossible = complete & ((frame.home_goals < frame.home_ht_goals) |
                               (frame.away_goals < frame.away_ht_goals))
+    invalid_score_values = complete & (
+        frame[score_fields].lt(0).any(axis=1) |
+        ~frame[score_fields].eq(frame[score_fields].round()).all(axis=1)
+    )
     return {
         "Stored match rows": len(frame),
         "Duplicate match IDs": int(frame.match_id.duplicated().sum()),
         "Incomplete score rows": int((~complete).sum()),
         "Impossible second-half scores": int(impossible.sum()),
+        "Negative or fractional scores": int(invalid_score_values.sum()),
         "Missing match dates": int(pd.to_datetime(frame.match_date, errors="coerce").isna().sum()),
         "Missing halftime xG pairs": int((frame.home_ht_xg.isna() | frame.away_ht_xg.isna()).sum()),
     }
