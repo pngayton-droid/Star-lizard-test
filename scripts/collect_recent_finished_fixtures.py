@@ -1,7 +1,7 @@
 """Incremental finished-fixture collector. Existing TheStatsAPI only.
 
 Defaults to DRY RUN. A live run requires ENABLE_LIVE_FIXTURE_COLLECTION=1.
-One list request per league, then detail requests only for missing xG.
+Stores full available stats and timelines plus xG; missing data retried.
 """
 import os
 import time
@@ -60,7 +60,7 @@ def existing_ids():
     result = {}
     offset = 0
     while True:
-        rows = db.table("historical_xg").select("match_id,home_ht_xg,away_ht_xg").range(offset, offset + 999).execute().data or []
+        rows = db.table("historical_xg").select("match_id,home_ht_xg,away_ht_xg").order("match_id").range(offset, offset + 999).execute().data or []
         for r in rows:
             result[str(r["match_id"])] = r["home_ht_xg"] is not None and r["away_ht_xg"] is not None
         if len(rows) < 1000:
@@ -72,7 +72,7 @@ def existing_events():
     result = {}
     offset = 0
     while True:
-        rows = db.table("historical_match_events").select("match_id,stats_data,timeline_data").range(offset, offset + 999).execute().data or []
+        rows = db.table("historical_match_events").select("match_id,stats_data,timeline_data").order("match_id").range(offset, offset + 999).execute().data or []
         for row in rows:
             result[str(row["match_id"])] = row
         if len(rows) < 1000:
@@ -118,7 +118,7 @@ def main():
                     continue
                 if calls >= MAX_CALLS:
                     missing += 1
-                    continue
+                    break
                 if stats is None:
                     payload = get(f"/football/matches/{match_id}/stats")
                     stats = (payload or {}).get("data")
