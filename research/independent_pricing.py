@@ -6,7 +6,6 @@ Chronological walk-forward evaluation; Dixon-Coles low-score adjustment.
 import argparse
 import csv
 import math
-from collections import defaultdict
 from datetime import date
 
 def poisson(k, lam):
@@ -28,11 +27,11 @@ def probabilities(home_goals, away_goals, rho=-0.08, max_goals=12):
     total = sum(p)
     return tuple(v/total for v in p)
 
-def estimate(history, home, away, decay_days=240, prior_games=12):
+def estimate(history, home, away, decay_days=240, prior_games=12, as_of=None):
     """Venue-sensitive shrinkage, league baseline, time decay; no future matches."""
     if not history:
         return (1.5, 1.2)
-    now = history[-1]["date"]
+    now = as_of if as_of is not None else history[-1]["date"]
     baseline_h, baseline_a = 1.5, 1.2
     hgf=hga=agf=aga=hn=an=0.
     for m in history:
@@ -56,7 +55,7 @@ def walk_forward(matches, minimum_train=300):
             today.append(matches[index]); index+=1
         if len(history)>=minimum_train:
             for m in today:
-                lh,la=estimate(history,m["home_team"],m["away_team"])
+                lh,la=estimate(history,m["home_team"],m["away_team"],as_of=day)
                 p=probabilities(lh,la)
                 outcome=0 if m["home_goals"]>m["away_goals"] else 1 if m["home_goals"]==m["away_goals"] else 2
                 results.append((m,p,outcome,lh,la))
@@ -88,5 +87,9 @@ def main():
     brier=sum(sum((v-(k==o))**2 for k,v in enumerate(p)) for _,p,o,_,_ in rows)/len(rows)
     print(f"Walk-forward: {len(rows)} matches | log loss={logloss:.4f} | multiclass Brier={brier:.4f}")
     print("These are predictive metrics, NOT betting profitability or proven calibration.")
+    for label,idx in (("Home",0),("Draw",1),("Away",2)):
+        predicted=sum(p[idx] for _,p,_,_,_ in rows)/len(rows)
+        observed=sum(o==idx for _,_,o,_,_ in rows)/len(rows)
+        print(f"{label}: predicted={predicted:.3f} observed={observed:.3f} difference={predicted-observed:+.3f}")
 if __name__=="__main__":
     main()
