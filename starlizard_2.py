@@ -75,8 +75,18 @@ with tab2:
     st.subheader("Leagues already in our stored data")
     try:
         leagues=league_inventory()
-        leagues.insert(0,"League",leagues["League ID"].map(LEAGUE_NAMES).fillna("Unassigned"))\n        st.metric("Identified leagues",int(leagues["League ID"].notna().sum()))
-        st.dataframe(leagues,use_container_width=True,hide_index=True)
+        leagues.insert(0,"League",leagues["League ID"].map(LEAGUE_NAMES).fillna("Unassigned"))
+        st.metric("Identified leagues",int(leagues["League ID"].notna().sum()))
+        selection = st.multiselect(
+            "Compare leagues",
+            options=leagues["League"].tolist(),
+            default=leagues["League"].tolist(),
+        )
+        selected = leagues[leagues["League"].isin(selection)].copy()
+        st.dataframe(selected,use_container_width=True,hide_index=True)
+        if not selected.empty:
+            st.bar_chart(selected.set_index("League")["Matches"],horizontal=True)
+            st.metric("Matches in selected leagues",f"{int(selected['Matches'].sum()):,}")
         st.caption("Inventory comes from historical_xg; event/odds coverage can differ. No leagues are fetched from TheStatsAPI.")
     except Exception as exc:
         st.error(f"League inventory unavailable: {type(exc).__name__}")
