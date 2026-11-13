@@ -62,7 +62,7 @@ LEAGUE_NAMES = {
     "comp_6387":"Scotland · Premiership",
 }
 
-tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test","💷 Odds quality","🔬 Pattern search","📈 Model check"])
+tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8,tab9=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test","💷 Odds quality","🔬 Pattern search","📈 Model check","🛡️ Integrity"])
 with tab1:
     st.subheader("Our existing football database")
     try:
@@ -487,3 +487,20 @@ with tab8:
         except Exception as exc:
             st.error(f"Model evaluation failed: {type(exc).__name__}: {exc}")
     st.warning("These are conditional historical probabilities, not tradable market prices. Validation may be reused for model development; the final test is reserved for a locked model. No in-play ROI can be inferred.")
+
+with tab9:
+    st.subheader("Historical data integrity — existing records only")
+    st.caption("Checks match IDs, halftime/full-time score consistency, match dates and halftime xG coverage. Does not repair or delete records.")
+    if st.button("Audit match integrity", type="primary"):
+        try:
+            frame = halftime_research_data()
+            if frame.empty:
+                st.warning("No complete-score matches available to audit.")
+            else:
+                st.metric("Complete-score matches", f"{len(frame):,}")
+                st.metric("Missing halftime xG pairs", f"{int((frame['home_ht_xg'].isna() | frame['away_ht_xg'].isna()).sum()):,}")
+                st.metric("Missing dates", f"{int(pd.to_datetime(frame['match_date'], errors='coerce').isna().sum()):,}")
+                st.caption("Matches with incomplete scores or inconsistent halves were excluded by the research loader; use the full archive coverage audit to inspect excluded records.")
+        except Exception as exc:
+            st.error(f"Integrity audit unavailable: {type(exc).__name__}: {exc}")
+    st.warning("This score-level audit does not validate goal-event timelines or resolve VAR anomalies. Timeline-based strategies require separate event-level verification.")
