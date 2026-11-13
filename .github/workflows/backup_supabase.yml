@@ -1,5 +1,6 @@
 
 name: Backup Starlizard Database
+# Recovery rerun after granting service_role SELECT on legacy backup table
 
 on:
   workflow_dispatch:
