@@ -69,6 +69,15 @@ Added `research/conditional_model.py` (commit `6d37c1e5c1408e5e67df83a054b5392e0
 ### Performance fix and checkpoint
 Chronological holdout split now counts match dates in one pass and selects the nearest whole-date boundary without rescanning all matches per candidate (commits `811424574b88ee42a179f589e763f51a01410f74`, `37a7f5dd7ec4f747b24312ffb9a95fff3f0ace56`). This matters for roughly 12,000 stored matches. **Tests and Streamlit runtime have not yet been confirmed as passing.** No production changes, provider requests or data mutations.
 
+### Research integrity fixes and three-period evaluation
+Commits `210829e5647fc2d06367eaadd47e73be4c3412f9`, `34fc5ec1fe0f717c2d8eb3b309dd5bd4aa5c0adc`, `e6eed1568a9e765746311fdb7ffe2af3b0a9b14b`, `81ff0ad869c96bbbf2e4d3b3532fb10a36897957`, `6239419564d9a91cbb5492a463b5a696019c2bb7`:
+- Reject fractional binary outcomes instead of silently truncating them.
+- Rename the test-outcome-prevalence Brier comparator to `test_oracle_brier` (it used the test labels, so it is **not** a valid predictive baseline).
+- Add whole-date 60% training / 20% validation / 20% final-test splitting, with regression tests.
+- Change pattern search to use separate validation and final-test groups; rank by validation only. It currently **displays final-test rates for all eligible candidates**, which means the final period is no longer truly untouched if a researcher uses those rates to select patterns. Future enhancement: lock candidate selection before revealing final results.
+- Fix mismatch between renamed validation column and sorting key.
+- No new provider requests or production changes. **Still awaiting verified automated test run and live Streamlit smoke test.**
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
