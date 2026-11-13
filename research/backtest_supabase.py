@@ -21,7 +21,7 @@ def main():
         writer=csv.DictWriter(f,fieldnames=["date","home_team","away_team","home_goals","away_goals","home_xg","away_xg"])
         writer.writeheader()
         # Fit each league separately; no information from another competition enters the model.
-        for league in sorted(set(r["competition_id"] for r in rows)):
+        for league in sorted(set(r["competition_id"] for r in rows if r["competition_id"] is not None)):
             f.seek(0);f.truncate();writer.writeheader()
             for r in rows:
                 if r["competition_id"]!=league:continue
