@@ -78,6 +78,8 @@ with tab2:
     try:
         leagues=league_inventory()
         leagues.insert(0,"League",leagues["League ID"].map(LEAGUE_NAMES).fillna("Unassigned"))
+        if leagues.empty:
+            st.info("No stored leagues were found.")
         st.metric("Identified leagues",int(leagues["League ID"].notna().sum()))
         selection = st.multiselect(
             "Compare leagues",
@@ -300,8 +302,9 @@ def bookmaker_odds_quality():
                  .order("match_id").range(offset, offset+999).execute().data or [])
         for row in batch:
             payload = row.get("odds_payload") or {}
-            books = (payload.get("data") or {}).get("bookmakers") or []
-            book = next((b for b in books if b.get("bookmaker") == "Bet365"), None)
+            data = payload.get("data") or {}
+            books = data.get("bookmakers") or [] if isinstance(data, dict) else []
+            book = next((b for b in books if isinstance(b, dict) and b.get("bookmaker") == "Bet365"), None)
             if book is None:
                 continue
             market = (book.get("markets") or {}).get("match_odds") or {}
