@@ -47,9 +47,18 @@ def chronological_split(rows: Iterable[dict], train_fraction: float = 0.70):
         raise ValueError("At least two distinct match dates required")
     # Pick a date boundary near the target fraction, never split a date.
     candidate_dates = unique_dates[1:]
-    split = min(candidate_dates, key=lambda day: abs(
-        sum(item[0] < day for item in ordered)/len(ordered) - train_fraction
-    ))
+    # One linear scan of date boundaries; avoid quadratic work on large archives.
+    date_counts = {}
+    for day, _, _ in ordered:
+        date_counts[day] = date_counts.get(day, 0) + 1
+    cumulative = 0
+    best_error = float("inf")
+    split = candidate_dates[0]
+    for day in unique_dates[1:]:
+        cumulative += date_counts[unique_dates[unique_dates.index(day)-1]]
+        error = abs(cumulative / len(ordered) - train_fraction)
+        if error < best_error:
+            best_error, split = error, day
     train = [item[2] for item in ordered if item[0] < split]
     test = [item[2] for item in ordered if item[0] >= split]
     return train, test, split.isoformat()
