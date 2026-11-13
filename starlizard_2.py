@@ -17,6 +17,7 @@ div[data-testid="stMetric"]{background:#172238;padding:15px;border-radius:12px;b
 st.image("pro_starlizard_header_correct-1.png", use_container_width=True)
 st.title("PRO STARLIZARD 2.0")
 st.caption("Existing TheStatsAPI data only · Read-only research · No new API collection")
+st.caption("Research only: no live betting signals or verified ROI.")
 
 @st.cache_resource
 def db():
@@ -422,6 +423,9 @@ with tab7:
             if discoveries:
                 result = pd.DataFrame(discoveries).sort_values(
                     ["Direction held", "Validation n"], ascending=[False, False])
+                st.metric("Patterns meeting sample thresholds", len(result))
+                st.metric("Same direction in training and validation", int(result["Direction held"].sum()))
+                st.caption("Direction consistency is exploratory, not evidence of profit. Review uncertainty and sample size.")
                 st.dataframe(result, use_container_width=True, hide_index=True)
                 st.download_button("Export pattern search", result.to_csv(index=False),
                                    "starlizard_pattern_search.csv", "text/csv")
@@ -462,6 +466,9 @@ with tab8:
                 b.metric("Validation matches", f"{scores['test_n']:,}")
                 d.metric("Validation starts", cutoff)
                 st.caption(f"Final confirmation period from {reserved_from} is reserved and excluded from scoring.")
+                improvement = scores["global_train_baseline_brier"] - scores["model_brier"]
+                st.metric("Brier improvement vs baseline", f"{improvement:+.5f}")
+                st.caption("Positive means lower validation prediction error, not a verified betting edge.")
                 st.write({
                     "Model Brier score (lower is better)": round(scores["model_brier"], 5),
                     "Global training baseline Brier": round(scores["global_train_baseline_brier"], 5),
