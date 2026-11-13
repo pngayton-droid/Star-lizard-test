@@ -5,7 +5,7 @@ Run with: streamlit run starlizard_2.py
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-from research.chronological_validation import chronological_split, evaluate_binary_baseline
+from research.chronological_validation import chronological_split, evaluate_binary_baseline, wilson_interval
 
 st.set_page_config(page_title="PRO STARLIZARD 2.0", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>
@@ -60,7 +60,7 @@ LEAGUE_NAMES = {
     "comp_6387":"Scotland · Premiership",
 }
 
-tab1,tab2,tab3,tab4,tab5,tab6=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test","💷 Odds quality"])
+tab1,tab2,tab3,tab4,tab5,tab6,tab7=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test","💷 Odds quality","🔬 Pattern search"])
 with tab1:
     st.subheader("Our existing football database")
     try:
@@ -362,3 +362,65 @@ with tab6:
         st.download_button("Export odds quality report", report.to_csv(index=False),
                            "starlizard_odds_quality.csv", "text/csv")
     st.warning("Last-seen prices are not verified pre-match closing odds. Neither opening nor last-seen quotes are time-aligned in-play prices. Do not calculate in-play ROI from them.")
+
+with tab7:
+    st.subheader("Automatic halftime pattern discovery — research only")
+    st.caption("Searches combinations of leagues, halftime state and xG advantage. Uses separate historical training and later test matches.")
+    outcome = st.selectbox("Outcome to investigate", [
+        "2H goal", "2H over 1.5", "2H draw", "Home FT win",
+        "Away FT win", "FT draw", "Home won both halves",
+        "Away won both halves", "Both halves home scored", "Both halves away scored",
+    ], key="discover_outcome")
+    min_samples = st.slider("Minimum training matches per pattern", 100, 500, 200, 50)
+    min_test = st.slider("Minimum held-out matches per pattern", 30, 150, 50, 10)
+    if st.button("Search for stable patterns", type="primary"):
+        try:
+            frame = halftime_research_data().copy()
+            frame["match_date"] = pd.to_datetime(frame["match_date"], errors="coerce")
+            frame = frame.dropna(subset=["match_date", outcome])
+            # Global calendar split, not a separate post-hoc split for each candidate.
+            calendar = frame[["match_id", "match_date"]].copy()
+            calendar["match_date"] = calendar["match_date"].dt.strftime("%Y-%m-%d")
+            training, testing, cutoff = chronological_split(calendar.to_dict("records"), .70)
+            training_ids = {r["match_id"] for r in training}
+            testing_ids = {r["match_id"] for r in testing}
+            train = frame[frame.match_id.isin(training_ids)]
+            test = frame[frame.match_id.isin(testing_ids)]
+            base_rate = train[outcome].mean()
+            discoveries = []
+            for league in sorted(frame["League"].unique()):
+                for state in ("Draw", "Home leading", "Away leading"):
+                    for xg in ("Home", "Away", "Equal"):
+                        tr = train[(train["League"] == league) &
+                                   (train["HT state"] == state) &
+                                   (train["HT xG leader"] == xg)]
+                        te = test[(test["League"] == league) &
+                                  (test["HT state"] == state) &
+                                  (test["HT xG leader"] == xg)]
+                        if len(tr) < min_samples or len(te) < min_test:
+                            continue
+                        training_rate = tr[outcome].mean()
+                        testing_rate = te[outcome].mean()
+                        lo, hi = wilson_interval(int(te[outcome].sum()), len(te))
+                        discoveries.append({
+                            "League": league, "HT state": state, "HT xG leader": xg,
+                            "Train n": len(tr), "Test n": len(te),
+                            "Train rate %": round(100*training_rate, 2),
+                            "Test rate %": round(100*testing_rate, 2),
+                            "Test low %": round(100*lo, 2),
+                            "Test high %": round(100*hi, 2),
+                            "Train vs overall pp": round(100*(training_rate-base_rate), 2),
+                            "Direction held": bool((training_rate-base_rate)*(testing_rate-base_rate) > 0),
+                        })
+            st.caption(f"All candidate definitions evaluated against the same global test cutoff: {cutoff}.")
+            if discoveries:
+                result = pd.DataFrame(discoveries).sort_values(
+                    ["Direction held", "Test n"], ascending=[False, False])
+                st.dataframe(result, use_container_width=True, hide_index=True)
+                st.download_button("Export pattern search", result.to_csv(index=False),
+                                   "starlizard_pattern_search.csv", "text/csv")
+            else:
+                st.warning("No candidates met both sample-size thresholds.")
+        except Exception as exc:
+            st.error(f"Pattern search failed: {type(exc).__name__}: {exc}")
+    st.warning("Exploratory screen, not a betting signal. Testing many candidates creates selection bias; promising results need an untouched second validation period and real time-aligned market quotes.")
