@@ -46,6 +46,19 @@ def league_inventory():
          .reset_index().rename(columns={"competition_id":"League ID","first":"First match","last":"Last match"}))
     return out.sort_values("Matches",ascending=False)
 
+LEAGUE_NAMES = {
+    "comp_8321":"England · Championship",
+    "comp_3039":"England · Premier League",
+    "comp_5840":"Italy · Serie A",
+    "comp_8814":"Spain · La Liga",
+    "comp_0256":"France · Ligue 1",
+    "comp_4643":"Germany · Bundesliga",
+    "comp_8531":"Belgium · Pro League",
+    "comp_3809":"Netherlands · Eredivisie",
+    "comp_8385":"Portugal · Primeira Liga",
+    "comp_6387":"Scotland · Premiership",
+}
+
 tab1,tab2,tab3=st.tabs(["🏠 Overview","🏆 Existing leagues","🔎 Research queue"])
 with tab1:
     st.subheader("Our existing football database")
@@ -62,7 +75,7 @@ with tab2:
     st.subheader("Leagues already in our stored data")
     try:
         leagues=league_inventory()
-        st.metric("Stored competitions",len(leagues))
+        leagues.insert(0,"League",leagues["League ID"].map(LEAGUE_NAMES).fillna("Unassigned"))\n        st.metric("Identified leagues",int(leagues["League ID"].notna().sum()))
         st.dataframe(leagues,use_container_width=True,hide_index=True)
         st.caption("Inventory comes from historical_xg; event/odds coverage can differ. No leagues are fetched from TheStatsAPI.")
     except Exception as exc:
