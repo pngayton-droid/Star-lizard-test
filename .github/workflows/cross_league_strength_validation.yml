@@ -1,4 +1,5 @@
 name: Cross league strength validation
+# Re-run after fixing missing strength fitter
 on:
   push:
     branches: [main]
