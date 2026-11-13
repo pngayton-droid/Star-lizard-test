@@ -59,3 +59,29 @@ def evaluate(model, test, outcome):
         "predicted_rate": sum(p for _,p,_ in evaluated)/len(evaluated),
         "unseen_group_test_n": sum(n == 0 for _,_,n in evaluated),
     }
+
+
+def calibration_bins(model, test, outcome, bin_count=5):
+    """Group predictions into fixed probability bins, without fitting on test.
+
+    Counts and observed rates are diagnostic only; empty bins are omitted.
+    """
+    if not isinstance(bin_count, int) or bin_count < 2:
+        raise ValueError("bin_count must be an integer >= 2")
+    buckets = [[0, 0.0, 0] for _ in range(bin_count)]
+    for row in test:
+        y = row.get(outcome)
+        if y not in (0, 1):
+            continue
+        p, _ = predict(model, row)
+        index = min(int(p * bin_count), bin_count - 1)
+        bucket = buckets[index]
+        bucket[0] += 1
+        bucket[1] += p
+        bucket[2] += int(y)
+    return [
+        {"Probability band": f"{100*i//bin_count}-{100*(i+1)//bin_count}%",
+         "Matches": n, "Predicted %": round(100*sum_p/n, 2),
+         "Observed %": round(100*hits/n, 2)}
+        for i, (n, sum_p, hits) in enumerate(buckets) if n
+    ]
