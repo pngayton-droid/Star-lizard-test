@@ -1,0 +1,31 @@
+name: Independent Premier League and La Liga prices
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/reprice_prem_laliga_nov2026.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reprice:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - league: Premier League
+            id: comp_3039
+          - league: La Liga
+            id: comp_8814
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy scipy supabase
+      - name: Generate independent fair odds
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LEAGUE_ID: ${{ matrix.id }}
+        run: python -u research/reprice_prem_laliga_nov2026.py
