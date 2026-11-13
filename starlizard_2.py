@@ -60,7 +60,7 @@ LEAGUE_NAMES = {
     "comp_6387":"Scotland · Premiership",
 }
 
-tab1,tab2,tab3,tab4,tab5=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test"])
+tab1,tab2,tab3,tab4,tab5,tab6=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research","📐 Holdout test","💷 Odds quality"])
 with tab1:
     st.subheader("Our existing football database")
     try:
@@ -288,3 +288,77 @@ with tab5:
         except Exception as exc:
             st.error(f"Holdout evaluation failed: {type(exc).__name__}: {exc}")
     st.warning("Baseline only: it does not use time-aligned bookmaker quotes and cannot establish a profitable edge.")
+
+@st.cache_data(ttl=900)
+def bookmaker_odds_quality():
+    """Counts usable Bet365 1X2 quotes; no provider calls or odds timestamp assumptions."""
+    results = {}
+    for offset in range(0, 100000, 1000):
+        batch = (db().table("historical_match_odds")
+                 .select("match_id,odds_payload")
+                 .order("match_id").range(offset, offset+999).execute().data or [])
+        for row in batch:
+            payload = row.get("odds_payload") or {}
+            books = (payload.get("data") or {}).get("bookmakers") or []
+            book = next((b for b in books if b.get("bookmaker") == "Bet365"), None)
+            if book is None:
+                continue
+            market = (book.get("markets") or {}).get("match_odds") or {}
+            def valid(side, field):
+                try:
+                    quote = float((market.get(side) or {}).get(field))
+                    return 1.01 <= quote <= 1000
+                except (ValueError, TypeError):
+                    return False
+            results[str(row["match_id"])] = {
+                "Bet365": 1,
+                "Complete opening 1X2": int(all(valid(s, "opening") for s in ("home", "draw", "away"))),
+                "Complete last-seen 1X2": int(all(valid(s, "last_seen") for s in ("home", "draw", "away"))),
+            }
+        if len(batch) < 1000:
+            break
+    return results
+
+@st.cache_data(ttl=900)
+def odds_quality_by_league():
+    quotes = bookmaker_odds_quality()
+    rows = []
+    for offset in range(0, 100000, 1000):
+        batch = (db().table("historical_xg").select("match_id,competition_id")
+                 .order("match_id").range(offset, offset+999).execute().data or [])
+        for match in batch:
+            stats = quotes.get(str(match["match_id"]), {})
+            rows.append({
+                "League": LEAGUE_NAMES.get(match.get("competition_id"), "Unassigned"),
+                "Match ID": str(match["match_id"]),
+                "Bet365": stats.get("Bet365", 0),
+                "Complete opening 1X2": stats.get("Complete opening 1X2", 0),
+                "Complete last-seen 1X2": stats.get("Complete last-seen 1X2", 0),
+            })
+        if len(batch) < 1000:
+            break
+    if not rows:
+        return pd.DataFrame()
+    frame = pd.DataFrame(rows).drop_duplicates("Match ID")
+    return (frame.groupby("League", as_index=False)
+            .agg(Matches=("Match ID", "count"),
+                 Bet365=("Bet365", "sum"),
+                 Complete_opening_1X2=("Complete opening 1X2", "sum"),
+                 Complete_last_seen_1X2=("Complete last-seen 1X2", "sum"))
+            .sort_values("Matches", ascending=False))
+
+with tab6:
+    st.subheader("Historical bookmaker quote completeness")
+    st.caption("Presence of all three 1X2 quotes, not proof of when the quote was offered.")
+    if st.button("Audit stored Bet365 odds", type="primary"):
+        try:
+            report = odds_quality_by_league()
+            st.session_state["odds_quality_report"] = report
+        except Exception as exc:
+            st.error(f"Odds quality audit failed: {type(exc).__name__}: {exc}")
+    if "odds_quality_report" in st.session_state:
+        report = st.session_state["odds_quality_report"]
+        st.dataframe(report, use_container_width=True, hide_index=True)
+        st.download_button("Export odds quality report", report.to_csv(index=False),
+                           "starlizard_odds_quality.csv", "text/csv")
+    st.warning("Last-seen prices are not verified pre-match closing odds. Neither opening nor last-seen quotes are time-aligned in-play prices. Do not calculate in-play ROI from them.")
