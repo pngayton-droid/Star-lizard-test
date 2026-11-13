@@ -3,7 +3,7 @@ import csv
 import os
 import tempfile
 from supabase import create_client
-from research.independent_pricing import load, walk_forward
+from research.independent_pricing import load, walk_forward, probabilities
 import math
 
 def main():
@@ -38,7 +38,7 @@ def main():
             home=sum(p[0] for _,p,_,_,_ in predictions)/n
             draw=sum(p[1] for _,p,_,_,_ in predictions)/n
             actual_draw=sum(o==1 for _,_,o,_,_ in predictions)/n
-            print(f"{league}: n={n}, logloss={loss:.4f}, brier={brier:.4f}, "
-                  f"home_pred={home:.3f}, draw_pred={draw:.3f}, draw_actual={actual_draw:.3f}")
+            # Same walk-forward predictions; assess low-score adjustment without peeking at future results.\n            poisson_loss=sum(-math.log(max(1e-12,probabilities(lh,la,rho=0)[o])) for _,_,o,lh,la in predictions)/n\n            actual_home=sum(o==0 for _,_,o,_,_ in predictions)/n\n            actual_away=sum(o==2 for _,_,o,_,_ in predictions)/n\n            print(f"{league}: n={n}, logloss={loss:.4f}, poisson_logloss={poisson_loss:.4f}, brier={brier:.4f}, "
+                  f"home_pred={home:.3f}, home_actual={actual_home:.3f}, draw_pred={draw:.3f}, draw_actual={actual_draw:.3f}, away_actual={actual_away:.3f}")
 if __name__=="__main__":
     main()
