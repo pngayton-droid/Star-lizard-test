@@ -264,3 +264,11 @@ Read-only Supabase SQL joined 1,997 2026 fixtures with two eligible ten-match hi
 - xG-only agrees: 596, 62.25% won, −5.44% ROI; opposes: 47, 17.02% won, −44.66% ROI.
 - Caveats: exploratory thresholds, no multiple-testing correction, last_seen is pre-in-play but not guaranteed executable price, no transaction costs, no bookmaker closing-line comparison, not seven-component model. **No demonstrated betting edge**. Do not optimize thresholds on 2026 test results.
 - Next: same-fixture calibrated prediction comparison on a fresh time period, or new holdout after 2026. Verify CI for added rolling model tests.
+
+
+### Preliminary market-adjusted xG audit (13 November)
+Read-only SQL on 2,033 2026 matches with Bet365 last_seen home/draw/away prices and nonnull previous-ten **venue-specific** xG form for each team (home team's prior home matches, away team's prior away matches; fewer than ten venue matches may exist). De-vigged 1X2 probabilities by reciprocal normalization. Actual home win 43.3%, expected home win 44.0%.
+- Home xG-form gap >0.5: 1,081 games, home win 54.0% versus market 54.0%; away win 20.8% versus market 22.2%.
+- Away xG-form gap >0.5: 171 games, away win 56.1% versus market 56.7%; home win 21.1% versus market 20.5%.
+- Gap within ±0.5: 781 games, home win 33.4% versus market 35.3%; away win 39.9% versus market 37.8%.
+**Important:** exploratory 2026 group diagnostic, not out-of-sample fitted residual model, not a true 10 overall match rating and not ROI. Initial full historical SQL timed out. Need compute proper time-split residual fit with fixed coefficients and test Brier/log loss and ROI, not claim predictive improvement.
