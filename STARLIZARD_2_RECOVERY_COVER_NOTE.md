@@ -84,6 +84,9 @@ Confirmed GitHub Actions run `43419737112` completed **successfully** at commit 
 ### Verified CI and preview hardening
 GitHub Actions runs `43419990138` and `43420024196` both completed **successfully**, including headless Streamlit HTTP health check, offline unit tests and Python compilation. This is a verified **server startup**, not a full browser render or authenticated Supabase data test. Improved odds payload handling for malformed bookmaker objects and empty league inventory (commits `eb6cd11514281736b3f6c590680d85818d515ee1`, `eafa8e18869bcc45f8baa8f6e0f3365aca4bba9a`). Development branch only. No StatsAPI requests, production edits or credential changes.
 
+### Offline UI integration test (2026-11-13)
+Added `tests/test_streamlit_dashboard.py` using Streamlit `AppTest` and mocked Supabase fixtures; this makes zero external calls. Wired it into the dependency-installing CI job. First runs exposed two **test infrastructure** failures, not yet proven app failures: AppTest relative path resolved inside `tests/` instead of repository root, and GitHub Actions YAML folded two unittest commands into one shell line. Fixed via commits `61b61ec4fb44b55b2ddf0d1e52eb892b3e396bc4` and `3a9fea14a1f3f5623b409773b27d0c6c54f1ac2a`. Latest jobs pending verification. Do not claim fully rendered UI until AppTest job is green.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
