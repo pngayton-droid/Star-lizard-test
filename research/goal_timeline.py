@@ -3,7 +3,7 @@
 Use only after matching event team names to the stored home/away teams.
 Reject rather than silently repair ambiguous VAR, own-goal or duplicate data.
 """
-GOAL_TYPES = {"goal", "own_goal"}
+GOAL_TYPES = {"goal", "own_goal", "penalty_scored"}
 
 
 def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft_home, ft_away):
