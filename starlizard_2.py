@@ -302,12 +302,13 @@ def bookmaker_odds_quality():
                  .order("match_id").range(offset, offset+999).execute().data or [])
         for row in batch:
             payload = row.get("odds_payload") or {}
-            data = payload.get("data") or {}
+            data = (payload.get("data") or {}) if isinstance(payload, dict) else {}
             books = (data.get("bookmakers") or []) if isinstance(data, dict) else []
-            book = next((b for b in books if isinstance(b, dict) and b.get("bookmaker") == "Bet365"), None)
+            book = next((b for b in books if isinstance(b, dict) and b.get("bookmaker") == "Bet365"), None) if isinstance(books, list) else None
             if book is None:
                 continue
-            market = (book.get("markets") or {}).get("match_odds") or {}
+            markets = book.get("markets") or {}
+            market = (markets.get("match_odds") or {}) if isinstance(markets, dict) else {}
             def valid(side, field):
                 try:
                     quote = float((market.get(side) or {}).get(field))
