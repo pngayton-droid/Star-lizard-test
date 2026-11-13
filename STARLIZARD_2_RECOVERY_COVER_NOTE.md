@@ -243,3 +243,15 @@ Read-only Supabase comparison on reconciled one-goal HT trailing cases. Fixed tr
 - Added `tests/test_team_strength.py` and included it in existing offline CI `.github/workflows/starlizard2-research-tests.yml`. Commits `9b89b63`, `0a9bf1e`, `3bf1467`. CI pass **not yet confirmed**.
 - Read-only Supabase SQL preliminary eligibility check: 10,471 matches have both teams with 10 prior results in the same competition; 515 additional matches have only one eligible side. This is an eligibility count, **not a model backtest**. SQL used ROWS preceding and ordered same-day match IDs, so production Python's stricter same-day exclusion may reduce the count.
 - Next: run CI and fix issues, audit availability of shots/corners, build historical chronological comparison versus simple results/xG baselines and closing 1X2 implied probabilities. Never claim profit from ratings without matched quotes.
+
+
+### Initial real-data rating test — 2026 holdout (13 November)
+Read-only Supabase SQL evaluated 2,002 matches dated 2026-01-01 through 2026-11-03, requiring 10 previous matches for both teams within competition and strictly earlier match_date. Simplified rating used results 15, venue results 15 (falling back to overall results if no venue sample), goal difference 15 and xG difference 25, rescaled by 70. **Not the full seven-component Python rating**, which needs shots/corners and trend. Difference bands were defined as differences in normalized rating of ±0.05 and ±0.15 (equivalent to ±5/15 points).
+- Home advantage >15 points: 577 matches, home wins 60.1%, draws 23.4%, away wins 16.5%.
+- Home +5 to +15: 323, home wins 48.0%.
+- Within ±5: 362, home wins 40.3%, away wins 33.7%.
+- Away +5 to +15: 297, away wins 33.3%.
+- Away >15: 443, away wins 49.4%.
+- Simple last-ten points per game gap >0.6 in absolute value: 805 qualifying, selected-side wins 54.3%. Simple last-ten xG difference gap >0.8: 644 qualifying, selected-side wins 59.0%. **Different selected samples: do not compare percentages as a controlled head-to-head test.**
+- These are retrospective descriptive hit rates, not betting ROI, probability calibration or proof of added value over bookmaker prices. No StatsAPI calls and no database writes.
+- Next: same-fixture controlled comparison of combined rating vs results-only and xG-only; train/validation/test split; Brier/log loss vs Bet365 pre-in-play closing implied probabilities; audit missing shots/corners and run CI.
