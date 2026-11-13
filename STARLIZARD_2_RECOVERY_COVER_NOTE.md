@@ -114,6 +114,9 @@ GitHub Actions run `43436941716` **passed**, including assertions for missing ra
 ### Validation baseline screen
 GitHub Actions run `43437180492` passed after score validity hardening. Commit `0dd55edf7edfa1b6294e15a289671b594f245794` adds a conservative **exploratory** screen for whether each candidate pattern's validation Wilson interval excludes the global training-period event frequency. Shows the difference in percentage points and count of such patterns. Not adjusted for multiple testing, not odds-based, not ROI; final-test outcomes still reserved. New CI pending.
 
+### Calibration diagnostics
+GitHub Actions run `43437404262` **passed** for the validation-baseline screen. Added fixed-bin calibration analysis to `research/conditional_model.py` (commit `ea87cf786ecd56c7ce34d0e9530e671c2a64eca5`), a predicted-vs-observed validation table in the model tab (commit `130eb5951dd556a7a391fa7d3e4ef2118fd347f8`), and offline regression test (commit `fb2f72720c8c14065d62131a1bed374e4839c07b`). The table shows validation calibration only; no final-test peeking, no market-odds assumptions. CI pending.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
