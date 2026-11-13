@@ -17,6 +17,10 @@ def fit_strengths(history, as_of, half_life_days=240, prior=12, iterations=12):
     away_base=sum(w*m["away_xg"] for m,w in games)/sw
     home_base=max(.2,home_base);away_base=max(.2,away_base)
     teams={m[k] for m,_ in games for k in ("home_team","away_team")}
+    appearances={t:[] for t in teams}
+    for m,w in games:
+        appearances[m["home_team"]].append((m,w,True))
+        appearances[m["away_team"]].append((m,w,False))
     attack={t:1. for t in teams}
     defense={t:1. for t in teams}
     # Alternating updates: team attack compared to opponent defensive rating,
@@ -25,11 +29,11 @@ def fit_strengths(history, as_of, half_life_days=240, prior=12, iterations=12):
         new_attack={}
         for t in teams:
             observed=expected=0.
-            for m,w in games:
-                if m["home_team"]==t:
+            for m,w,is_home in appearances[t]:
+                if is_home:
                     observed+=w*m["home_xg"]
                     expected+=w*home_base*defense[m["away_team"]]
-                if m["away_team"]==t:
+                else:
                     observed+=w*m["away_xg"]
                     expected+=w*away_base*defense[m["home_team"]]
             new_attack[t]=max(.25,min(4.,(observed+prior)/(expected+prior)))
@@ -37,11 +41,11 @@ def fit_strengths(history, as_of, half_life_days=240, prior=12, iterations=12):
         new_defense={}
         for t in teams:
             observed=expected=0.
-            for m,w in games:
-                if m["home_team"]==t:
+            for m,w,is_home in appearances[t]:
+                if is_home:
                     observed+=w*m["away_xg"]
                     expected+=w*away_base*attack[m["away_team"]]
-                if m["away_team"]==t:
+                else:
                     observed+=w*m["home_xg"]
                     expected+=w*home_base*attack[m["home_team"]]
             new_defense[t]=max(.25,min(4.,(observed+prior)/(expected+prior)))
