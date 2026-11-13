@@ -59,7 +59,7 @@ LEAGUE_NAMES = {
     "comp_6387":"Scotland · Premiership",
 }
 
-tab1,tab2,tab3=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage"])
+tab1,tab2,tab3,tab4=st.tabs(["🏠 Overview","🏆 Existing leagues","📊 Data coverage","🧪 HT research"])
 with tab1:
     st.subheader("Our existing football database")
     try:
@@ -144,3 +144,100 @@ with tab3:
         except Exception as exc:
             st.error(f"Coverage audit failed: {type(exc).__name__}: {exc}")
     st.info("No external StatsAPI requests. The audit reads stored Supabase records only.")
+
+@st.cache_data(ttl=900)
+def halftime_research_data():
+    """Read existing StatsAPI match outcomes only; no odds or API calls."""
+    records = []
+    fields = ("match_id,competition_id,match_date,home_ht_goals,away_ht_goals,"
+              "home_goals,away_goals,home_ht_xg,away_ht_xg")
+    for offset in range(0, 100000, 1000):
+        batch = (db().table("historical_xg").select(fields)
+                 .order("match_id").range(offset, offset + 999).execute().data or [])
+        records.extend(batch)
+        if len(batch) < 1000:
+            break
+    if not records:
+        return pd.DataFrame()
+    frame = pd.DataFrame(records).drop_duplicates("match_id")
+    numeric = ["home_ht_goals", "away_ht_goals", "home_goals", "away_goals",
+               "home_ht_xg", "away_ht_xg"]
+    for field in numeric:
+        frame[field] = pd.to_numeric(frame[field], errors="coerce")
+    # No outcome imputation: remove matches missing any required score.
+    frame = frame.dropna(subset=numeric[:4]).copy()
+    frame["League"] = frame["competition_id"].map(LEAGUE_NAMES).fillna("Unassigned")
+    frame["HT score"] = frame["home_ht_goals"].astype(int).astype(str) + "-" + frame["away_ht_goals"].astype(int).astype(str)
+    frame["HT state"] = "Draw"
+    frame.loc[frame.home_ht_goals > frame.away_ht_goals, "HT state"] = "Home leading"
+    frame.loc[frame.home_ht_goals < frame.away_ht_goals, "HT state"] = "Away leading"
+    frame["2H home goals"] = frame.home_goals - frame.home_ht_goals
+    frame["2H away goals"] = frame.away_goals - frame.away_ht_goals
+    # Reject inconsistent score records, rather than manufacturing negative goals.
+    frame = frame[(frame["2H home goals"] >= 0) & (frame["2H away goals"] >= 0)].copy()
+    frame["Both halves home scored"] = ((frame.home_ht_goals > 0) & (frame["2H home goals"] > 0)).astype(int)
+    frame["Both halves away scored"] = ((frame.away_ht_goals > 0) & (frame["2H away goals"] > 0)).astype(int)
+    frame["Home won both halves"] = ((frame.home_ht_goals > frame.away_ht_goals) &
+                                     (frame["2H home goals"] > frame["2H away goals"])).astype(int)
+    frame["Away won both halves"] = ((frame.away_ht_goals > frame.home_ht_goals) &
+                                     (frame["2H away goals"] > frame["2H home goals"])).astype(int)
+    frame["2H draw"] = (frame["2H home goals"] == frame["2H away goals"]).astype(int)
+    frame["2H goal"] = ((frame["2H home goals"] + frame["2H away goals"]) > 0).astype(int)
+    frame["2H over 1.5"] = ((frame["2H home goals"] + frame["2H away goals"]) >= 2).astype(int)
+    frame["Home FT win"] = (frame.home_goals > frame.away_goals).astype(int)
+    frame["Away FT win"] = (frame.away_goals > frame.home_goals).astype(int)
+    frame["FT draw"] = (frame.home_goals == frame.away_goals).astype(int)
+    frame["HT xG leader"] = "Unavailable"
+    valid_xg = frame.home_ht_xg.notna() & frame.away_ht_xg.notna()
+    frame.loc[valid_xg, "HT xG leader"] = "Equal"
+    frame.loc[valid_xg & (frame.home_ht_xg > frame.away_ht_xg), "HT xG leader"] = "Home"
+    frame.loc[valid_xg & (frame.home_ht_xg < frame.away_ht_xg), "HT xG leader"] = "Away"
+    return frame
+
+with tab4:
+    st.subheader("Historical halftime pattern explorer")
+    st.caption("Descriptive frequencies from existing StatsAPI match scores; NOT betting profitability or model prices.")
+    if st.button("Load stored halftime outcomes", type="primary"):
+        try:
+            frame = halftime_research_data()
+            st.session_state["ht_research_loaded"] = not frame.empty
+        except Exception as exc:
+            st.session_state["ht_research_loaded"] = False
+            st.error(f"Historical research unavailable: {type(exc).__name__}: {exc}")
+    if st.session_state.get("ht_research_loaded"):
+        frame = halftime_research_data()
+        leagues = st.multiselect("League", sorted(frame["League"].unique()),
+                                 default=sorted(frame["League"].unique()), key="ht_leagues")
+        states = st.multiselect("Halftime score situation",
+                                ["Draw", "Home leading", "Away leading"],
+                                default=["Draw", "Home leading", "Away leading"])
+        xg_leaders = st.multiselect("Half-time xG leader",
+                                    ["Home", "Away", "Equal", "Unavailable"],
+                                    default=["Home", "Away", "Equal", "Unavailable"])
+        filtered = frame[frame["League"].isin(leagues) &
+                         frame["HT state"].isin(states) &
+                         frame["HT xG leader"].isin(xg_leaders)].copy()
+        st.metric("Qualifying historical matches", f"{len(filtered):,}")
+        if not filtered.empty:
+            outcomes = {
+                "Home scored in both halves": "Both halves home scored",
+                "Away scored in both halves": "Both halves away scored",
+                "Home won both halves": "Home won both halves",
+                "Away won both halves": "Away won both halves",
+                "Second half draw": "2H draw",
+                "At least one second-half goal": "2H goal",
+                "At least two second-half goals": "2H over 1.5",
+                "Home full-time win": "Home FT win",
+                "Away full-time win": "Away FT win",
+                "Full-time draw": "FT draw",
+            }
+            result = pd.DataFrame([
+                {"Outcome": label, "Matches": len(filtered),
+                 "Hits": int(filtered[col].sum()),
+                 "Hit rate %": round(100 * filtered[col].mean(), 2)}
+                for label, col in outcomes.items()
+            ])
+            st.dataframe(result, use_container_width=True, hide_index=True)
+            st.download_button("Export filtered results", result.to_csv(index=False),
+                               "starlizard_halftime_patterns.csv", "text/csv")
+            st.caption("All results are in-sample descriptive counts; no market odds, EV or ROI is inferred.")
