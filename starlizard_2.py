@@ -371,6 +371,7 @@ with tab6:
 
 with tab7:
     st.subheader("Automatic halftime pattern discovery — research only")
+    st.caption("On mobile: start with the summary counts, then scroll the detailed results table sideways.")
     st.caption("Searches combinations of leagues, halftime state and xG advantage. Uses separate historical training and later test matches.")
     outcome = st.selectbox("Outcome to investigate", [
         "2H goal", "2H over 1.5", "2H draw", "Home FT win",
