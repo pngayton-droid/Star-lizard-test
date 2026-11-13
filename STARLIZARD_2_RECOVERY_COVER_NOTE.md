@@ -229,3 +229,10 @@ Read-only Supabase analysis, score-reconciled one-goal HT trailing events, closi
 
 ### League-residual correction rejected (November 13)
 Read-only Supabase comparison on reconciled one-goal HT trailing cases. Fixed train cutoff 2025-07-01. Closing Bet365 price-ratio four-bin baseline trained before cutoff; league adjustment = train-only league mean residual `sum(actual - predicted)/(league_training_n + 80)`, clipped probabilities to [0.01,0.99]. This corrects *residuals after price strength*, rather than replacing price model with crude league base rates. Validation n=720 Brier baseline **0.234468** vs adjusted 0.236108 (worse). Later test n=860 baseline **0.220027** vs adjusted 0.220742 (worse). Reject league correction for now; avoid fitting adjustments to 2026 league-specific results. An earlier crude league base-rate blending test on subset n681/n802 also worsened, but was confounded by changing price-strength composition. No ROI or next-goal market odds demonstrated.
+
+
+### November 13 continuation — odds-label correction
+- Updated `starlizard_2.py` historical odds-quality warning to follow the user's confirmed provider semantics: `opening` is the opening bookmaker quote and `last_seen` is the last recorded quote before in-play. The post-match historical fetch timestamp is not the quote timestamp. Neither field supplies an in-play halftime/next-goal price.
+- Development-only commit: `2f6dac9c6086b03731d5a7c812f530254b411427`. Production `main` unchanged; no StatsAPI requests or database writes.
+- Existing offline workflow `.github/workflows/starlizard2-research-tests.yml` already defines research unit tests, mocked Streamlit dashboard test, and headless HTTP health check. A successful current run has **not** been independently confirmed here.
+- Next: verify workflow outcome, fix failures if any, then integrate read-only timeline-verified favourite-trailing research into the new dashboard. Do not use `last_seen` as information available before its pre-in-play observation time.
