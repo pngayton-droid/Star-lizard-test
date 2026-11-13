@@ -2,7 +2,7 @@ name: Audit heavy favourites against actual results
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/audit_market_heavy_favourites.yml']
+    paths: ['.github/workflows/audit_market_heavy_favourites.yml', 'research/audit_market_heavy_favourites.py']
   workflow_dispatch:
 permissions:
   contents: read
