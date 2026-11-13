@@ -90,7 +90,7 @@ for start in range(0,20000,500):
     except (KeyError,TypeError,ValueError):pass
     break
  if len(batch)<500:break
-print("ODDS_MATCHES",len(odds),flush=True)
+print("ODDS_MATCHES",len(odds),"OPENING",sum("opening" in x for x in odds.values()),"LAST_SEEN",sum("last_seen" in x for x in odds.values()),flush=True)
 for cutoff,end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
  train=[r for r in rows if r["match_date"][:10]<cutoff]
  test=[r for r in rows if cutoff<=r["match_date"][:10]<end]
