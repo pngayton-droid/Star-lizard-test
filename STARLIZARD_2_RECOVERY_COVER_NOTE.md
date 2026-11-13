@@ -105,6 +105,9 @@ CI run `43426479974` completed **successfully**. Added a ninth read-only `Integr
 ### Raw integrity correction
 After verified green GitHub Actions run `43436489852`, corrected ninth integrity tab to query **all** `historical_xg` rows, not just the filtered research subset. Commit `7ef0145978d913c477c41a1d32966ad9c9b276b9` now reports raw record count, duplicate IDs, incomplete scores, impossible second-half scores, missing dates, and missing halftime xG pairs. The prior limitation is superseded. CI pending. No source records modified.
 
+### Raw integrity regression verification
+GitHub Actions run `43436682141` **passed**, confirming the raw-integrity correction boots and its mocked UI runs. Added stronger AppTest fixture with a second deliberately incomplete record and assertions that the raw audit reports 2 records, 1 incomplete score, 1 missing date, and 1 missing halftime xG pair (commit `193c61fc61b25041495429cc592ae4ed4e2a9d8a`). Latest CI pending. No new provider calls.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
