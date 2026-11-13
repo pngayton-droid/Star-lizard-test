@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/workflows/backup_supabase.yml']
+    paths: ['.github/workflows/backup_supabase.yml', 'scripts/backup_supabase.py']
 
 permissions:
   contents: read
@@ -14,7 +14,7 @@ permissions:
 jobs:
   backup:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
 
     steps:
       - name: Checkout repository
