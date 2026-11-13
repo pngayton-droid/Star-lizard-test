@@ -185,6 +185,12 @@ Read-only Supabase experiment extended reconciled event data to **all halftime t
 - Later test deficit one n=860: 0.221951 / **0.221392** / 0.221942 / 0.221493 (same model order). Deficit two n=300: 0.228440 / **0.225948** / 0.230211 / 0.228540. Deficit 3+ n=75: 0.202581 / 0.203198 / 0.202575 / **0.201900**, very small sample.
 - **No aggregate gain from adding deficit** with this particular smoothed categorical model. Different data cohort and train priors from earlier one-goal-only experiment, so Brier values should not be directly compared between those experiments. Still no verified pre-match price timestamps, no halftime next-goal odds or tradable edge, no pristine prospective holdout, and no full chronological goal-event validator pass. No provider requests or DB mutations.
 
+### Price-ratio strength refinement (November 13)
+Read-only Supabase SQL `research/ht_next_goal_relative_price_ratio_brier.sql` (commit `9aa9fba7f3c448e1f2652938813ba532644ecd7b`). One-goal HT trailing, score-reconciled event timelines; train before 2025-07-01. Compare (1) coarse relative shorter/longer/equal price; (2) coarse + binary xG; (3) trailing-to-leading Bet365 last_seen price ratio in four bins (<0.75, 0.75–<1, 1–<1.5, >=1.5); (4) ratio bins + xG. Train-only categorical smoothing: coarse 2/4, coarse+xG 4 toward coarse, ratio 8 toward coarse, ratio+xG 8 toward ratio.
+- Validation n=720 Brier: coarse 0.236694; coarse+xG 0.233821; ratio 0.234468; **ratio+xG 0.232834**.
+- Later test n=860 Brier: coarse 0.221958; coarse+xG 0.221496; **ratio 0.220027**; ratio+xG 0.220092.
+- Detailed ratio improves later-test predictions; adding xG to ratio yields **slightly worse** later-test Brier (+0.000065) despite improving validation. May indicate prior xG gain partly captures strength, but not conclusive. Ratio bins selected during exploratory development, so not pristine out-of-sample design; Bet365 last_seen not timestamp-verified as pre-match, possible hindsight leakage. No aligned next-goal odds, no ROI or betting edge. Full goal chronology validation still pending.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
