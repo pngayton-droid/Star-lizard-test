@@ -1,4 +1,4 @@
-name: Recover recent fixtures (manual only)
+name: Recover recent fixtures (bounded catch-up)
 
 on:
   push:
