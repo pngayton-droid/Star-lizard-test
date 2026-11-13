@@ -1,4 +1,4 @@
-name: Recover recent fixtures (bounded catch-up)
+name: Recover missing fixtures first (150-call cap)
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
       - name: Recover finished fixtures with strict request budget
         env:
           ENABLE_LIVE_FIXTURE_COLLECTION: '1'
-          LIVE_FIXTURE_MAX_REQUESTS: '30'
+          LIVE_FIXTURE_MAX_REQUESTS: '150'
           LIVE_FIXTURE_LOOKBACK_DAYS: ${{ github.event_name == 'schedule' && '4' || github.event_name == 'push' && '14' || inputs.lookback_days }}
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
