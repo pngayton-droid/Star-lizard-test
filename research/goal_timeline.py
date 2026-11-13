@@ -14,6 +14,8 @@ def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft
         return None, "ambiguous_teams"
     goals = []
     previous_sequence = -1
+    previous_half = 1
+    previous_minute = 0
     for event in timeline["events"]:
         if not isinstance(event, dict):
             return None, "malformed_event"
@@ -21,6 +23,17 @@ def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft
         if not isinstance(sequence, int) or sequence <= previous_sequence:
             return None, "invalid_sequence"
         previous_sequence = sequence
+        period_value = event.get("period")
+        if period_value in ("first_half", "second_half"):
+            half_value = 1 if period_value == "first_half" else 2
+            minute_value = event.get("minute")
+            if half_value < previous_half:
+                return None, "reversed_period"
+            if isinstance(minute_value, int) and minute_value < previous_minute:
+                return None, "reversed_minutes"
+            previous_half = half_value
+            if isinstance(minute_value, int):
+                previous_minute = minute_value
         if event.get("type") not in GOAL_TYPES:
             continue
         if event.get("type") == "own_goal":
