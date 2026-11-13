@@ -1,0 +1,45 @@
+name: Recover recent fixtures (manual only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: 'Days to recover (7 for last weekend)'
+        required: true
+        type: choice
+        options:
+          - '7'
+          - '10'
+          - '14'
+        default: '7'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: starlizard-manual-fixture-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout isolated collector on development branch
+        uses: actions/checkout@v4
+        with:
+          ref: starlizard-2-existing-data-only
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests supabase
+      - name: Recover finished fixtures with strict request budget
+        env:
+          ENABLE_LIVE_FIXTURE_COLLECTION: '1'
+          LIVE_FIXTURE_MAX_REQUESTS: '30'
+          LIVE_FIXTURE_LOOKBACK_DAYS: ${{ inputs.lookback_days }}
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/collect_recent_finished_fixtures.py
