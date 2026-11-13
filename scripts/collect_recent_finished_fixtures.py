@@ -61,7 +61,7 @@ def existing_ids():
     result = {}
     offset = 0
     while True:
-        rows = db.table("historical_xg").select("match_id,match_date,home_ht_xg,away_ht_xg,home_goals,away_goals,home_ht_goals,away_ht_goals").order("match_id").range(offset, offset + 999).execute().data or []
+        rows = db.table("historical_xg").select("match_id,match_date,competition_id,home_ht_xg,away_ht_xg,home_goals,away_goals,home_ht_goals,away_ht_goals").order("match_id").range(offset, offset + 999).execute().data or []
         for r in rows:
             result[str(r["match_id"])] = r
         if len(rows) < 1000:
@@ -135,6 +135,12 @@ def main():
                 existing = known.get(match_id) or {}
                 xg_complete = all(existing.get(k) is not None for k in ("home_ht_xg", "away_ht_xg"))
                 score_complete = all(existing.get(k) is not None for k in ("home_goals", "away_goals", "home_ht_goals", "away_ht_goals"))
+                # Listing is competition-scoped: repair legacy blank league IDs before skip.
+                if existing and not existing.get("competition_id"):
+                    db.table("historical_xg").update({"competition_id": competition_id}).eq("match_id", match_id).execute()
+                    existing["competition_id"] = competition_id
+                elif existing and existing.get("competition_id") != competition_id:
+                    raise RuntimeError(f"League mismatch for {match_id}: {existing.get('competition_id')} != {competition_id}")
                 if xg_complete and score_complete and stats is not None and timeline is not None:
                     skipped += 1
                     continue
