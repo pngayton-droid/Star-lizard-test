@@ -6,7 +6,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from research.chronological_validation import chronological_split, chronological_three_way_split, evaluate_binary_baseline, wilson_interval
-from research.conditional_model import fit_conditional_rates, evaluate as evaluate_conditional
+from research.conditional_model import fit_conditional_rates, evaluate as evaluate_conditional, calibration_bins
 
 st.set_page_config(page_title="PRO STARLIZARD 2.0", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""<style>
@@ -489,6 +489,11 @@ with tab8:
                     "Actual event frequency": round(scores["observed_rate"], 4),
                     "Unseen feature combinations in test": scores["unseen_group_test_n"],
                 })
+                st.subheader("Validation calibration by predicted probability")
+                bins = calibration_bins(model, testing, target)
+                if bins:
+                    st.dataframe(pd.DataFrame(bins), use_container_width=True, hide_index=True)
+                st.caption("Observed frequencies are measured on validation data only. Sparse bands are noisy; this is not an odds or profitability test.")
                 if scores["model_brier"] < scores["global_train_baseline_brier"]:
                     st.success("Model beats the global baseline on this validation period. This is not proof of a betting edge.")
                 else:
