@@ -8,6 +8,9 @@
 ## Read this first if a ChatGPT conversation goes read-only
 The user wants a new, mobile-friendly football betting research app built using **only already-collected TheStatsAPI data**. API request allowance is running low: **do not trigger new provider API calls, historical collection or league imports** without approval. Do not use the old mixed-source research archive for model training. **DO NOT delete, revoke, rotate, overwrite or expose API keys, secrets, database records, collector scripts, GitHub Actions or schedules.** The user specifically corrected an earlier instruction: *do not wipe the keys*. Avoid modifying `main` until development is tested and user approves deployment.
 
+## Latest implementation checkpoint (2026-11-13)
+Commit `120d2b648985523efca3b9437787bc1f439d1e93`: Added a button-triggered, read-only per-league coverage audit in `starlizard_2.py` that joins match IDs across historical_xg, historical_match_odds and historical_match_events and counts full-time/halftime xG completeness. Includes CSV export. Does not fetch provider data. **Not yet live-tested**; audit reads existing database rows in paginated batches and can take time.
+
 ## Current implementation
 - `starlizard_2.py` is a **new standalone Streamlit entry point** on the development branch. It reads Supabase tables `historical_xg`, `historical_match_events` and `historical_match_odds` using existing Streamlit secrets `SUPABASE_URL` and `SUPABASE_SECRET_KEY`. No TheStatsAPI network requests.
 - Shows existing-data totals, named league inventory, interactive league selector, match-count chart and research priorities.
@@ -50,6 +53,6 @@ These are historical_xg counts, NOT guarantees of complete odds, xG or timelines
 Open the branch `starlizard-2-existing-data-only` in GitHub, read this file and `starlizard_2.py`, check the latest commits, then continue from the immediate next steps. Do not ask the user to recreate existing keys or data. Supabase and GitHub connector tools are available; read the installed Supabase skill before any Supabase task.
 
 ## Current status
-**Implemented in code:** dashboard shell, league inventory and selector.
+**Implemented in code:** dashboard shell, league inventory and selector, per-league stored-data coverage audit and CSV export.
 **Not yet implemented:** verified odds joins, favourite-trailing backtest, calibrated model, live quote ingestion, automatic alert scanner, deployment.
 **Safety:** no database mutations or provider API calls were made during this checkpoint.
