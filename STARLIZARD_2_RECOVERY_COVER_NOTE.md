@@ -96,6 +96,9 @@ GitHub Actions run `43422462577` was **green**, including click-through tests fo
 ### Mobile research summaries
 GitHub Actions run `43425783567` completed **successfully** including extended model and pattern UI tests. Commits `9a07bcde1ae095451925ab3118e3c51c6c344f7a` and `b21f8d2f47e7268419a1201f4db58f38bfbc0728` add compact counts of eligible patterns and direction consistency, a Brier improvement metric against the global training baseline, and clearer mobile interpretation guidance. They do **not** establish a betting edge. New CI checks pending.
 
+### Multiple-testing and split safety (2026-11-13)
+GitHub Actions run `43426001834` **passed** with UI tests and mobile summary changes. Pattern discovery now reports how many candidate patterns passed thresholds and explicitly warns that Wilson intervals are unadjusted for multiple comparisons (commit `5bb44954e52fca008d14d8699f0b4e1c718c4888`). Three-way chronological split now gives a clear error when too few distinct match dates remain (commit `e115d04faaff57451d618d63217133bed8428c6e`) and has a regression test (commit `7f77ee3b40afb2ee9163e8723b038d33a2bbe364`). New CI pending. No final-test outcomes accessed during exploratory pattern selection. Still no time-aligned in-play prices, so no ROI claims.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
