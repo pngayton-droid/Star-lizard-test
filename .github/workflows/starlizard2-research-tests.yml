@@ -1,0 +1,20 @@
+name: Starlizard 2 research checks
+on:
+  push:
+    branches: [starlizard-2-existing-data-only]
+  workflow_dispatch:
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Syntax check
+        run: python -m py_compile starlizard_2.py research/chronological_validation.py tests/test_chronological_validation.py
+      - name: Pure research unit tests
+        run: python -m unittest discover -s tests -p 'test_chronological_validation.py' -v
