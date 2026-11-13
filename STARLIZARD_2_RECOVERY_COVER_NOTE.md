@@ -255,3 +255,12 @@ Read-only Supabase SQL evaluated 2,002 matches dated 2026-01-01 through 2026-11-
 - Simple last-ten points per game gap >0.6 in absolute value: 805 qualifying, selected-side wins 54.3%. Simple last-ten xG difference gap >0.8: 644 qualifying, selected-side wins 59.0%. **Different selected samples: do not compare percentages as a controlled head-to-head test.**
 - These are retrospective descriptive hit rates, not betting ROI, probability calibration or proof of added value over bookmaker prices. No StatsAPI calls and no database writes.
 - Next: same-fixture controlled comparison of combined rating vs results-only and xG-only; train/validation/test split; Brier/log loss vs Bet365 pre-in-play closing implied probabilities; audit missing shots/corners and run CI.
+
+
+### Market comparison, 2026 matched fixture test (13 November)
+Read-only Supabase SQL joined 1,997 2026 fixtures with two eligible ten-match histories and complete Bet365 last_seen 1X2 quotes. Compared simplified 4-component rating (strong if gap >15/100), points-only (prior 10 PPG gap >0.6) and xG-only (prior 10 xGD gap >0.8). All histories strictly earlier dates. All selections one flat unit at individual Bet365 last_seen decimal odds, no commission. Distinct selections; **not** a controlled same-bets comparison of predictive quality.
+- Combined agrees with market favourite: 913 bets, 59.15% won, −6.57% flat ROI; market no-vig expectation 58.81%. Opposes: 105, 23.81% won, −28.40% ROI; market expectation 30.28%.
+- Results-only agrees: 691, 59.33% won, −7.97% ROI; opposes: 113, 23.89% won, −25.18% ROI.
+- xG-only agrees: 596, 62.25% won, −5.44% ROI; opposes: 47, 17.02% won, −44.66% ROI.
+- Caveats: exploratory thresholds, no multiple-testing correction, last_seen is pre-in-play but not guaranteed executable price, no transaction costs, no bookmaker closing-line comparison, not seven-component model. **No demonstrated betting edge**. Do not optimize thresholds on 2026 test results.
+- Next: same-fixture calibrated prediction comparison on a fresh time period, or new holdout after 2026. Verify CI for added rolling model tests.
