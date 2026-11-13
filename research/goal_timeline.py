@@ -20,7 +20,7 @@ def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft
         if not isinstance(event, dict):
             return None, "malformed_event"
         sequence = event.get("sequence")
-        if not isinstance(sequence, int) or sequence <= previous_sequence:
+        if type(sequence) is not int or sequence <= previous_sequence:
             return None, "invalid_sequence"
         previous_sequence = sequence
         period_value = event.get("period")
@@ -29,10 +29,10 @@ def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft
             minute_value = event.get("minute")
             if half_value < previous_half:
                 return None, "reversed_period"
-            if isinstance(minute_value, int) and minute_value < previous_minute:
+            if type(minute_value) is int and minute_value < previous_minute:
                 return None, "reversed_minutes"
             previous_half = half_value
-            if isinstance(minute_value, int):
+            if type(minute_value) is int:
                 previous_minute = minute_value
         if event.get("type") not in GOAL_TYPES:
             continue
@@ -40,7 +40,7 @@ def validated_goal_sequence(timeline, home_name, away_name, ht_home, ht_away, ft
         if period not in ("first_half", "second_half"):
             return None, "invalid_goal_period"
         minute = event.get("minute")
-        if not isinstance(minute, int) or minute < 1 or minute > 130:
+        if type(minute) is not int or minute < 1 or minute > 130:
             return None, "invalid_goal_minute"
         team = event.get("team")
         team_name = team.get("name") if isinstance(team, dict) else None
