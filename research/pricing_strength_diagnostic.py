@@ -75,19 +75,29 @@ def fit_strength(hist,cutoff,scale):
 
 # Diagnose whether stronger team ratings or a home-advantage change improves out-of-sample prices.
 # Selection is based only on Bet365 last-seen market odds; market odds NEVER enter model fitting.
+# Fetch only odds for the held-out league fixtures; avoid full JSON scans.
+import time
 odds={}
-for start in range(0,15000,100):
- batch=db.table("historical_match_odds").select("match_id,odds_payload").eq("fetch_status","collected").range(start,start+499).execute().data or []
- for item in batch:
-  for book in ((item.get("odds_payload") or {}).get("data") or {}).get("bookmakers",[]):
-   if str(book.get("bookmaker","")).lower()!="bet365":continue
-   m=(book.get("markets") or {}).get("match_odds") or {}
+for period_start,period_end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
+ ids=[r["match_id"] for r in rows if period_start<=r["match_date"][:10]<period_end and r.get("match_id")]
+ for offset in range(0,len(ids),15):
+  batch=[]
+  for attempt in range(4):
    try:
-    q=[float(m[k]["last_seen"]) for k in ("home","draw","away")]
-    if min(q)>1 and max(q)<1000:odds[item["match_id"]]=q
-   except (KeyError,ValueError,TypeError):pass
-   break
- if len(batch)<100:break
+    batch=db.table("historical_match_odds").select("match_id,odds_payload").in_("match_id",ids[offset:offset+15]).execute().data or []
+    break
+   except Exception as exc:
+    if "timeout" not in str(exc).lower() or attempt==3:raise
+    time.sleep(2**attempt)
+  for item in batch:
+   for book in ((item.get("odds_payload") or {}).get("data") or {}).get("bookmakers",[]):
+    if str(book.get("bookmaker","")).lower()!="bet365":continue
+    m=(book.get("markets") or {}).get("match_odds") or {}
+    try:
+     q=[float(m[k]["last_seen"]) for k in ("home","draw","away")]
+     if min(q)>1 and max(q)<1000:odds[item["match_id"]]=q
+    except (KeyError,ValueError,TypeError):pass
+    break
 print("ODDS_AVAILABLE",len(odds),flush=True)
 for cutoff,end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
  train=[r for r in rows if r["match_date"][:10]<cutoff]
