@@ -84,6 +84,14 @@ for cutoff,end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
    print(f"RESULT period={cutoff} model={kind} venue_h2h={with_h2h} n={len(test)} logloss={ll/len(test):.6f} brier={br/len(test):.6f} strong_n={f_n} strong_actual={f_win/max(1,f_n):.4f} strong_pred={f_pred/max(1,f_n):.4f}",flush=True)
 
 
+def fit_strength(hist,cutoff,scale):
+ X,Y,G,W=matrix(hist,cutoff)
+ pen=np.ones(X.shape[1])*8*scale;pen[0]=.001;pen[1]=16*scale
+ def fun(b):
+  eta=np.clip(X@b,-7,5);mu=np.exp(eta)
+  return np.sum(W*(mu-Y*eta))+.5*np.sum(pen*b*b), X.T@(W*(mu-Y))+pen*b
+ b=np.zeros(X.shape[1]);b[0]=np.log(max(.2,np.average(Y,weights=W)))
+ return minimize(fun,b,jac=True,method="L-BFGS-B",options={"maxiter":250}).x
 # Compare fixed candidate regularisation strengths in three independent leagues.
 for cutoff,end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
  train=[r for r in rows if r["match_date"][:10]<cutoff]
