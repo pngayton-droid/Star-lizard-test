@@ -4,6 +4,7 @@ Never connects to Supabase or TheStatsAPI. The production entry point is tested
 rather than a duplicate implementation. Run with python -m unittest discover.
 """
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from streamlit.testing.v1 import AppTest
 
@@ -68,7 +69,7 @@ class DashboardSmokeTests(unittest.TestCase):
             "historical_match_events": [{"match_id": "m1"}],
         }
         with patch("supabase.create_client", return_value=_Database(fixtures)):
-            app = AppTest.from_file("starlizard_2.py", default_timeout=30)
+            app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "starlizard_2.py"), default_timeout=30)
             app.secrets["SUPABASE_URL"] = "https://example.supabase.co"
             app.secrets["SUPABASE_SECRET_KEY"] = "fake-local-test-key"
             app.run()
