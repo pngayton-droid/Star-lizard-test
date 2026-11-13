@@ -13,6 +13,7 @@ class FixtureCollectorTests(unittest.TestCase):
         fake_requests = types.ModuleType("requests")
         fake_requests.Session = lambda: self.fail("HTTP session must not be created")
         fake_supabase = types.ModuleType("supabase")
+        fake_supabase.create_client = lambda *args: None
         fake_supabase.create_client = lambda *a: self.fail("DB client must not be created")
         with patch.dict(sys.modules, {"requests": fake_requests, "supabase": fake_supabase}):
             with patch.dict(os.environ, {"ENABLE_LIVE_FIXTURE_COLLECTION": "0"}, clear=True):
