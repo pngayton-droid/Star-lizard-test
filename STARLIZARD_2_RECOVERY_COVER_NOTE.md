@@ -102,6 +102,9 @@ GitHub Actions run `43426001834` **passed** with UI tests and mobile summary cha
 ### Integrity audit tab
 CI run `43426479974` completed **successfully**. Added a ninth read-only `Integrity` tab (`54cb7c8aea18f8f805e81f1ed3696a7ab72a0294`) displaying completeness among score-consistent records and clearly warning that this does **not** audit goal timelines or VAR anomalies. Added a UI click-through test (`9f06160c0733738cda338237809c9192e3791c67`). New CI pending. Important limitation: this tab calls `halftime_research_data`, which excludes missing/inconsistent score records, so it is **not** an exhaustive raw-record audit; data coverage tab and independent SQL are needed for excluded-record counts.
 
+### Raw integrity correction
+After verified green GitHub Actions run `43436489852`, corrected ninth integrity tab to query **all** `historical_xg` rows, not just the filtered research subset. Commit `7ef0145978d913c477c41a1d32966ad9c9b276b9` now reports raw record count, duplicate IDs, incomplete scores, impossible second-half scores, missing dates, and missing halftime xG pairs. The prior limitation is superseded. CI pending. No source records modified.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
