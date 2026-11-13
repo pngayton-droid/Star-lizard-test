@@ -66,6 +66,7 @@ def main():
     parser.add_argument("--limit",type=int,default=20)
     parser.add_argument("--interval",type=float,default=1.1)
     parser.add_argument("--retry-errors",action="store_true")
+    parser.add_argument("--max-new",type=int,default=100)
     args=parser.parse_args()
     if args.limit<1 or args.interval<1: parser.error("limit and interval must be positive; interval >=1 second")
     db=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
@@ -74,6 +75,8 @@ def main():
     ids=get_match_ids(db,args.limit)
     done=0
     for index,match_id in enumerate(ids,1):
+        if done >= args.max_new:
+            break
         existing=(db.table("historical_match_odds").select("fetch_status")
                   .eq("match_id",match_id).limit(1).execute().data or [])
         if existing and existing[0]["fetch_status"] in ("collected","unavailable"):
