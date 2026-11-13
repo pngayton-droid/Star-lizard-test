@@ -1,6 +1,11 @@
 name: Recover recent fixtures (manual only)
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/recover_recent_fixtures_manual.yml'
   schedule:
     - cron: '17 */6 * * *'
   workflow_dispatch:
@@ -40,7 +45,7 @@ jobs:
         env:
           ENABLE_LIVE_FIXTURE_COLLECTION: '1'
           LIVE_FIXTURE_MAX_REQUESTS: '30'
-          LIVE_FIXTURE_LOOKBACK_DAYS: ${{ github.event_name == 'schedule' && '4' || inputs.lookback_days }}
+          LIVE_FIXTURE_LOOKBACK_DAYS: ${{ github.event_name == 'schedule' && '4' || github.event_name == 'push' && '14' || inputs.lookback_days }}
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
