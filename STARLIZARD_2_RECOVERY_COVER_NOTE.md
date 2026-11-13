@@ -52,6 +52,9 @@ Commit `bb62378eb9ce356004e842983f7135d15af2bdc6`: added fourth tab `HT research
 ### Independent SQL cross-check of halftime calculations
 Read-only SQL against `historical_xg` returned **11,932 valid matches with nonnegative 2H goals and complete HT/FT scores**. Home scored in both halves: 3,474; away scored both: 2,527; home won both halves: 1,626; away won both: 911; second half draw: 4,124; second half 2+ goals: 5,544. These counts are full-archive descriptive checks, not app runtime test or evidence of profitability. SQL and Python definitions should be kept consistent.
 
+### Chronological holdout module (2026-11-13)
+Commits `ebd66b81ec57be3de4e4b20f9aa490dc36f4582b` and `a1fbeea5900d72ef527bb2abf99c89d73539b522`: added `research/chronological_validation.py` with whole-date train/test splits, Wilson confidence bounds, Brier score and a built-in self-test. Fifth dashboard tab provides league-specific chronological baseline evaluation for multiple historical HT/FT/second-half outcomes with CSV export. **Not yet run in the deployed Streamlit environment.** Attempted to download GitHub source to local container for syntax/smoke tests, but the container cannot resolve `raw.githubusercontent.com`. Do not claim tests passed; run `python -m py_compile starlizard_2.py research/chronological_validation.py` and `python research/chronological_validation.py` in an environment with the repo checked out, then Streamlit smoke test. This remains a baseline, not market-calibrated edge or live betting model.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
