@@ -69,12 +69,14 @@ def evaluate_binary_baseline(train, test, outcome: str, min_train: int = 100):
 
     This is a calibration baseline, not a trading strategy.
     """
-    training = [int(r[outcome]) for r in train if r.get(outcome) is not None]
-    testing = [int(r[outcome]) for r in test if r.get(outcome) is not None]
+    training = [r[outcome] for r in train if r.get(outcome) is not None]
+    testing = [r[outcome] for r in test if r.get(outcome) is not None]
     if any(v not in (0, 1) for v in training + testing):
         raise ValueError("Outcomes must be binary")
     if len(training) < min_train or not testing:
         return None
+    training = [int(y) for y in training]
+    testing = [int(y) for y in testing]
     p = sum(training) / len(training)
     observed = sum(testing) / len(testing)
     brier = sum((p-y)**2 for y in testing)/len(testing)
@@ -84,7 +86,7 @@ def evaluate_binary_baseline(train, test, outcome: str, min_train: int = 100):
         "train_rate": p, "test_rate": observed,
         "test_wilson_low": lower, "test_wilson_high": upper,
         "test_brier": brier,
-        "test_baseline_brier": sum((sum(testing)/len(testing)-y)**2 for y in testing)/len(testing),
+        "test_oracle_brier": sum((observed-y)**2 for y in testing)/len(testing),
     }
 
 
