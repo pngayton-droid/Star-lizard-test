@@ -93,6 +93,9 @@ Read-only Supabase SQL confirmed `historical_xg` has **11,964 rows**, all with m
 ### Model isolation and expanded UI coverage
 GitHub Actions run `43422462577` was **green**, including click-through tests for coverage, halftime research and odds audit with mocked records. Subsequent commits `0811bc6d3a799f065fe44cf63dded20982a51e01` and `b95bb72fe0eff6fb6f93ed43be10a41819d485da` reserve the final chronological period without even filtering it for candidate group counts, and move the conditional model to train/validation/final-period separation. Commit `3da29bd1e066e8ba7cb983cc5a03c7442c9bea4a` expands UI test clicks to pattern search and conditional model. Latest CI pending verification. Existing production branch, provider keys and data unchanged.
 
+### Mobile research summaries
+GitHub Actions run `43425783567` completed **successfully** including extended model and pattern UI tests. Commits `9a07bcde1ae095451925ab3118e3c51c6c344f7a` and `b21f8d2f47e7268419a1201f4db58f38bfbc0728` add compact counts of eligible patterns and direction consistency, a Brier improvement metric against the global training baseline, and clearer mobile interpretation guidance. They do **not** establish a betting edge. New CI checks pending.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
