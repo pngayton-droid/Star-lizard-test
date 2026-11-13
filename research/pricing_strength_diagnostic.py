@@ -8,7 +8,7 @@ db=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
 LEAGUE_ID=os.environ.get("LEAGUE_ID","comp_3039")
 rows=[]
 for start in range(0,4000,500):
- b=db.table("historical_xg").select("match_date,home_team,away_team,home_xg,away_xg,home_goals,away_goals").eq("competition_id",LEAGUE_ID).lt("match_date","2026-11-13").order("match_date").range(start,start+499).execute().data or []
+ b=db.table("historical_xg").select("match_id,match_date,home_team,away_team,home_xg,away_xg,home_goals,away_goals").eq("competition_id",LEAGUE_ID).lt("match_date","2026-11-13").order("match_date").range(start,start+499).execute().data or []
  rows+=b
  if len(b)<500:break
 rows=[r for r in rows if all(r.get(k) is not None for k in ("match_date","home_xg","away_xg","home_goals","away_goals"))]
@@ -76,7 +76,7 @@ def fit_strength(hist,cutoff,scale):
 # Diagnose whether stronger team ratings or a home-advantage change improves out-of-sample prices.
 # Selection is based only on Bet365 last-seen market odds; market odds NEVER enter model fitting.
 odds={}
-for start in range(0,15000,500):
+for start in range(0,15000,100):
  batch=db.table("historical_match_odds").select("match_id,odds_payload").eq("fetch_status","collected").range(start,start+499).execute().data or []
  for item in batch:
   for book in ((item.get("odds_payload") or {}).get("data") or {}).get("bookmakers",[]):
@@ -87,7 +87,7 @@ for start in range(0,15000,500):
     if min(q)>1 and max(q)<1000:odds[item["match_id"]]=q
    except (KeyError,ValueError,TypeError):pass
    break
-print("ODDS_AVAILABLE",len(odds),flush=True)
+ if len(batch)<100:break\nprint("ODDS_AVAILABLE",len(odds),flush=True)
 for cutoff,end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
  train=[r for r in rows if r["match_date"][:10]<cutoff]
  test=[r for r in rows if cutoff<=r["match_date"][:10]<end]
@@ -96,16 +96,16 @@ for cutoff,end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
   beta=fit_strength(train,date.fromisoformat(cutoff),scale)
   for home_delta in (-.10,0.,.10):
    b=beta.copy();b[1]+=home_delta
-   ll=br=0.;n=0;f_n=f_actual=f_model=f_market=0
+   ll=br=0.;evaluated=0;f_n=f_actual=f_model=f_market=0
    for r in test:
     p=probs(b,r["home_team"],r["away_team"],"poisson")
     outcome=0 if r["home_goals"]>r["away_goals"] else 1 if r["home_goals"]==r["away_goals"] else 2
     ll-=math.log(max(1e-12,p[outcome]))
-    br+=sum((p[k]-int(k==outcome))**2 for k in range(3));n+=1
+    br+=sum((p[k]-int(k==outcome))**2 for k in range(3));evaluated+=1
     q=odds.get(r.get("match_id"))
     if q:
      side=0 if q[0]<q[2] else 2
      if q[side]<1.5:
       implied=[1/x for x in q];den=sum(implied)
       f_n+=1;f_actual+=int(outcome==side);f_model+=p[side];f_market+=implied[side]/den
-   print(f"PRICING_DIAGNOSTIC league={LEAGUE_ID} period={cutoff} scale={scale} home_delta={home_delta:+.2f} n={n} logloss={ll/n:.6f} brier={br/n:.6f} favourite_n={f_n} favourite_actual={f_actual/max(1,f_n):.4f} favourite_model={f_model/max(1,f_n):.4f} favourite_market={f_market/max(1,f_n):.4f}",flush=True)
+   print(f"PRICING_DIAGNOSTIC league={LEAGUE_ID} period={cutoff} scale={scale} home_delta={home_delta:+.2f} n={evaluated} logloss={ll/evaluated:.6f} brier={br/evaluated:.6f} favourite_n={f_n} favourite_actual={f_actual/max(1,f_n):.4f} favourite_model={f_model/max(1,f_n):.4f} favourite_market={f_market/max(1,f_n):.4f}",flush=True)
