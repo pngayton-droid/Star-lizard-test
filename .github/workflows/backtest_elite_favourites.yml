@@ -1,0 +1,23 @@
+name: Backtest elite Spanish favourites
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/backtest_elite_favourites.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy supabase
+      - name: Blind historical backtest
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u research/backtest_elite_favourites.py
