@@ -374,7 +374,7 @@ with tab6:
         st.dataframe(report, use_container_width=True, hide_index=True)
         st.download_button("Export odds quality report", report.to_csv(index=False),
                            "starlizard_odds_quality.csv", "text/csv")
-    st.warning("Last-seen prices are not verified pre-match closing odds. Neither opening nor last-seen quotes are time-aligned in-play prices. Do not calculate in-play ROI from them.")
+    st.info("TheStatsAPI `opening` means the bookmaker opening price; `last_seen` means the last recorded price before in-play (provider-defined pre-match close). Historical archive retrieval time is not quote time. Neither is a halftime or live next-goal quote; do not calculate in-play ROI from them.")
 
 with tab7:
     st.subheader("Automatic halftime pattern discovery — research only")
