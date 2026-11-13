@@ -5,7 +5,7 @@ Run with: streamlit run starlizard_2.py
 import streamlit as st
 import pandas as pd
 from supabase import create_client
-from research.chronological_validation import chronological_split, evaluate_binary_baseline, wilson_interval
+from research.chronological_validation import chronological_split, chronological_three_way_split, evaluate_binary_baseline, wilson_interval
 from research.conditional_model import fit_conditional_rates, evaluate as evaluate_conditional
 
 st.set_page_config(page_title="PRO STARLIZARD 2.0", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
@@ -382,11 +382,13 @@ with tab7:
             # Global calendar split, not a separate post-hoc split for each candidate.
             calendar = frame[["match_id", "match_date"]].copy()
             calendar["match_date"] = calendar["match_date"].dt.strftime("%Y-%m-%d")
-            training, testing, cutoff = chronological_split(calendar.to_dict("records"), .70)
+            training, validation, final_test, cutoff, final_cutoff = chronological_three_way_split(calendar.to_dict("records"))
             training_ids = {r["match_id"] for r in training}
-            testing_ids = {r["match_id"] for r in testing}
+            testing_ids = {r["match_id"] for r in validation}
+            final_ids = {r["match_id"] for r in final_test}
             train = frame[frame.match_id.isin(training_ids)]
             test = frame[frame.match_id.isin(testing_ids)]
+            final_frame = frame[frame.match_id.isin(final_ids)]
             base_rate = train[outcome].mean()
             discoveries = []
             for league in sorted(frame["League"].unique()):
@@ -398,7 +400,10 @@ with tab7:
                         te = test[(test["League"] == league) &
                                   (test["HT state"] == state) &
                                   (test["HT xG leader"] == xg)]
-                        if len(tr) < min_samples or len(te) < min_test:
+                        final_group = final_frame[(final_frame["League"] == league) &
+                                                  (final_frame["HT state"] == state) &
+                                                  (final_frame["HT xG leader"] == xg)]
+                        if len(tr) < min_samples or len(te) < min_test or len(final_group) < min_test:
                             continue
                         training_rate = tr[outcome].mean()
                         testing_rate = te[outcome].mean()
@@ -408,15 +413,17 @@ with tab7:
                             "Train n": len(tr), "Test n": len(te),
                             "Train rate %": round(100*training_rate, 2),
                             "Test rate %": round(100*testing_rate, 2),
-                            "Test low %": round(100*lo, 2),
-                            "Test high %": round(100*hi, 2),
+                            "Validation low %": round(100*lo, 2),
+                            "Validation high %": round(100*hi, 2),
+                            "Final test n": len(final_group),
+                            "Final test rate %": round(100*final_group[outcome].mean(), 2),
                             "Train vs overall pp": round(100*(training_rate-base_rate), 2),
                             "Direction held": bool((training_rate-base_rate)*(testing_rate-base_rate) > 0),
                         })
-            st.caption(f"All candidate definitions evaluated against the same global test cutoff: {cutoff}.")
+            st.caption(f"Train before {cutoff}; validation from {cutoff}; final test from {final_cutoff}. Final-test results are exploratory once viewed or used to choose patterns.")
             if discoveries:
                 result = pd.DataFrame(discoveries).sort_values(
-                    ["Direction held", "Test n"], ascending=[False, False])
+                    ["Direction held", "Validation n"], ascending=[False, False])
                 st.dataframe(result, use_container_width=True, hide_index=True)
                 st.download_button("Export pattern search", result.to_csv(index=False),
                                    "starlizard_pattern_search.csv", "text/csv")
@@ -424,7 +431,7 @@ with tab7:
                 st.warning("No candidates met both sample-size thresholds.")
         except Exception as exc:
             st.error(f"Pattern search failed: {type(exc).__name__}: {exc}")
-    st.warning("Exploratory screen, not a betting signal. Testing many candidates creates selection bias; promising results need an untouched second validation period and real time-aligned market quotes.")
+    st.warning("Exploratory screen, not a betting signal. The final-test period must not be used to choose or tune patterns; viewing it repeatedly compromises independence. No time-aligned market quotes are available for ROI.")
 
 with tab8:
     st.subheader("Out-of-sample conditional probability model")
