@@ -87,7 +87,8 @@ for start in range(0,15000,100):
     if min(q)>1 and max(q)<1000:odds[item["match_id"]]=q
    except (KeyError,ValueError,TypeError):pass
    break
- if len(batch)<100:break\nprint("ODDS_AVAILABLE",len(odds),flush=True)
+ if len(batch)<100:break
+print("ODDS_AVAILABLE",len(odds),flush=True)
 for cutoff,end in (("2025-01-01","2026-01-01"),("2026-01-01","2026-11-13")):
  train=[r for r in rows if r["match_date"][:10]<cutoff]
  test=[r for r in rows if cutoff<=r["match_date"][:10]<end]
