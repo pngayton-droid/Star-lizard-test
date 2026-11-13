@@ -2,6 +2,12 @@ name: Collect recent finished fixtures (incremental)
 
 on:
   workflow_dispatch:
+    inputs:
+      catchup:
+        description: 'One-off recovery of last weekend (7-day lookback)'
+        required: true
+        type: boolean
+        default: false
   schedule:
     - cron: "17 */3 * * *"
 
@@ -14,7 +20,7 @@ concurrency:
 
 jobs:
   collect:
-    if: vars.ENABLE_LIVE_FIXTURE_COLLECTION == '1'
+    if: vars.ENABLE_LIVE_FIXTURE_COLLECTION == '1' || (github.event_name == 'workflow_dispatch' && inputs.catchup == true)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -27,7 +33,7 @@ jobs:
         env:
           ENABLE_LIVE_FIXTURE_COLLECTION: "1"
           LIVE_FIXTURE_MAX_REQUESTS: "30"
-          LIVE_FIXTURE_LOOKBACK_DAYS: "4"
+          LIVE_FIXTURE_LOOKBACK_DAYS: ${{ inputs.catchup && '7' || '4' }}
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
