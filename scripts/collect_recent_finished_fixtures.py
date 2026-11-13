@@ -96,7 +96,44 @@ def main():
     known = existing_ids()
     events = existing_events()
     added = skipped = missing = event_updates = 0
-    for name, competition_id in LEAGUES.items():
+    # Finish already-discovered fixtures first, reserving calls for league discovery.
+    # This avoids repeatedly spending the entire budget on the first league.
+    recent = db.table("historical_xg").select("match_id,match_date,home_goals,away_goals,home_ht_goals,away_ht_goals").gte("match_date", start.isoformat()).order("match_date").limit(500).execute().data or []
+    reserve = len(LEAGUES)
+    for row in recent:
+        if calls >= MAX_CALLS - reserve:
+            break
+        match_id = str(row["match_id"])
+        old = events.get(match_id) or {}
+        if old.get("stats_data") is None and calls < MAX_CALLS - reserve:
+            data = (get(f"/football/matches/{match_id}/stats") or {}).get("data")
+            if isinstance(data, dict):
+                save_events(match_id, stats=data)
+                old["stats_data"] = data
+                event_updates += 1
+        if old.get("timeline_data") is None and calls < MAX_CALLS - reserve:
+            data = (get(f"/football/matches/{match_id}/timeline") or {}).get("data")
+            if isinstance(data, dict):
+                save_events(match_id, timeline=data)
+                old["timeline_data"] = data
+                event_updates += 1
+        if any(row.get(k) is None for k in ("home_goals","away_goals","home_ht_goals","away_ht_goals")) and calls < MAX_CALLS - reserve:
+            detail = (get(f"/football/matches/{match_id}") or {}).get("data") or {}
+            if str(detail.get("id")) == match_id and detail.get("status") == "finished":
+                score = detail.get("score") or {}
+                regulation = score.get("regulation") or {}
+                values = (regulation.get("home"), regulation.get("away"), score.get("half_time_home"), score.get("half_time_away"))
+                if all(v is not None for v in values):
+                    update = dict(zip(("home_goals","away_goals","home_ht_goals","away_ht_goals"), values))
+                    db.table("historical_xg").update(update).eq("match_id", match_id).execute()
+                    known[match_id].update(update)
+        events[match_id] = old
+    print(f"Backfill phase: calls={calls}, event_updates={event_updates}", flush=True)
+    # Rotate the starting league every scheduled run, so all ten leagues get coverage.
+    league_items = list(LEAGUES.items())
+    rotation = (datetime.now(timezone.utc).hour // 6 + datetime.now(timezone.utc).date().toordinal()) % len(league_items)
+    league_items = league_items[rotation:] + league_items[:rotation]
+    for name, competition_id in league_items:
         page = 1
         while calls < MAX_CALLS:
             payload = get("/football/matches", {
