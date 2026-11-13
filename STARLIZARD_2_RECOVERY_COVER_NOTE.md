@@ -156,6 +156,14 @@ Read-only SQL on score-reconciled stored TheStatsAPI scoring events (goal, own_g
 - Advantage persists descriptively, but 0.20 threshold was explored before this test, so **not a pristine untouched prospective holdout**. No odds-aligned next-goal quotes, no ROI, no verified betting edge. SQL checks score reconciliation, not full event chronology.
 - Reproducible query `research/ht_next_goal_chronological_validation.sql`, commit `2b2907d484f5c17f593e5db615a03e50563204f6`. No new provider API calls or database writes.
 
+### November 13 date-split next-goal research adjusted by Bet365 relative quote
+Read-only Supabase query preserved as `research/ht_next_goal_date_split_relative_price.sql` (commit `49f1a79acc23cd49237352fe52ba845fca8133db`). One-goal halftime deficit, xG screen, Bet365 **last_seen** quote grouping; quote is not proven pre-match and may cause hindsight bias. No aligned next-goal prices.
+- Longer-priced trailing, HT xG <0.20: training 230/798 28.82%, validation 40/161 24.84%, later test 47/181 25.97%.
+- Longer-priced trailing, HT xG >=0.20: training 484/1406 34.42%, validation 114/281 40.57%, later test 112/362 30.94% (empirical break-even decimal 3.23 before commission).
+- Shorter-priced trailing, HT xG >=0.20: training 570/1050 54.29%, validation 118/217 54.38%, later test 148/250 59.20% (empirical break-even decimal 1.69).
+- Shorter-priced trailing, HT xG <0.20: training 110/213 51.64%, validation 16/50 32%, later test 30/59 50.85%.
+- Equal-quote cases tiny and not relied on. Difference persists in later test, but still no verified edge, no real odds-aligned ROI, and SQL is score-reconciled rather than full timeline order validated.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
