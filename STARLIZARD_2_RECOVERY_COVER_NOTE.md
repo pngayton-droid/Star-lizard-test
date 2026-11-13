@@ -81,6 +81,9 @@ Commits `210829e5647fc2d06367eaadd47e73be4c3412f9`, `34fc5ec1fe0f717c2d8eb3b309d
 ### CI verification (2026-11-13)
 Confirmed GitHub Actions run `43419737112` completed **successfully** at commit `55bf68d3d224b50c8df58ecb805042d2d91346d0`: syntax and offline research unit tests passed. URL: https://github.com/pngayton-droid/Star-lizard-test/actions/runs/43419737112 . Added a second job in workflow commit `53fcaee268633a545e4e3024b6448a209b7011b9` to install dependencies and verify the headless Streamlit HTTP health endpoint; this tests server startup only, **not authenticated Supabase queries or UI interactions**. At note time the new job was queued. Production remains untouched.
 
+### Verified CI and preview hardening
+GitHub Actions runs `43419990138` and `43420024196` both completed **successfully**, including headless Streamlit HTTP health check, offline unit tests and Python compilation. This is a verified **server startup**, not a full browser render or authenticated Supabase data test. Improved odds payload handling for malformed bookmaker objects and empty league inventory (commits `eb6cd11514281736b3f6c590680d85818d515ee1`, `eafa8e18869bcc45f8baa8f6e0f3365aca4bba9a`). Development branch only. No StatsAPI requests, production edits or credential changes.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
