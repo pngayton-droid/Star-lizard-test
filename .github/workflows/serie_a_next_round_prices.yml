@@ -1,0 +1,29 @@
+name: Serie A three-model fair odds
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/serie_a_next_round_prices.yml','research/serie_a_next_round_prices.py']
+permissions:
+  contents: read
+jobs:
+  price:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy scipy scikit-learn supabase
+      - name: Price fixtures without bookmaker odds
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LEAGUE_ID: comp_5840
+        run: python -u research/serie_a_next_round_prices.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: serie-a-three-model-fair-prices
+          path: prediction_output/
+          retention-days: 30
