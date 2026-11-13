@@ -1,4 +1,4 @@
-name: Recover missing fixtures with pagination fallback
+name: Recover priority leagues by date
 
 on:
   push:
