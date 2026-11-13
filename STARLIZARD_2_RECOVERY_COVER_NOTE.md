@@ -164,6 +164,13 @@ Read-only Supabase query preserved as `research/ht_next_goal_date_split_relative
 - Shorter-priced trailing, HT xG <0.20: training 110/213 51.64%, validation 16/50 32%, later test 30/59 50.85%.
 - Equal-quote cases tiny and not relied on. Difference persists in later test, but still no verified edge, no real odds-aligned ROI, and SQL is score-reconciled rather than full timeline order validated.
 
+### Incremental predictive-value Brier test (Nov 13)
+Read-only Supabase query preserved at `research/ht_next_goal_incremental_brier.sql` (commit `2bfa06c72806535a44b411d5a700472a01bc32f1`). Models trained only on matches before 2025-07-01: baseline trailing team relative Bet365 `last_seen` quote (shorter/longer/equal); comparison adds binary trailing HT xG >=0.20. Train-only frequency rates with smoothing (baseline Beta(2,2); conditional shrinkage equivalent to four baseline pseudo-observations). Date-separated Brier:
+- Validation Jul–Dec 2025, n=720: baseline **0.236694**, +xG **0.233821**, improvement **0.002872**.
+- Later test Jan–Nov 2026, n=860: baseline **0.221958**, +xG **0.221496**, improvement **0.000462** (roughly 0.21% reduction in Brier).
+- Later test longer-priced trailing n=543: 0.208065 vs 0.207608; shorter-priced n=309: 0.245643 vs 0.245107; equal n=8 noisy.
+- This is incremental information beyond coarse relative quote category, NOT a rigorous comparison against market-implied next-goal probability; Bet365 last_seen not confirmed pre-match and may introduce hindsight bias. The HT xG threshold has been explored before this test, so later sample is not pristine untouched discovery holdout. Full chronology validation and uncertainty quantification still pending. No ROI or edge established.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
