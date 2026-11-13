@@ -416,11 +416,11 @@ with tab7:
                             "Validation low %": round(100*lo, 2),
                             "Validation high %": round(100*hi, 2),
                             "Final test n": len(final_group),
-                            "Final test rate %": round(100*final_group[outcome].mean(), 2),
+                            "Final test": "Reserved (not evaluated)",
                             "Train vs overall pp": round(100*(training_rate-base_rate), 2),
                             "Direction held": bool((training_rate-base_rate)*(testing_rate-base_rate) > 0),
                         })
-            st.caption(f"Train before {cutoff}; validation from {cutoff}; final test from {final_cutoff}. Final-test results are exploratory once viewed or used to choose patterns.")
+            st.caption(f"Train before {cutoff}; validation from {cutoff}; final test starts {final_cutoff}. Final-test outcomes are deliberately withheld to reduce selection leakage.")
             if discoveries:
                 result = pd.DataFrame(discoveries).sort_values(
                     ["Direction held", "Validation n"], ascending=[False, False])
@@ -431,7 +431,7 @@ with tab7:
                 st.warning("No candidates met both sample-size thresholds.")
         except Exception as exc:
             st.error(f"Pattern search failed: {type(exc).__name__}: {exc}")
-    st.warning("Exploratory screen, not a betting signal. The final-test period must not be used to choose or tune patterns; viewing it repeatedly compromises independence. No time-aligned market quotes are available for ROI.")
+    st.warning("Exploratory screen, not a betting signal. The final-test period is reserved for one-time confirmation after pattern selection is frozen. No time-aligned market quotes are available for ROI.")
 
 with tab8:
     st.subheader("Out-of-sample conditional probability model")
