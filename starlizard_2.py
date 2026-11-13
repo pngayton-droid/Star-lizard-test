@@ -389,10 +389,8 @@ with tab7:
             training, validation, final_test, cutoff, final_cutoff = chronological_three_way_split(calendar.to_dict("records"))
             training_ids = {r["match_id"] for r in training}
             testing_ids = {r["match_id"] for r in validation}
-            final_ids = {r["match_id"] for r in final_test}
             train = frame[frame.match_id.isin(training_ids)]
             test = frame[frame.match_id.isin(testing_ids)]
-            final_frame = frame[frame.match_id.isin(final_ids)]
             base_rate = train[outcome].mean()
             discoveries = []
             for league in sorted(frame["League"].unique()):
@@ -404,10 +402,7 @@ with tab7:
                         te = test[(test["League"] == league) &
                                   (test["HT state"] == state) &
                                   (test["HT xG leader"] == xg)]
-                        final_group = final_frame[(final_frame["League"] == league) &
-                                                  (final_frame["HT state"] == state) &
-                                                  (final_frame["HT xG leader"] == xg)]
-                        if len(tr) < min_samples or len(te) < min_test or len(final_group) < min_test:
+                        if len(tr) < min_samples or len(te) < min_test:
                             continue
                         training_rate = tr[outcome].mean()
                         testing_rate = te[outcome].mean()
@@ -419,7 +414,6 @@ with tab7:
                             "Validation rate %": round(100*testing_rate, 2),
                             "Validation low %": round(100*lo, 2),
                             "Validation high %": round(100*hi, 2),
-                            "Final test n": len(final_group),
                             "Final test": "Reserved (not evaluated)",
                             "Train vs overall pp": round(100*(training_rate-base_rate), 2),
                             "Direction held": bool((training_rate-base_rate)*(testing_rate-base_rate) > 0),
