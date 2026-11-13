@@ -488,19 +488,47 @@ with tab8:
             st.error(f"Model evaluation failed: {type(exc).__name__}: {exc}")
     st.warning("These are conditional historical probabilities, not tradable market prices. Validation may be reused for model development; the final test is reserved for a locked model. No in-play ROI can be inferred.")
 
+@st.cache_data(ttl=900)
+def raw_integrity_counts():
+    """Audit all stored match rows before research exclusions."""
+    records = []
+    fields = "match_id,match_date,home_ht_goals,away_ht_goals,home_goals,away_goals,home_ht_xg,away_ht_xg"
+    for offset in range(0, 100000, 1000):
+        batch = (db().table("historical_xg").select(fields)
+                 .order("match_id").range(offset, offset + 999).execute().data or [])
+        records.extend(batch)
+        if len(batch) < 1000:
+            break
+    if not records:
+        return {}
+    frame = pd.DataFrame(records)
+    score_fields = ["home_ht_goals", "away_ht_goals", "home_goals", "away_goals"]
+    for field in score_fields:
+        frame[field] = pd.to_numeric(frame[field], errors="coerce")
+    complete = frame[score_fields].notna().all(axis=1)
+    impossible = complete & ((frame.home_goals < frame.home_ht_goals) |
+                              (frame.away_goals < frame.away_ht_goals))
+    return {
+        "Stored match rows": len(frame),
+        "Duplicate match IDs": int(frame.match_id.duplicated().sum()),
+        "Incomplete score rows": int((~complete).sum()),
+        "Impossible second-half scores": int(impossible.sum()),
+        "Missing match dates": int(pd.to_datetime(frame.match_date, errors="coerce").isna().sum()),
+        "Missing halftime xG pairs": int((frame.home_ht_xg.isna() | frame.away_ht_xg.isna()).sum()),
+    }
+
 with tab9:
     st.subheader("Historical data integrity — existing records only")
     st.caption("Checks match IDs, halftime/full-time score consistency, match dates and halftime xG coverage. Does not repair or delete records.")
     if st.button("Audit match integrity", type="primary"):
         try:
-            frame = halftime_research_data()
-            if frame.empty:
-                st.warning("No complete-score matches available to audit.")
+            counts = raw_integrity_counts()
+            if not counts:
+                st.warning("No historical match records found.")
             else:
-                st.metric("Complete-score matches", f"{len(frame):,}")
-                st.metric("Missing halftime xG pairs", f"{int((frame['home_ht_xg'].isna() | frame['away_ht_xg'].isna()).sum()):,}")
-                st.metric("Missing dates", f"{int(pd.to_datetime(frame['match_date'], errors='coerce').isna().sum()):,}")
-                st.caption("Matches with incomplete scores or inconsistent halves were excluded by the research loader; use the full archive coverage audit to inspect excluded records.")
+                for label, value in counts.items():
+                    st.metric(label, f"{value:,}")
+                st.caption("Counts include raw stored records before research exclusions. No records are changed.")
         except Exception as exc:
             st.error(f"Integrity audit unavailable: {type(exc).__name__}: {exc}")
     st.warning("This score-level audit does not validate goal-event timelines or resolve VAR anomalies. Timeline-based strategies require separate event-level verification.")
