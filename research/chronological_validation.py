@@ -54,8 +54,8 @@ def chronological_split(rows: Iterable[dict], train_fraction: float = 0.70):
     cumulative = 0
     best_error = float("inf")
     split = candidate_dates[0]
-    for day in unique_dates[1:]:
-        cumulative += date_counts[unique_dates[unique_dates.index(day)-1]]
+    for previous_day, day in zip(unique_dates, unique_dates[1:]):
+        cumulative += date_counts[previous_day]
         error = abs(cumulative / len(ordered) - train_fraction)
         if error < best_error:
             best_error, split = error, day
