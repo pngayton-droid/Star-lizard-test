@@ -61,9 +61,9 @@ def existing_ids():
     result = {}
     offset = 0
     while True:
-        rows = db.table("historical_xg").select("match_id,home_ht_xg,away_ht_xg").order("match_id").range(offset, offset + 999).execute().data or []
+        rows = db.table("historical_xg").select("match_id,home_ht_xg,away_ht_xg,home_goals,away_goals,home_ht_goals,away_ht_goals").order("match_id").range(offset, offset + 999).execute().data or []
         for r in rows:
-            result[str(r["match_id"])] = r["home_ht_xg"] is not None and r["away_ht_xg"] is not None
+            result[str(r["match_id"])] = r
         if len(rows) < 1000:
             break
         offset += 1000
@@ -114,7 +114,10 @@ def main():
                 old = events.get(match_id) or {}
                 stats = old.get("stats_data")
                 timeline = old.get("timeline_data")
-                if known.get(match_id) and stats is not None and timeline is not None:
+                existing = known.get(match_id) or {}
+                xg_complete = all(existing.get(k) is not None for k in ("home_ht_xg", "away_ht_xg"))
+                score_complete = all(existing.get(k) is not None for k in ("home_goals", "away_goals", "home_ht_goals", "away_ht_goals"))
+                if xg_complete and score_complete and stats is not None and timeline is not None:
                     skipped += 1
                     continue
                 if calls >= MAX_CALLS:
@@ -131,7 +134,7 @@ def main():
                 regulation = score.get("regulation") or {}
                 goals = (regulation.get("home"), regulation.get("away"),
                          score.get("half_time_home"), score.get("half_time_away"))
-                if not known.get(match_id):
+                if not xg_complete:
                     expected = ((stats or {}).get("overview") or {}).get("expected_goals") or {}
                     full, half = expected.get("all") or {}, expected.get("first_half") or {}
                     values = (full.get("home"), full.get("away"), half.get("home"), half.get("away"))
@@ -151,8 +154,21 @@ def main():
                                        home_ht_goals=goals[2], away_ht_goals=goals[3])
                         if row["match_date"] and row["home_team"] and row["away_team"]:
                             db.table("historical_xg").upsert(row, on_conflict="match_id").execute()
-                            known[match_id] = True
+                            known[match_id] = row
                             added += 1
+                if not score_complete and calls < MAX_CALLS:
+                    # The listing may omit scores: use the authoritative match detail.
+                    if any(v is None for v in goals):
+                        detail_payload = get(f"/football/matches/{match_id}")
+                        detail = (detail_payload or {}).get("data") or {}
+                        if str(detail.get("id")) == match_id and detail.get("status") == "finished":
+                            ds = detail.get("score") or {}
+                            dr = ds.get("regulation") or {}
+                            goals = (dr.get("home"), dr.get("away"), ds.get("half_time_home"), ds.get("half_time_away"))
+                    if all(v is not None for v in goals):
+                        update = dict(zip(("home_goals", "away_goals", "home_ht_goals", "away_ht_goals"), goals))
+                        db.table("historical_xg").update(update).eq("match_id", match_id).execute()
+                        score_complete = True
                 if timeline is None and calls < MAX_CALLS:
                     payload = get(f"/football/matches/{match_id}/timeline")
                     timeline = (payload or {}).get("data")
