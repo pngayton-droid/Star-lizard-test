@@ -17,7 +17,7 @@ LEAGUES = {
     "Belgian Pro League": "comp_8531", "Scottish Premiership": "comp_6387",
 }
 LIVE = os.getenv("ENABLE_LIVE_FIXTURE_COLLECTION") == "1"
-MAX_CALLS = int(os.getenv("LIVE_FIXTURE_MAX_REQUESTS", "30"))
+MAX_CALLS = int(os.getenv("LIVE_FIXTURE_MAX_REQUESTS", "150"))
 DAYS_BACK = min(14, max(2, int(os.getenv("LIVE_FIXTURE_LOOKBACK_DAYS", "4"))))
 if MAX_CALLS < len(LEAGUES) + 1:
     raise ValueError("LIVE_FIXTURE_MAX_REQUESTS must allow all league-list calls")
@@ -93,46 +93,17 @@ def main():
     known = existing_ids()
     events = existing_events([mid for mid, row in known.items() if str(row.get("match_date") or "") >= start.isoformat()])
     added = skipped = missing = event_updates = 0
-    # Finish already-discovered fixtures first, reserving calls for league discovery.
-    # This avoids repeatedly spending the entire budget on the first league.
-    recent = db.table("historical_xg").select("match_id,match_date,home_goals,away_goals,home_ht_goals,away_ht_goals").gte("match_date", start.isoformat()).order("match_date").limit(500).execute().data or []
-    reserve = len(LEAGUES)
-    for row in recent:
-        if calls >= MAX_CALLS - reserve:
-            break
-        match_id = str(row["match_id"])
-        old = events.get(match_id) or {}
-        if old.get("stats_data") is None and calls < MAX_CALLS - reserve:
-            data = (get(f"/football/matches/{match_id}/stats") or {}).get("data")
-            if isinstance(data, dict):
-                save_events(match_id, stats=data)
-                old["stats_data"] = data
-                event_updates += 1
-        if old.get("timeline_data") is None and calls < MAX_CALLS - reserve:
-            data = (get(f"/football/matches/{match_id}/timeline") or {}).get("data")
-            if isinstance(data, dict):
-                save_events(match_id, timeline=data)
-                old["timeline_data"] = data
-                event_updates += 1
-        if any(row.get(k) is None for k in ("home_goals","away_goals","home_ht_goals","away_ht_goals")) and calls < MAX_CALLS - reserve:
-            detail = (get(f"/football/matches/{match_id}") or {}).get("data") or {}
-            if str(detail.get("id")) == match_id and detail.get("status") == "finished":
-                score = detail.get("score") or {}
-                regulation = score.get("regulation") or {}
-                values = (regulation.get("home"), regulation.get("away"), score.get("half_time_home"), score.get("half_time_away"))
-                if all(v is not None for v in values):
-                    update = dict(zip(("home_goals","away_goals","home_ht_goals","away_ht_goals"), values))
-                    db.table("historical_xg").update(update).eq("match_id", match_id).execute()
-                    known[match_id].update(update)
-        events[match_id] = old
-    print(f"Backfill phase: calls={calls}, event_updates={event_updates}", flush=True)
+    # PRIORITY: discover and import missing fixtures before enriching old events.
+    # Historical event backfill is deliberately excluded from catch-up runs.
     # Rotate the starting league every scheduled run, so all ten leagues get coverage.
     league_items = list(LEAGUES.items())
     rotation = (datetime.now(timezone.utc).hour // 6 + datetime.now(timezone.utc).date().toordinal()) % len(league_items)
     league_items = league_items[rotation:] + league_items[:rotation]
+    per_league_budget = max(5, MAX_CALLS // len(league_items))
     for name, competition_id in league_items:
+        league_start_calls = calls
         page = 1
-        while calls < MAX_CALLS:
+        while calls < MAX_CALLS and calls - league_start_calls < per_league_budget:
             payload = get("/football/matches", {
                 "competition_id": competition_id, "status": "finished",
                 "date_from": start.isoformat(), "date_to": today.isoformat(),
@@ -154,10 +125,10 @@ def main():
                 if xg_complete and score_complete and stats is not None and timeline is not None:
                     skipped += 1
                     continue
-                if calls >= MAX_CALLS:
+                if calls >= MAX_CALLS or calls - league_start_calls >= per_league_budget:
                     missing += 1
                     break
-                if stats is None:
+                if stats is None and not xg_complete:
                     payload = get(f"/football/matches/{match_id}/stats")
                     stats = (payload or {}).get("data")
                     if isinstance(stats, dict):
@@ -203,17 +174,13 @@ def main():
                         update = dict(zip(("home_goals", "away_goals", "home_ht_goals", "away_ht_goals"), goals))
                         db.table("historical_xg").update(update).eq("match_id", match_id).execute()
                         score_complete = True
-                if timeline is None and calls < MAX_CALLS:
-                    payload = get(f"/football/matches/{match_id}/timeline")
-                    timeline = (payload or {}).get("data")
-                    if isinstance(timeline, dict):
-                        save_events(match_id, timeline=timeline)
-                        event_updates += 1
+                # Timelines are enrichment, not required to import finished fixtures.
+                # Collect separately once the missing fixture backlog is cleared.
                 events[match_id] = {"stats_data": stats, "timeline_data": timeline}
-            if len(matches) < 20 or calls >= MAX_CALLS:
+            if len(matches) < 20 or calls >= MAX_CALLS or calls - league_start_calls >= per_league_budget:
                 break
             page += 1
-        print(f"{name}: finished; calls={calls}", flush=True)
+        print(f"{name}: calls={calls - league_start_calls} total_calls={calls} added_so_far={added}", flush=True)
     print(f"Added={added} complete_skipped={skipped} missing_xg={missing} event_updates={event_updates} api_calls={calls}", flush=True)
 
 if __name__ == "__main__":
