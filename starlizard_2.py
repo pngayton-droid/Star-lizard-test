@@ -416,6 +416,7 @@ with tab7:
                         training_rate = tr[outcome].mean()
                         testing_rate = te[outcome].mean()
                         lo, hi = wilson_interval(int(te[outcome].sum()), len(te))
+                        clears_baseline = bool(lo > base_rate or hi < base_rate)
                         discoveries.append({
                             "League": league, "HT state": state, "HT xG leader": xg,
                             "Train n": len(tr), "Validation n": len(te),
@@ -423,6 +424,8 @@ with tab7:
                             "Validation rate %": round(100*testing_rate, 2),
                             "Validation low %": round(100*lo, 2),
                             "Validation high %": round(100*hi, 2),
+                            "Validation vs training baseline pp": round(100*(testing_rate-base_rate), 2),
+                            "Validation interval excludes baseline": clears_baseline,
                             "Final test": "Reserved (not evaluated)",
                             "Train vs overall pp": round(100*(training_rate-base_rate), 2),
                             "Direction held": bool((training_rate-base_rate)*(testing_rate-base_rate) > 0),
@@ -434,7 +437,8 @@ with tab7:
                     ["Direction held", "Validation n"], ascending=[False, False])
                 st.metric("Patterns meeting sample thresholds", len(result))
                 st.metric("Same direction in training and validation", int(result["Direction held"].sum()))
-                st.caption("Direction consistency is exploratory, not evidence of profit. Testing many patterns can produce chance findings; confidence intervals are not multiplicity-adjusted.")
+                st.metric("Validation intervals excluding training baseline", int(result["Validation interval excludes baseline"].sum()))
+                st.caption("Interval screen compares validation rates with the global training rate. Unadjusted for multiple testing and league mix; not proof of a betting edge.")
                 st.dataframe(result, use_container_width=True, hide_index=True)
                 st.download_button("Export pattern search", result.to_csv(index=False),
                                    "starlizard_pattern_search.csv", "text/csv")
