@@ -171,6 +171,13 @@ Read-only Supabase query preserved at `research/ht_next_goal_incremental_brier.s
 - Later test longer-priced trailing n=543: 0.208065 vs 0.207608; shorter-priced n=309: 0.245643 vs 0.245107; equal n=8 noisy.
 - This is incremental information beyond coarse relative quote category, NOT a rigorous comparison against market-implied next-goal probability; Bet365 last_seen not confirmed pre-match and may introduce hindsight bias. The HT xG threshold has been explored before this test, so later sample is not pristine untouched discovery holdout. Full chronology validation and uncertainty quantification still pending. No ROI or edge established.
 
+### Four-band xG complexity test (Nov 13)
+Read-only Supabase SQL committed as `research/ht_next_goal_four_xg_bands_brier.sql` (`6033a2b76102a588037991f57ce4bdf675363bc8`). Train before 2025-07-01, compare (1) Bet365 relative shorter/longer/equal price only, (2) binary HT xG >=0.20, (3) four HT xG bands <0.20 / 0.20–0.49 / 0.50–0.99 / >=1.00. Four-band estimates shrunk toward strength-only prior with 12 pseudo-observations, binary with 4. Date-separated Brier (lower better):
+- Validation n=720: strength 0.236694, binary **0.233821**, four-band 0.234819.
+- Later test n=860: strength 0.221958, binary **0.221496**, four-band 0.222242.
+- Later test longer-priced n=543: binary 0.207608, four-band 0.208827; shorter-priced n=309: binary 0.245107, four-band 0.244659. Equal-price group tiny.
+- Thus four-band complexity **does not improve aggregate out-of-time Brier** over simple binary filter. No edge or ROI; relative strength based on unverified Bet365 last_seen; score-reconciled SQL, not strict event chronology. Keep binary model as current benchmark; do not overfit bins after seeing later-test results.
+
 ## Immediate next steps
 1. Verify syntax and run smoke test of `starlizard_2.py`, then repair any issues.
 2. Build per-league data coverage diagnostics (join match IDs to odds and event tables, read-only).
