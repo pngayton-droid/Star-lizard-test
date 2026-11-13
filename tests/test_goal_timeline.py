@@ -49,6 +49,22 @@ class TimelineTests(unittest.TestCase):
         self.assertIsNone(goals)
         self.assertEqual(reason, "invalid_sequence")
 
+    def test_reject_reversed_minutes(self):
+        goals, reason = validated_goal_sequence(
+            {"events": [event(1, "foul", "first_half", minute=30),
+                        event(2, "goal", "first_half", "Home", minute=20)]},
+            "Home", "Away", 1, 0, 1, 0)
+        self.assertIsNone(goals)
+        self.assertEqual(reason, "reversed_minutes")
+
+    def test_reject_reversed_period(self):
+        goals, reason = validated_goal_sequence(
+            {"events": [event(1, "period_start", "second_half", minute=46),
+                        event(2, "goal", "first_half", "Home", minute=47)]},
+            "Home", "Away", 1, 0, 1, 0)
+        self.assertIsNone(goals)
+        self.assertEqual(reason, "reversed_period")
+
     def test_no_second_half_goal(self):
         goals, reason = validated_goal_sequence(
             {"events": [event(1, "goal", "first_half", "Home")]},
