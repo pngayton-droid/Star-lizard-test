@@ -121,6 +121,8 @@ def main():
                 raise
             day -= timedelta(days=1)
             matches = (payload or {}).get("data") or []
+            if name in ("Premier League", "Championship", "La Liga"):
+                print(f"DIAG {name} date={day + timedelta(days=1)} returned={len(matches)} ids={[str(m.get('id') or m.get('match_id')) for m in matches[:5]]} statuses={[m.get('status') for m in matches[:5]]}", flush=True)
             if not isinstance(matches, list):
                 raise RuntimeError("Unexpected matches response")
             for match in matches:
@@ -155,6 +157,7 @@ def main():
                     full, half = expected.get("all") or {}, expected.get("first_half") or {}
                     values = (full.get("home"), full.get("away"), half.get("home"), half.get("away"))
                     if any(v is None for v in values):
+                        print(f"DIAG missing_xg league={name} match={match_id} date={match.get('utc_date')} stats_keys={list((stats or {}).keys())[:12]}", flush=True)
                         missing += 1
                     else:
                         row = {
