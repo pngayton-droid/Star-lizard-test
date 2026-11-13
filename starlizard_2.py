@@ -171,6 +171,11 @@ def halftime_research_data():
         frame[field] = pd.to_numeric(frame[field], errors="coerce")
     # No outcome imputation: remove matches missing any required score.
     frame = frame.dropna(subset=numeric[:4]).copy()
+    # Goals must be nonnegative integers; never silently truncate fractions.
+    score_fields = numeric[:4]
+    valid_scores = frame[score_fields].ge(0).all(axis=1)
+    valid_scores &= frame[score_fields].eq(frame[score_fields].round()).all(axis=1)
+    frame = frame.loc[valid_scores].copy()
     frame["League"] = frame["competition_id"].map(LEAGUE_NAMES).fillna("Unassigned")
     frame["HT score"] = frame["home_ht_goals"].astype(int).astype(str) + "-" + frame["away_ht_goals"].astype(int).astype(str)
     frame["HT state"] = "Draw"
