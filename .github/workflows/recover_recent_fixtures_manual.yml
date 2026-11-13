@@ -1,4 +1,4 @@
-name: Recover missing fixtures first (150-call cap)
+name: Recover missing fixtures with pagination fallback
 
 on:
   push:
