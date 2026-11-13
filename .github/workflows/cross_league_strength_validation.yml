@@ -1,0 +1,34 @@
+name: Cross league strength validation
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/cross_league_strength_validation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - league: Premier League
+            id: comp_3039
+          - league: La Liga
+            id: comp_8814
+          - league: Bundesliga
+            id: comp_0256
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy scipy supabase
+      - name: Validate strength and H2H
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LEAGUE_ID: ${{ matrix.id }}
+        run: python -u research/cross_league_strength_validation.py
