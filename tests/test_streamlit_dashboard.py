@@ -73,6 +73,10 @@ class DashboardSmokeTests(unittest.TestCase):
             app.secrets["SUPABASE_URL"] = "https://example.supabase.co"
             app.secrets["SUPABASE_SECRET_KEY"] = "fake-local-test-key"
             app.run()
+            self.assertFalse(app.exception, [str(x.message) for x in app.exception])
+            for label in ("Run read-only coverage audit", "Load stored halftime outcomes", "Audit stored Bet365 odds"):
+                next(x for x in app.button if x.label == label).click().run()
+                self.assertFalse(app.exception, [str(x.message) for x in app.exception])
         self.assertFalse(app.exception, [str(x.message) for x in app.exception])
         self.assertTrue(any("PRO STARLIZARD" in x.value for x in app.title))
 
