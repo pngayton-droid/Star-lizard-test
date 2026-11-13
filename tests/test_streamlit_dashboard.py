@@ -89,6 +89,7 @@ class DashboardSmokeTests(unittest.TestCase):
             self.assertEqual(metrics["Incomplete score rows"], "1")
             self.assertEqual(metrics["Missing match dates"], "1")
             self.assertEqual(metrics["Missing halftime xG pairs"], "1")
+            self.assertEqual(metrics["Negative or fractional scores"], "0")
         self.assertFalse(app.exception, [str(x.message) for x in app.exception])
         self.assertTrue(any("PRO STARLIZARD" in x.value for x in app.title))
 
