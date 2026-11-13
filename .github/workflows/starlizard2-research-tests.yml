@@ -15,11 +15,12 @@ jobs:
         with:
           python-version: '3.11'
       - name: Syntax check
-        run: python -m py_compile starlizard_2.py research/chronological_validation.py research/conditional_model.py tests/test_chronological_validation.py tests/test_conditional_model.py
+        run: python -m py_compile starlizard_2.py research/chronological_validation.py research/conditional_model.py research/goal_timeline.py tests/test_chronological_validation.py tests/test_conditional_model.py tests/test_goal_timeline.py
       - name: Pure research unit tests
         run: |
           python -m unittest discover -s tests -p 'test_chronological_validation.py' -v
           python -m unittest discover -s tests -p 'test_conditional_model.py' -v
+          python -m unittest discover -s tests -p 'test_goal_timeline.py' -v
 
   streamlit-startup:
     runs-on: ubuntu-latest
