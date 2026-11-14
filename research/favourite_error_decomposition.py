@@ -4,6 +4,7 @@ Select favourite groups from independent Bet365 closing odds only for diagnostic
 import os,math,time
 from datetime import date
 import numpy as np
+from scipy.stats import poisson
 from supabase import create_client
 import pathlib
 source=pathlib.Path(__file__).with_name("published_models_holdout.py").read_text()
