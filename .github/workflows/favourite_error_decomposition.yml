@@ -1,0 +1,28 @@
+name: Favourite error decomposition
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['research/favourite_error_decomposition.py','.github/workflows/favourite_error_decomposition.yml']
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        league: [comp_3039, comp_8814, comp_0256, comp_5840]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy scipy supabase scikit-learn
+      - name: Decompose favourite prediction errors
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LEAGUE_ID: ${{ matrix.league }}
+        run: python -u research/favourite_error_decomposition.py
