@@ -5,7 +5,15 @@ import os,math,time
 from datetime import date
 import numpy as np
 from supabase import create_client
-from published_models_holdout import db,rows,LEAGUE_ID,fit_strength,idx,n
+import ast,pathlib
+source=pathlib.Path(__file__).with_name('published_models_holdout.py').read_text()
+tree=ast.parse(source)
+selected=[]
+for node in tree.body:
+ if isinstance(node,(ast.Import,ast.ImportFrom,ast.Assign,ast.FunctionDef)):
+  if isinstance(node,ast.ImportFrom) and node.module=='scipy.stats':break
+  selected.append(node)
+exec(compile(ast.Module(body=selected,type_ignores=[]),'published_models_holdout.py','exec'))
 from scipy.stats import poisson
 
 test=[r for r in rows if "2026-01-01"<=r["match_date"][:10]<"2026-11-13"]
