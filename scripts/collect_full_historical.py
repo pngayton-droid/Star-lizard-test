@@ -6,7 +6,7 @@ BASE="https://api.thestatsapi.com/api"
 S=requests.Session();S.headers["Authorization"]="Bearer "+os.environ["STATS_API_KEY"]
 DB=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
 LEAGUES=[("Premier League","comp_3039"),("Championship","comp_8321"),("La Liga","comp_8814"),("Serie A","comp_5840"),("Bundesliga","comp_4643"),("Ligue 1","comp_0256"),("Eredivisie","comp_3809"),("Primeira Liga","comp_8385"),("Belgian Pro League","comp_8531"),("Scottish Premiership","comp_6387")]
-NAME="complete_historical_v1"
+NAME="complete_historical_v2"
 LIMIT=int(os.getenv("RUN_REQUEST_LIMIT","5500"))
 MIN_REMAINING=int(os.getenv("MIN_REMAINING","350"))
 calls=0;remaining=None;last=0
