@@ -4,8 +4,6 @@ on:
     paths:
       - .github/workflows/scrumpy-historical-backfill.yml
   workflow_dispatch:
-  schedule:
-    - cron: '17 */4 * * *'
 concurrency:
   group: scrumpy-historical-backfill
   cancel-in-progress: false
