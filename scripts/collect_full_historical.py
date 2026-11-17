@@ -6,7 +6,7 @@ BASE="https://api.thestatsapi.com/api"
 S=requests.Session();S.headers["Authorization"]="Bearer "+os.environ["STATS_API_KEY"]
 DB=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
 LEAGUES=[("Premier League","comp_3039"),("Championship","comp_8321"),("La Liga","comp_8814"),("Serie A","comp_5840"),("Bundesliga","comp_4643"),("Ligue 1","comp_0256"),("Eredivisie","comp_3809"),("Primeira Liga","comp_8385"),("Belgian Pro League","comp_8531"),("Scottish Premiership","comp_6387")]
-NAME="complete_historical_v3"
+NAME="complete_historical_v4"
 LIMIT=int(os.getenv("RUN_REQUEST_LIMIT","5500"))
 MIN_REMAINING=int(os.getenv("MIN_REMAINING","350"))
 calls=0;remaining=None;last=0
@@ -42,7 +42,7 @@ def rows(table,fields):
   offset+=1000
 def progress():
  r=DB.table("collector_progress").select("*").eq("collector_name",NAME).limit(1).execute().data
- return (int(r[0]["season"]),int(r[0]["league_index"]),int(r[0]["page"]),int(r[0]["match_index"])) if r else (2024,0,1,0)
+ return (int(r[0]["season"]),int(r[0]["league_index"]),int(r[0]["page"]),int(r[0]["match_index"])) if r else (2021,0,1,0)
 def save(s,l,p,m):
  DB.table("collector_progress").upsert({"collector_name":NAME,"season":s,"league_index":l,"page":p,"match_index":m},on_conflict="collector_name").execute()
 def upsert(table,row):
@@ -94,6 +94,8 @@ def main():
  print("START",len(existing),"stats",len(stats_set),"timelines",len(timeline_set),"odds",len(odds_set),flush=True)
  print("REPAIRS DEFERRED; PRIORITIZING MISSING HISTORICAL SEASONS",flush=True)
  season,li,page,idx=progress()
+ if season>2021:raise RuntimeError(f"Refusing to scan already collected season {season}")
+ print("STARTING HISTORICAL SEASON",season,"league",LEAGUES[li][0],flush=True)
  while season>=2016:
   if calls>=LIMIT-4 or (remaining is not None and remaining<=MIN_REMAINING):break
   league,comp=LEAGUES[li]
