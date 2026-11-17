@@ -22,6 +22,6 @@ jobs:
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-          RUN_REQUEST_LIMIT: '5500'
+          RUN_REQUEST_LIMIT: '80'
           MIN_REMAINING: '350'
         run: python scripts/collect_full_historical.py
