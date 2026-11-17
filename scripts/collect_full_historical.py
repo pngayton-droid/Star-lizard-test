@@ -6,7 +6,7 @@ BASE="https://api.thestatsapi.com/api"
 S=requests.Session();S.headers["Authorization"]="Bearer "+os.environ["STATS_API_KEY"]
 DB=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
 LEAGUES=[("Premier League","comp_3039"),("Championship","comp_8321"),("La Liga","comp_8814"),("Serie A","comp_5840"),("Bundesliga","comp_4643"),("Ligue 1","comp_0256"),("Eredivisie","comp_3809"),("Primeira Liga","comp_8385"),("Belgian Pro League","comp_8531"),("Scottish Premiership","comp_6387")]
-NAME="complete_historical_v4"
+NAME="complete_historical_v5"
 LIMIT=int(os.getenv("RUN_REQUEST_LIMIT","5500"))
 MIN_REMAINING=int(os.getenv("MIN_REMAINING","350"))
 calls=0;remaining=None;last=0
@@ -55,36 +55,47 @@ def upsert(table,row):
   DB.table(table).insert(row).execute()
 def collect(mid,match,comp,existing,stats_set,timeline_set,odds_set):
  now=datetime.now(timezone.utc).isoformat()
- stats=None
+ # Save the fixture independently of xG availability. Historical xG can be null.
+ if mid not in existing:
+  home=match.get("home_team") or {};away=match.get("away_team") or {}
+  date=str(match.get("utc_date") or match.get("date") or "")[:10]
+  if not date or not home.get("name") or not away.get("name"):
+   print("SKIP_INCOMPLETE_FIXTURE",mid,flush=True)
+   return True
+  upsert("historical_xg",{"match_id":mid,"match_date":date,"home_team":home["name"],"away_team":away["name"],"competition_id":comp})
+  existing.add(mid)
+  print("SAVED_FIXTURE",mid,date,flush=True)
  if mid not in stats_set:
   payload,status=api(f"/football/matches/{mid}/stats")
   if status==0:return False
-  if payload and isinstance(payload.get("data"),dict):
+  if payload and isinstance(payload.get("data"),dict) and payload["data"]:
    stats=payload["data"]
+   upsert("historical_match_events",{"match_id":mid,"stats_data":stats,"stats_status":status,"collected_at":now})
+   stats_set.add(mid)
    overview=(stats.get("overview") or {}).get("expected_goals") or {}
    full=overview.get("all") or {};half=overview.get("first_half") or {}
-   if all(full.get(k) is not None and half.get(k) is not None for k in ("home","away")):
-    if mid not in existing:
-     home=match.get("home_team") or {};away=match.get("away_team") or {}
-     row={"match_id":mid,"match_date":str(match.get("utc_date") or "")[:10],"home_team":home.get("name") or "","away_team":away.get("name") or "","competition_id":comp,"home_xg":full["home"],"away_xg":full["away"],"home_ht_xg":half["home"],"away_ht_xg":half["away"]}
-     upsert("historical_xg",row);existing.add(mid)
-    upsert("historical_match_events",{"match_id":mid,"stats_data":stats,"stats_status":status,"collected_at":now})
-    stats_set.add(mid)
- if mid not in existing:return True
+   xg={"home_xg":full.get("home"),"away_xg":full.get("away"),"home_ht_xg":half.get("home"),"away_ht_xg":half.get("away")}
+   if any(v is not None for v in xg.values()):
+    DB.table("historical_xg").update({k:v for k,v in xg.items() if v is not None}).eq("match_id",mid).execute()
+   print("STATS",mid,"xg_fields",sum(v is not None for v in xg.values()),flush=True)
+  else:print("STATS_UNAVAILABLE",mid,status,flush=True)
  if mid not in timeline_set:
   payload,status=api(f"/football/matches/{mid}/timeline")
   if status==0:return False
-  if payload and isinstance(payload.get("data"),dict):
+  if payload and isinstance(payload.get("data"),dict) and payload["data"]:
    upsert("historical_match_events",{"match_id":mid,"timeline_data":payload["data"],"timeline_status":status,"collected_at":now})
    timeline_set.add(mid)
+   print("TIMELINE",mid,flush=True)
  if mid not in odds_set:
   payload,status=api(f"/football/matches/{mid}/odds")
   if status==0:return False
-  if payload and isinstance(payload.get("data"),dict):
+  if payload and isinstance(payload.get("data"),dict) and payload["data"]:
    books=payload["data"].get("bookmakers") or []
    upsert("historical_match_odds",{"match_id":mid,"odds_payload":payload,"fetch_status":"collected","bookmaker_names":[str(b.get("bookmaker")) for b in books if b.get("bookmaker")],"fetched_at":now})
    odds_set.add(mid)
+   print("ODDS",mid,"bookmakers",len(books),flush=True)
  return True
+
 def main():
  existing={r["match_id"] for r in rows("historical_xg","match_id") if r.get("match_id")}
  ev=rows("historical_match_events","match_id,stats_data,timeline_data")
