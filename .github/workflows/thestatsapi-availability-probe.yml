@@ -1,0 +1,23 @@
+name: TheStatsAPI availability probe (max 24 requests)
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests
+      - name: Probe historical market availability
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+        run: python scripts/probe_thestatsapi_availability.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: thestatsapi-availability-probe
+          path: thestatsapi_availability_probe.json
+          if-no-files-found: warn
