@@ -6,7 +6,7 @@ BASE="https://api.thestatsapi.com/api"
 S=requests.Session();S.headers["Authorization"]="Bearer "+os.environ["STATS_API_KEY"]
 DB=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
 LEAGUES=[("Premier League","comp_3039"),("Championship","comp_8321"),("La Liga","comp_8814"),("Serie A","comp_5840"),("Bundesliga","comp_4643"),("Ligue 1","comp_0256"),("Eredivisie","comp_3809"),("Primeira Liga","comp_8385"),("Belgian Pro League","comp_8531"),("Scottish Premiership","comp_6387")]
-NAME="complete_historical_v2"
+NAME="complete_historical_v3"
 LIMIT=int(os.getenv("RUN_REQUEST_LIMIT","5500"))
 MIN_REMAINING=int(os.getenv("MIN_REMAINING","350"))
 calls=0;remaining=None;last=0
@@ -92,13 +92,7 @@ def main():
  timeline_set={r["match_id"] for r in ev if r.get("timeline_data") is not None}
  odds_set={r["match_id"] for r in rows("historical_match_odds","match_id,odds_payload") if r.get("odds_payload") is not None}
  print("START",len(existing),"stats",len(stats_set),"timelines",len(timeline_set),"odds",len(odds_set),flush=True)
- # Repair known league gaps without fetching new fixture lists.
- repairs=DB.table("historical_xg").select("match_id,competition_id,match_date,home_team,away_team").not_.is_("competition_id","null").gte("match_date","2026-01-01").execute().data or []
- for match in repairs:
-  mid=match["match_id"]
-  if mid in stats_set and mid in timeline_set and mid in odds_set:continue
-  if not collect(mid,{"utc_date":match.get("match_date"),"home_team":{"name":match.get("home_team")},"away_team":{"name":match.get("away_team")}},match["competition_id"],existing,stats_set,timeline_set,odds_set):return
- print("REPAIRS DONE",calls,flush=True)
+ print("REPAIRS DEFERRED; PRIORITIZING MISSING HISTORICAL SEASONS",flush=True)
  season,li,page,idx=progress()
  while season>=2016:
   if calls>=LIMIT-4 or (remaining is not None and remaining<=MIN_REMAINING):break
