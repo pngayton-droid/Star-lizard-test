@@ -97,12 +97,9 @@ def collect(mid,match,comp,existing,stats_set,timeline_set,odds_set):
  return True
 
 def main():
- existing={r["match_id"] for r in rows("historical_xg","match_id") if r.get("match_id")}
- ev=rows("historical_match_events","match_id,stats_data,timeline_data")
- stats_set={r["match_id"] for r in ev if r.get("stats_data") is not None}
- timeline_set={r["match_id"] for r in ev if r.get("timeline_data") is not None}
- odds_set={r["match_id"] for r in rows("historical_match_odds","match_id,odds_payload") if r.get("odds_payload") is not None}
- print("START",len(existing),"stats",len(stats_set),"timelines",len(timeline_set),"odds",len(odds_set),flush=True)
+ # Never scan or download the entire JSONB history at startup: it times out.
+ existing=set();stats_set=set();timeline_set=set();odds_set=set()
+ print("START checkpoint-based collection; no bulk JSONB scans",flush=True)
  print("REPAIRS DEFERRED; PRIORITIZING MISSING HISTORICAL SEASONS",flush=True)
  season,li,page,idx=progress()
  if season>2021:raise RuntimeError(f"Refusing to scan already collected season {season}")
@@ -122,8 +119,19 @@ def main():
   while idx<len(matches):
    if calls>=LIMIT-4 or (remaining is not None and remaining<=MIN_REMAINING):break
    match=matches[idx];mid=str(match.get("id") or match.get("match_id") or "")
-   if mid and not (mid in existing and mid in stats_set and mid in timeline_set and mid in odds_set):
-    if not collect(mid,match,comp,existing,stats_set,timeline_set,odds_set):break
+   if mid:
+    # The checkpoint only covers new historical seasons. Check each match by ID,
+    # selecting booleans rather than loading large stats/timeline/odds payloads.
+    present=DB.table("historical_xg").select("match_id").eq("match_id",mid).limit(1).execute().data
+    if present:existing.add(mid)
+    flags=DB.table("historical_match_events").select("stats_status,timeline_status").eq("match_id",mid).limit(1).execute().data
+    if flags:
+     if flags[0].get("stats_status")==200:stats_set.add(mid)
+     if flags[0].get("timeline_status")==200:timeline_set.add(mid)
+    odds=DB.table("historical_match_odds").select("fetch_status").eq("match_id",mid).limit(1).execute().data
+    if odds and odds[0].get("fetch_status")=="collected":odds_set.add(mid)
+    if not (mid in existing and mid in stats_set and mid in timeline_set and mid in odds_set):
+     if not collect(mid,match,comp,existing,stats_set,timeline_set,odds_set):break
    idx+=1;save(season,li,page,idx)
   if idx<len(matches):break
   page+=1;idx=0;save(season,li,page,idx)
