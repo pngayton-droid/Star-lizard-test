@@ -1,7 +1,5 @@
 name: Fill missing bookmaker odds across match history
 on:
-  schedule:
-    - cron: '43 */6 * * *'
   workflow_dispatch:
 permissions:
   contents: read
