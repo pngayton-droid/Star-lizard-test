@@ -46,7 +46,13 @@ def progress():
 def save(s,l,p,m):
  DB.table("collector_progress").upsert({"collector_name":NAME,"season":s,"league_index":l,"page":p,"match_index":m},on_conflict="collector_name").execute()
 def upsert(table,row):
- DB.table(table).upsert(row,on_conflict="match_id").execute()
+ # PATCH existing rows to preserve fields not present in the update.
+ match_id=row["match_id"]
+ found=DB.table(table).select("match_id").eq("match_id",match_id).limit(1).execute().data
+ if found:
+  DB.table(table).update({k:v for k,v in row.items() if k!="match_id"}).eq("match_id",match_id).execute()
+ else:
+  DB.table(table).insert(row).execute()
 def collect(mid,match,comp,existing,stats_set,timeline_set,odds_set):
  now=datetime.now(timezone.utc).isoformat()
  stats=None
