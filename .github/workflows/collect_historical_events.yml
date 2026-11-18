@@ -28,7 +28,7 @@ jobs:
 
       - name: Collect 500 historical matches
         env:
-          EVENT_BATCH_SIZE: "500"
+          EVENT_BATCH_SIZE: "250"
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
