@@ -17,8 +17,11 @@ DB = create_client(
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 
 # First run: only 10 matches.
-MAX_MATCHES = 750
-REQUEST_INTERVAL = 1.2
+MAX_MATCHES = 1700
+REQUEST_INTERVAL = 1.5
+MAX_API_CALLS = 1700
+MIN_QUOTA_REMAINING = 300
+api_calls = 0
 
 FIELDS = (
     "competition_id",
@@ -30,13 +33,20 @@ FIELDS = (
 
 
 def get_match(match_id):
+    global api_calls
     for attempt in range(5):
+        if api_calls >= MAX_API_CALLS:
+            raise RuntimeError('Recovery request budget exhausted')
         response = requests.get(
             f"{BASE}/football/matches/{match_id}",
             headers=HEADERS,
             timeout=30,
         )
 
+        api_calls += 1
+        remaining = response.headers.get("X-Monthly-Quota-Remaining")
+        if remaining is not None and remaining.isdigit() and int(remaining) <= MIN_QUOTA_REMAINING:
+            raise RuntimeError(f"Monthly quota safety floor reached: {remaining}")
         if response.status_code == 429:
             retry = response.headers.get("Retry-After", "30")
             try:
@@ -156,6 +166,9 @@ def main():
             updated += 1
             print(f"Saved: {values}", flush=True)
 
+        except RuntimeError as exc:
+            print(f"Stopping safely: {exc}", flush=True)
+            break
         except requests.RequestException as exc:
             print(f"API error: {exc}", flush=True)
             raise
