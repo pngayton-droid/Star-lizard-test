@@ -133,87 +133,33 @@ def fetch(match_id, endpoint):
     return None, None
 
 
+TARGET_MATCH_ID = "mt_579334253"
+
+
 def load_existing():
-    records = {}
-    offset = 0
-
-    while True:
-        result = (
-            db.table("historical_match_events")
-            .select(
-                "match_id,stats_data,timeline_data"
-            )
-            .order("match_id")
-            .range(
-                offset,
-                offset + PAGE_SIZE - 1,
-            )
-            .execute()
-        )
-
-        rows = result.data or []
-
-        for row in rows:
-            records[row["match_id"]] = row
-
-        if len(rows) < PAGE_SIZE:
-            break
-
-        offset += PAGE_SIZE
-
-    return records
+    result = (
+        db.table("historical_match_events")
+        .select("match_id,stats_data,timeline_data")
+        .eq("match_id", TARGET_MATCH_ID)
+        .limit(1)
+        .execute()
+    )
+    return {row["match_id"]: row for row in (result.data or [])}
 
 
 def find_pending(existing):
-    pending = []
-    offset = 0
-
-    while len(pending) < BATCH_SIZE:
-        result = (
-            db.table("historical_xg")
-            .select(
-                "match_id,match_date,"
-                "home_team,away_team,"
-                "home_goals,away_goals"
-            )
-            .like("match_id", "mt_%")
-            .not_.is_("home_goals", "null")
-            .order("match_date", desc=True)
-            .order("match_id")
-            .range(
-                offset,
-                offset + PAGE_SIZE - 1,
-            )
-            .execute()
-        )
-
-        rows = result.data or []
-
-        for match in rows:
-            old = existing.get(
-                match["match_id"], {}
-            )
-
-            # Never refetch completed matches.
-            if (
-                old.get("stats_data") is not None
-                and old.get("timeline_data") is not None
-            ):
-                continue
-
-            if match["match_id"] != "mt_579334253":
-                continue
-            pending.append(match)
-
-            if len(pending) >= BATCH_SIZE:
-                break
-
-        if len(rows) < PAGE_SIZE:
-            break
-
-        offset += PAGE_SIZE
-
-    return pending
+    result = (
+        db.table("historical_xg")
+        .select("match_id,match_date,home_team,away_team,home_goals,away_goals")
+        .eq("match_id", TARGET_MATCH_ID)
+        .limit(1)
+        .execute()
+    )
+    matches = result.data or []
+    return [match for match in matches if not (
+        existing.get(match["match_id"], {}).get("stats_data") is not None
+        and existing.get(match["match_id"], {}).get("timeline_data") is not None
+    )]
 
 
 def official_pair(stats, field, period="all"):
