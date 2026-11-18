@@ -128,6 +128,36 @@ def expectation(df1,for1,df2,against2):
     x,n=avg(df1,for1);y,m=avg(df2,against2)
     if x is None or y is None:return None,min(n,m)
     return (x+y)/2,min(n,m)
+@st.cache_data(ttl=3600,show_spinner=False)
+def league_context(home,away):
+    client=db()
+    h=(client.table("historical_xg").select("competition_id,match_date").ilike("home_team",home).order("match_date",desc=True).limit(1).execute().data or [])
+    a=(client.table("historical_xg").select("competition_id,match_date").ilike("away_team",away).order("match_date",desc=True).limit(1).execute().data or [])
+    if not h or not a or h[0]["competition_id"]!=a[0]["competition_id"]:return None
+    latest=max(str(h[0]["match_date"]),str(a[0]["match_date"]))
+    year=int(latest[:4]);start=f"{year if int(latest[5:7])>=7 else year-1}-07-01"
+    rows=(client.table("historical_xg").select("home_team,away_team,home_goals,away_goals,match_date").eq("competition_id",h[0]["competition_id"]).gte("match_date",start).lte("match_date",latest).not_.is_("home_goals","null").not_.is_("away_goals","null").order("match_date",desc=True).limit(1000).execute().data or [])
+    table={}
+    for r in rows:
+        hg,ag=int(r["home_goals"]),int(r["away_goals"])
+        for name,gf,ga in [(r["home_team"],hg,ag),(r["away_team"],ag,hg)]:
+            d=table.setdefault(name,{"played":0,"points":0,"gd":0})
+            d["played"]+=1;d["gd"]+=gf-ga
+            d["points"]+=3 if gf>ga else (1 if gf==ga else 0)
+    ranked=sorted(table,key=lambda x:(table[x]["points"],table[x]["gd"]),reverse=True)
+    for i,name in enumerate(ranked):table[name]["position"]=i+1
+    if home not in table or away not in table:return None
+    return {"home":table[home],"away":table[away],"date":latest}
+
+def strength_adjust(hx,ax,context):
+    if not context:return hx,ax,0.
+    h,a=context["home"],context["away"]
+    if min(h["played"],a["played"])<5:return hx,ax,0.
+    ppg=h["points"]/h["played"]-a["points"]/a["played"]
+    gdpg=h["gd"]/h["played"]-a["gd"]/a["played"]
+    advantage=max(-0.15,min(0.15,0.06*ppg+0.04*gdpg))
+    return hx*(1+advantage),ax*(1-advantage),advantage
+
 def poisson_cdf(k,lam):
     if lam<0:return 0
     term=math.exp(-lam);total=term
@@ -166,7 +196,17 @@ if analyse:
         ax,na=expectation(a,"Goals for",h,"Goals against")
         basis="goals blend"
     if hx is not None and ax is not None:
-        st.subheader("Expected goals — simple venue-form model")
+        try:
+            context=league_context(home,away)
+            if context:
+                st.caption(f"Saved league table through {context['date']}: {home} #{context['home']['position']} ({context['home']['points']} pts, GD {context['home']['gd']:+}); {away} #{context['away']['position']} ({context['away']['points']} pts, GD {context['away']['gd']:+}).")
+            hx,ax,adj=strength_adjust(hx,ax,context)
+            if adj:
+                basis+=" + league-strength context"
+                st.caption(f"Experimental season points/GD adjustment: {adj:+.1%} home, {-adj:+.1%} away; maximum 15%. Not yet validated.")
+        except Exception as exc:
+            st.caption(f"League table unavailable; venue form retained ({exc}).")
+        st.subheader("Expected goals — venue form + league context")
         x1,x2=st.columns(2)
         x1.metric(home,round(hx,2));x2.metric(away,round(ax,2))
         p_home=p_draw=p_away=p_btts=0
