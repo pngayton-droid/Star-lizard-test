@@ -123,6 +123,49 @@ if st.button("📥 Load pasted report",use_container_width=True):
         st.rerun()
     except Exception as exc:st.error(f"Could not load report: {exc}")
 
+def load_saved_team(team,venue,count):
+    from supabase import create_client
+    client=create_client(st.secrets["SUPABASE_URL"],st.secrets["SUPABASE_SECRET_KEY"])
+    col="home_team" if venue=="home" else "away_team"
+    rows=(client.table("historical_xg").select("match_id,match_date,home_team,away_team,home_goals,away_goals,home_xg,away_xg")
+          .eq(col,team).not_.is_("home_goals","null").not_.is_("away_goals","null")
+          .order("match_date",desc=True).limit(count).execute().data or [])
+    ids=[r["match_id"] for r in rows]
+    events={}
+    if ids:
+        for e in (client.table("historical_match_events").select("match_id,stats_data").in_("match_id",ids).execute().data or []):
+            events[e["match_id"]]=e.get("stats_data") or {}
+    out=[]
+    for r in rows:
+        own="home" if venue=="home" else "away"
+        opp="away" if venue=="home" else "home"
+        s=(events.get(r["match_id"]) or {}).get("overview") or {}
+        def get(key,side):
+            val=((s.get(key) or {}).get("all") or {}).get(side)
+            return float(val) if val is not None else None
+        entry={"Date / opponent":str(r["match_date"])+" "+str(r[opp+"_team"]),"Goals for":r[own+"_goals"],"Goals against":r[opp+"_goals"],
+               "xG for":r[own+"_xg"],"xG against":r[opp+"_xg"]}
+        for dest,key,side in [
+            ("Corners for","corner_kicks",own),("Corners against","corner_kicks",opp),
+            ("Yellow cards for","yellow_cards",own),("Yellow cards against","yellow_cards",opp),
+            ("Shots for","total_shots",own),("Shots against","total_shots",opp),
+            ("Fouls for","fouls",own),("Fouls against","fouls",opp)]:
+            entry[dest]=get(key,side)
+        out.append(entry)
+    return pd.DataFrame(out,columns=cols),len(rows)
+
+st.subheader("📚 Load existing StatsAPI match records")
+st.caption("Pull the latest saved home and away match statistics automatically. Refresh from the API above first if newer results are missing.")
+if st.button("Load both teams from Supabase",use_container_width=True):
+    try:
+        hh,hn=load_saved_team(home,"home",n)
+        aa,an=load_saved_team(away,"away",n)
+        if hn:st.session_state["home_rows"]=hh
+        if an:st.session_state["away_rows"]=aa
+        st.success(f"Loaded {hn} {home} home matches and {an} {away} away matches.")
+        st.rerun()
+    except Exception as exc:st.error(f"Couldn't load saved records: {exc}")
+
 def editor(label,key):
     st.subheader(label)
     if key not in st.session_state:
