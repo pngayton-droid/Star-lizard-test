@@ -4,6 +4,7 @@
 import os
 import time
 import requests
+from httpx import RemoteProtocolError, ReadError, ConnectError, ReadTimeout
 from supabase import create_client
 
 BASE = "https://api.thestatsapi.com/api"
@@ -13,6 +14,24 @@ DB = create_client(
     os.environ["SUPABASE_URL"],
     os.environ["SUPABASE_SECRET_KEY"],
 )
+
+DB_RETRY_ERRORS = (RemoteProtocolError, ReadError, ConnectError, ReadTimeout, requests.RequestException)
+
+
+def db_call(operation, label):
+    for attempt in range(6):
+        try:
+            return operation()
+        except Exception as exc:
+            # Transient Supabase/PostgREST HTTP/2 connection interruptions.
+            if not isinstance(exc, DB_RETRY_ERRORS):
+                raise
+            if attempt == 5:
+                raise
+            delay = min(40, 2 ** (attempt + 1))
+            print(f"SUPABASE_RETRY {label} attempt={attempt + 1} wait={delay}s: {type(exc).__name__}", flush=True)
+            time.sleep(delay)
+
 
 HEADERS = {"Authorization": f"Bearer {API_KEY}"}
 
@@ -70,7 +89,7 @@ def get_match(match_id):
 def main():
     print("PRO STAR LIZARD - HISTORICAL SCORE RECOVERY", flush=True)
 
-    result = (
+    result = db_call(lambda: (
         DB.table("historical_xg")
         .select(
             "match_id,match_date,home_team,away_team,"
@@ -82,7 +101,7 @@ def main():
         .order("match_date", desc=True)
         .limit(MAX_MATCHES)
         .execute()
-    )
+    ), "load_missing_matches")
 
     matches = result.data or []
     print(f"Matches selected: {len(matches)}", flush=True)
@@ -155,23 +174,26 @@ def main():
                 print("Already populated", flush=True)
                 continue
 
-            (
+            saved = db_call(lambda: (
                 DB.table("historical_xg")
                 .update(update)
                 .eq("match_id", match_id)
                 .is_("home_goals", "null")
                 .execute()
-            )
+            ), f"save_{match_id}")
 
+            if not saved.data:
+                print("Already recovered by another job; skipped", flush=True)
+                continue
             updated += 1
             print(f"Saved: {values}", flush=True)
 
         except RuntimeError as exc:
             print(f"Stopping safely: {exc}", flush=True)
             break
-        except requests.RequestException as exc:
-            print(f"API error: {exc}", flush=True)
-            raise
+        except DB_RETRY_ERRORS as exc:
+            print(f"Connection failed after retries; stopping to preserve progress: {exc}", flush=True)
+            break
 
         if index < len(matches):
             time.sleep(REQUEST_INTERVAL)
