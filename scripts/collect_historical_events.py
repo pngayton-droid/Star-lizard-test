@@ -201,6 +201,8 @@ def find_pending(existing):
             ):
                 continue
 
+            if match["match_id"] != "mt_579334253":
+                continue
             pending.append(match)
 
             if len(pending) >= BATCH_SIZE:
