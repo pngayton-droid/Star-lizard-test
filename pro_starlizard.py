@@ -53,6 +53,7 @@ with st.sidebar:
     st.caption("FOOTBALL INTELLIGENCE")
     st.page_link("pro_starlizard.py",label="🏠 Home",use_container_width=True)
     st.page_link("pages/Manual_Fair_Odds.py",label="🎯 Manual fair odds",use_container_width=True)
+    st.page_link("pages/Paste_Research.py",label="📋 Paste research & odds",use_container_width=True)
     st.divider()
     st.caption("Historical data retained. Legacy experiments hidden.")
 
@@ -74,6 +75,7 @@ st.markdown("""
 st.markdown("### Your workspace")
 st.page_link("pages/Manual_Fair_Odds.py",label="🎯 OPEN MANUAL FAIR ODDS",use_container_width=True)
 st.caption("Pre-match and half-time pricing · Historical frequencies · Exact score outcomes")
+st.page_link("pages/Paste_Research.py",label="📋 PASTE RECENT FORM OR FAIR ODDS",use_container_width=True)
 
 left,right=st.columns(2,gap="medium")
 with left:
