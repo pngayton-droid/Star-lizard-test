@@ -193,8 +193,26 @@ if analyse:
         for line in lines:results.append(row(f"Over {line} {market}",1-poisson_cdf(int(line),lam),source))
     st.subheader("Fair-odds board")
     if results:
-        st.dataframe(pd.DataFrame(results),hide_index=True,use_container_width=True)
-        st.download_button("Download fair odds CSV",pd.DataFrame(results).to_csv(index=False),file_name="starlizard_fair_odds.csv",mime="text/csv",use_container_width=True)
+        board=pd.DataFrame(results)
+        st.caption("Historical figures below are whole-league baseline frequencies, NOT matches selected for similar pre-match form. ROI is flat-stake Bet365 last-seen odds for all historically priced selections; it is NOT the ROI of this fixture model.")
+        try:
+            history=(db().table("starlizard_market_history").select("competition_id,market,sample_size,wins,priced_bets,priced_wins,roi_pct").execute().data or [])
+            # Prefer league-specific baseline when both clubs share a saved competition.
+            home_leagues=(db().table("historical_xg").select("competition_id").ilike("home_team",home.strip()).order("match_date",desc=True).limit(1).execute().data or [])
+            away_leagues=(db().table("historical_xg").select("competition_id").ilike("away_team",away.strip()).order("match_date",desc=True).limit(1).execute().data or [])
+            league=(home_leagues[0].get("competition_id") if home_leagues and away_leagues and home_leagues[0].get("competition_id")==away_leagues[0].get("competition_id") else None)
+            relevant=[r for r in history if r["competition_id"]==league] if league else []
+            if not relevant:st.info("No shared competition found. Showing model estimates only; historical baseline is unavailable.")
+            lookup={r["market"]:r for r in relevant}
+            board["Historical wins / matches"]=board["Market"].map(lambda name:f"{lookup[name]['wins']}/{lookup[name]['sample_size']}" if name in lookup else "—")
+            board["Historical hit rate"]=board["Market"].map(lambda name:f"{100*lookup[name]['wins']/lookup[name]['sample_size']:.1f}%" if name in lookup and lookup[name]["sample_size"] else "—")
+            board["Bet365 ROI"]=board["Market"].map(lambda name:f"{float(lookup[name]['roi_pct']):+.1f}%" if name in lookup and lookup[name].get("roi_pct") is not None and lookup[name]["priced_bets"]>=30 else "—")
+            board["ROI bets"]=board["Market"].map(lambda name:lookup[name]["priced_bets"] if name in lookup else "—")
+            st.caption("ROI shown only when at least 30 historical Bet365 quotes exist. Even then, it may be noisy and does not establish a profitable strategy.")
+        except Exception as exc:
+            st.warning(f"Historical baseline unavailable: {exc}")
+        st.dataframe(board,hide_index=True,use_container_width=True)
+        st.download_button("Download fair odds CSV",board.to_csv(index=False),file_name="starlizard_fair_odds.csv",mime="text/csv",use_container_width=True)
     else:st.warning("Enter goals or xG, plus matching opponent figures, to calculate odds.")
     st.subheader("Shots and fouls")
     for market,for_col,against_col in [("Shots","Shots for","Shots against"),("Fouls","Fouls for","Fouls against")]:
