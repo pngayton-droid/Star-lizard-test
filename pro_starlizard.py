@@ -25,21 +25,102 @@ st.info("Enter the HOME team's latest home matches and the AWAY team's latest aw
 
 cols=["Date / opponent","Goals for","Goals against","xG for","xG against","Corners for","Corners against","Yellow cards for","Yellow cards against","Shots for","Shots against","Fouls for","Fouls against"]
 numeric=cols[1:]
+st.subheader("📋 Paste everything in one window")
+st.caption("Paste the entire report below, then click Load. Use the section labels and column order shown in the example. Empty cells are allowed.")
+paste_example="""[HOME]
+opponent,goals_for,goals_against,xg_for,xg_against,corners_for,corners_against,cards_for,cards_against,shots_for,shots_against,fouls_for,fouls_against
+Brighton,0,1,1.64,1.00,6,4,2,3,15,10,11,14
+Ipswich,3,2,3.53,1.66,8,3,1,2,19,8,9,12
+
+[AWAY]
+opponent,goals_for,goals_against,xg_for,xg_against,corners_for,corners_against,cards_for,cards_against,shots_for,shots_against,fouls_for,fouls_against
+Aston Villa,1,1,2.24,1.83,5,5,2,1,12,12,10,12
+Coventry,1,0,0.55,0.51,4,6,1,2,9,13,14,11
+
+[H2H]
+date,home_goals,away_goals
+2026-02-11,3,0
+2024-10-05,3,2
+
+[REFEREE]
+name,cards_avg,fouls_avg
+Referee name,3.4,22.1"""
+import csv
+import io
+def parse_report(raw):
+    sections={}
+    section=None
+    for line in raw.splitlines():
+        t=line.strip()
+        if t.upper() in ("[HOME]","[AWAY]","[H2H]","[REFEREE]"):
+            section=t.upper()[1:-1];sections[section]=[]
+        elif section and t:
+            sections[section].append(line)
+        elif t:
+            raise ValueError("Start with [HOME], [AWAY], [H2H] or [REFEREE].")
+    result={}
+    for key,lines in sections.items():
+        if len(lines)<2:continue
+        rows=list(csv.DictReader(io.StringIO("\n".join(lines))))
+        if key in ("HOME","AWAY"):
+            mapping={"opponent":"Date / opponent","goals_for":"Goals for","goals_against":"Goals against","xg_for":"xG for","xg_against":"xG against","corners_for":"Corners for","corners_against":"Corners against","cards_for":"Yellow cards for","cards_against":"Yellow cards against","shots_for":"Shots for","shots_against":"Shots against","fouls_for":"Fouls for","fouls_against":"Fouls against"}
+            if not {"goals_for","goals_against"}.issubset(rows[0]):
+                raise ValueError(f"[{key}] needs goals_for and goals_against headers.")
+            converted=[]
+            for row in rows:
+                out={"Date / opponent":row.get("opponent","") or ""}
+                for src,dst in mapping.items():
+                    if src=="opponent":continue
+                    val=(row.get(src) or "").strip()
+                    if val:
+                        number=float(val)
+                        if not math.isfinite(number) or number<0:raise ValueError(f"Invalid {src}: {val}")
+                        out[dst]=number
+                converted.append(out)
+            result[key]=converted
+        elif key=="H2H":
+            result[key]=[{"Date":r.get("date",""),"Home goals":float(r["home_goals"]),"Away goals":float(r["away_goals"])} for r in rows if r.get("home_goals") and r.get("away_goals")]
+        elif key=="REFEREE":
+            result[key]=rows[0] if rows else {}
+    return result
+raw=st.text_area("All match information",height=260,placeholder=paste_example,key="all_match_data")
+with st.expander("See the exact paste format"):
+    st.code(paste_example,language="text")
+if st.button("📥 Load pasted report",use_container_width=True):
+    try:
+        parsed=parse_report(raw)
+        for src,key in [("HOME","home_rows"),("AWAY","away_rows")]:
+            if src in parsed:
+                items=parsed[src]
+                if len(items)>20:raise ValueError("Maximum 20 matches per team.")
+                st.session_state[key]=pd.DataFrame(items,columns=cols)
+        if "H2H" in parsed:
+            items=parsed["H2H"][:5]
+            st.session_state["h2h_data"]=pd.DataFrame(items+[{"Date":"","Home goals":None,"Away goals":None} for _ in range(5-len(items))])
+        if "REFEREE" in parsed:
+            r=parsed["REFEREE"]
+            st.session_state["ref_name"]=r.get("name","")
+            for src,dst in [("cards_avg","ref_cards_value"),("fouls_avg","ref_fouls_value")]:
+                if (r.get(src) or "").strip():st.session_state[dst]=float(r[src])
+        st.success("Report loaded. Review the tables below, then press Analyse Match.")
+        st.rerun()
+    except Exception as exc:st.error(f"Could not load report: {exc}")
+
 def editor(label,key):
     st.subheader(label)
-    if key not in st.session_state or len(st.session_state[key])!=n:
+    if key not in st.session_state:
         st.session_state[key]=pd.DataFrame([{"Date / opponent":""} for _ in range(n)],columns=cols)
     return st.data_editor(st.session_state[key],num_rows="fixed",use_container_width=True,hide_index=True,key="grid_"+key,column_config={"Date / opponent":st.column_config.TextColumn("Date / opponent",width="medium"),**{x:st.column_config.NumberColumn(x,min_value=0,step=1 if "xG" not in x else .1,format="%.2f" if "xG" in x else "%.0f") for x in numeric}})
 h=editor(f"🏠 {home} — last {n} home matches","home_rows")
 a=editor(f"✈️ {away} — last {n} away matches","away_rows")
 st.subheader("🏟️ Last five meetings at this ground")
 st.caption("Enter the score from the home team's perspective. These results are shown separately, not double-counted in recent form.")
-h2h=st.data_editor(pd.DataFrame([{"Date":"","Home goals":None,"Away goals":None} for _ in range(5)]),num_rows="fixed",hide_index=True,use_container_width=True,key="h2h")
+h2h=st.data_editor(st.session_state.get("h2h_data",pd.DataFrame([{"Date":"","Home goals":None,"Away goals":None} for _ in range(5)])),num_rows="fixed",hide_index=True,use_container_width=True,key="h2h")
 st.subheader("🟨 Referee (optional)")
 rc1,rc2,rc3=st.columns(3)
-with rc1:ref=st.text_input("Referee")
-with rc2:ref_cards=st.number_input("Average total yellow cards",min_value=0.0,max_value=12.0,value=0.0,step=.1)
-with rc3:ref_fouls=st.number_input("Average fouls",min_value=0.0,max_value=50.0,value=0.0,step=.5)
+with rc1:ref=st.text_input("Referee",key="ref_name")
+with rc2:ref_cards=st.number_input("Average total yellow cards",min_value=0.0,max_value=12.0,value=0.0,step=.1,key="ref_cards_value")
+with rc3:ref_fouls=st.number_input("Average fouls",min_value=0.0,max_value=50.0,value=0.0,step=.5,key="ref_fouls_value")
 def avg(df,key):
     v=pd.to_numeric(df[key],errors="coerce").dropna()
     return (float(v.mean()),len(v)) if len(v) else (None,0)
