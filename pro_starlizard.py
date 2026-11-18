@@ -1379,6 +1379,8 @@ if st.session_state.active_page == "Home":
         st.session_state.active_page = "Live Fixtures"
         st.rerun()
 
+    st.page_link("pages/Manual_Fair_Odds.py", label="🎯 OPEN MANUAL FAIR ODDS", use_container_width=True)
+
     with st.expander("Other dashboard tools", expanded=False):
         for page, label in [
             ("Historical Research", "📊 Team historical comparison"),
