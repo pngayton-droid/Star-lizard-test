@@ -17,6 +17,23 @@ try:st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
 except Exception:pass
 st.title("⚽ Match Intelligence")
 st.caption("One workspace. Enter individual matches, review form and calculate transparent fair odds. No API charges.")
+st.subheader("🔄 TheStatsAPI — update recent match records")
+st.caption("Optional: refresh completed league fixtures into Supabase. Uses your existing API key securely; no key is displayed.")
+with st.expander("Refresh current statistics"):
+    from statsapi_refresh import LEAGUES,settings,refresh
+    league=st.selectbox("League",list(LEAGUES),key="api_league")
+    days=st.selectbox("Look back",[7,14,21,30],index=2)
+    limit=st.selectbox("Maximum fixtures to update",[5,10,25],index=1)
+    key,url,secret=settings()
+    if not key:st.warning("STATS_API_KEY is not configured in this Streamlit deployment. Add it under Streamlit app settings → Secrets to enable API refresh.")
+    if st.button("Update recent matches from TheStatsAPI",disabled=not all((key,url,secret)),use_container_width=True):
+        try:
+            with st.spinner("Fetching and saving recent fixture statistics…"):
+                report=refresh(league,days,limit)
+            st.success(f"Saved {report['saved_stats']} matches · {report['api_calls']} API calls · {report['skipped']} skipped.")
+            if report["errors"]:st.warning("Some matches failed: "+"; ".join(report["errors"][:3]))
+        except Exception as exc:st.error(f"Update failed: {exc}")
+
 c1,c2=st.columns(2)
 with c1:home=st.text_input("Home team","Manchester City")
 with c2:away=st.text_input("Away team","Fulham")
