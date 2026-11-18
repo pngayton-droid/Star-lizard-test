@@ -17,9 +17,26 @@ try:st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
 except Exception:pass
 st.title("⚽ PRO STARLIZARD")
 st.caption("Enter a fixture. We retrieve individual match records from our saved TheStatsAPI database and calculate the fair odds.")
+@st.cache_data(ttl=3600,show_spinner=False)
+def team_options():
+    client=create_client(st.secrets["SUPABASE_URL"],st.secrets["SUPABASE_SECRET_KEY"])
+    records=client.table("starlizard_team_options").select("team_name").order("team_name").limit(1000).execute().data or []
+    return sorted({r["team_name"] for r in records if r.get("team_name")},key=str.casefold)
+
+try:
+    teams=team_options()
+except Exception as exc:
+    st.error(f"Couldn't load team choices: {exc}")
+    st.stop()
+if not teams:
+    st.warning("No team names found in the saved database.")
+    st.stop()
 c1,c2=st.columns(2)
-with c1:home=st.text_input("Home team","Manchester City")
-with c2:away=st.text_input("Away team","Fulham")
+with c1:
+    home=st.selectbox("🏠 Home team",teams,index=teams.index("Manchester City") if "Manchester City" in teams else 0)
+with c2:
+    away=st.selectbox("✈️ Away team",teams,index=teams.index("Fulham") if "Fulham" in teams else 0)
+
 n=st.selectbox("Recent matches per team at the relevant venue",[5,10,15,20],index=0)
 cols=["Date / opponent","Goals for","Goals against","xG for","xG against","Corners for","Corners against","Yellow cards for","Yellow cards against","Shots for","Shots against","Fouls for","Fouls against"]
 numeric=cols[1:]
