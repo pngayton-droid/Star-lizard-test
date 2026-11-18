@@ -2,8 +2,10 @@ name: Recover Historical Match Scores
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0,30 * * * *'
+  push:
+    paths:
+      - scripts/recover_historical_scores.py
+      - .github/workflows/recover_historical_scores.yml
 
 permissions:
   contents: read
