@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - '.github/workflows/recover_recent_fixtures_manual.yml'
-  schedule:
-    - cron: '17 */6 * * *'
   workflow_dispatch:
     inputs:
       lookback_days:
