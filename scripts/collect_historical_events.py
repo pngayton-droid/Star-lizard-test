@@ -32,6 +32,9 @@ BATCH_SIZE = min(
 PAGE_SIZE = 500
 REQUEST_DELAY = 1.3
 MAX_ATTEMPTS = 4
+MAX_API_REQUESTS = 260
+MIN_REMAINING = 500
+api_requests = 0
 
 
 class RateLimitExhausted(Exception):
@@ -39,11 +42,18 @@ class RateLimitExhausted(Exception):
 
 
 def fetch(match_id, endpoint):
+    global api_requests
     url = f"{API_BASE}/{match_id}/{endpoint}"
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
+            if api_requests >= MAX_API_REQUESTS:
+                raise RateLimitExhausted("Targeted recovery request budget reached")
             response = session.get(url, timeout=40)
+            api_requests += 1
+            quota = response.headers.get("X-Monthly-Quota-Remaining")
+            if quota is not None and quota.isdigit() and int(quota) <= MIN_REMAINING:
+                raise RateLimitExhausted("Monthly quota safety floor reached")
             status = response.status_code
 
             if status == 429:
