@@ -147,7 +147,9 @@ if analyse:
             if x is not None:stat.append({"Team / venue":label,"Statistic":metric,"Average":round(x,2),"Matches":nobs})
     if stat:
         st.subheader("Recent form — recorded averages")
-        st.dataframe(pd.DataFrame(stat),hide_index=True,use_container_width=True)
+        with st.expander("See all recent averages"):
+            st.dataframe(pd.DataFrame(stat),hide_index=True,use_container_width=True)
+        st.caption("Recent averages are available above; the fair-odds cards below fit mobile screens.")
     else:st.warning("No numerical match data entered yet.")
     valid=h2h.dropna(subset=["Home goals","Away goals"])
     if len(valid):
@@ -211,7 +213,31 @@ if analyse:
             st.caption("ROI shown only when at least 30 historical Bet365 quotes exist. Even then, it may be noisy and does not establish a profitable strategy.")
         except Exception as exc:
             st.warning(f"Historical baseline unavailable: {exc}")
-        st.dataframe(board,hide_index=True,use_container_width=True)
+        st.markdown("""<style>
+        .odds-card{border:1px solid #345267;background:#142536;border-radius:12px;padding:10px 12px;margin:7px 0}
+        .odds-title{font-size:15px;font-weight:750;color:#f1f7ff;margin-bottom:5px}
+        .odds-line{display:flex;justify-content:space-between;gap:8px;font-size:13px;line-height:1.65;color:#c8d6e3}
+        .odds-line strong{color:#ffffff;white-space:nowrap}
+        </style>""",unsafe_allow_html=True)
+        from html import escape
+        for group,pattern in [("Match result & goals",lambda x:"corners" not in x and "cards" not in x),
+                              ("Corners",lambda x:"corners" in x),
+                              ("Yellow cards",lambda x:"cards" in x)]:
+            subset=board[board["Market"].map(pattern)]
+            if subset.empty:continue
+            st.markdown(f"#### {group}")
+            for _,r in subset.iterrows():
+                def val(k):return escape(str(r.get(k,"—")))
+                st.markdown(
+                    '<div class="odds-card"><div class="odds-title">'+val("Market")+'</div>'
+                    '<div class="odds-line"><span>Fair odds</span><strong>'+val("Fair odds")+'</strong></div>'
+                    '<div class="odds-line"><span>Model probability</span><strong>'+val("Probability")+'</strong></div>'
+                    '<div class="odds-line"><span>Historical hit rate</span><strong>'+val("Historical hit rate")+'</strong></div>'
+                    '<div class="odds-line"><span>Historical wins</span><strong>'+val("Historical wins / matches")+'</strong></div>'
+                    '<div class="odds-line"><span>Bet365 ROI ('+val("ROI bets")+' bets)</span><strong>'+val("Bet365 ROI")+'</strong></div>'
+                    '</div>',unsafe_allow_html=True)
+        with st.expander("Full detailed table"):
+            st.dataframe(board,hide_index=True,use_container_width=True)
         st.download_button("Download fair odds CSV",board.to_csv(index=False),file_name="starlizard_fair_odds.csv",mime="text/csv",use_container_width=True)
     else:st.warning("Enter goals or xG, plus matching opponent figures, to calculate odds.")
     st.subheader("Shots and fouls")
