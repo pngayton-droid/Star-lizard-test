@@ -309,7 +309,7 @@ def analogues(df,target,mode,cutoff,max_distance,feature_set="combined"):
     score+=np.where(pool.league==target["league"],0,0.5)
     pool["distance"]=np.sqrt(score/available)
     # Quality gate: do not force a fixed number of weak analogues.
-    return pool.loc[pool["distance"]<=max_distance].sort_values("distance")
+    return pool.loc[pool["distance"]<=max_distance].sort_values("distance").head(400)
 
 def market_results(df,mode):
     h=df.hg.to_numpy();a=df.ag.to_numpy()
@@ -521,14 +521,18 @@ samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in
 match_odds_samples={label:analogues(df,target,mode,target["date"],limit,feature_set="strength") for limit,label in TIERS}
 st.subheader("Historical comparison quality")
 st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for _,label in TIERS))
-st.caption("All bands are cumulative. Close matches are included within moderate and broad groups. Distances are exploratory, not calibrated.")
+st.caption("Bands use the 400 nearest eligible historical matches at most, avoiding dilution by thousands of weaker comparisons. Close matches also qualify for broader bands; distances are exploratory, not calibrated.")
 st.caption("Match odds use league strength (PPG, goal difference and available league position). Goals, corners and cards use recent form and real xG when available. Missing xG is never replaced with goals. Samples can differ.")
-default_band=next((label for _,label in TIERS if len(samples[label])>=30),next((label for _,label in TIERS if len(samples[label])>0),"Close"))
+default_band=next((label for _,label in TIERS if len(samples[label])>=100),next((label for _,label in reversed(TIERS) if len(samples[label])>=30),next((label for _,label in reversed(TIERS) if len(samples[label])>0),"Close")))
 selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=["Close","Moderate","Broad"].index(default_band))
 matches=samples[selected]
 st.write(f"**{len(matches):,} qualifying matches** in the {selected.lower()} band")
 if len(matches)<30:
-    st.warning("Small sample: prices below are exploratory and highly uncertain. Compare other bands before drawing conclusions.")
+    st.warning("Fewer than 30 historical comparisons: exploratory only; do not treat these as reliable fair odds.")
+elif len(matches)<100:
+    st.warning("Only 30–99 historical comparisons. Prices have substantial sampling uncertainty; consider the broader band.")
+else:
+    st.caption("At least 100 comparable historical fixtures in this band; this is a coverage threshold, not proof of predictive accuracy.")
 if len(matches)==0:
     st.info("No historical comparisons in this band.")
 else:
