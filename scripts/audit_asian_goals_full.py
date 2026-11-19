@@ -31,7 +31,7 @@ def summarize(g):
  return pd.Series({"bets":len(g),"matches":g.match_id.nunique(),"roi":g.profit.mean(),"predicted_roi":g.predicted_roi.mean(),"mean_price":g.price.mean()})
 print("LOADING MATRIX HISTORY",flush=True)
 data=features()
-eligible=data[(data.date>=pd.Timestamp("2025-07-01"))&data.hg.notna()&data.ag.notna()&data.h_ppg.notna()&data.a_ppg.notna()].sort_values(["date","match_id"])
+eligible=data[(data.date>=pd.Timestamp("2020-01-01"))&data.hg.notna()&data.ag.notna()&data.h_ppg.notna()&data.a_ppg.notna()].sort_values(["date","match_id"])
 selected=eligible.copy()
 odds_by_match={}
 for rec in fetch("historical_match_odds","match_id,odds_payload"):
@@ -65,13 +65,13 @@ for i,r in enumerate(selected.itertuples(index=False)):
      try:price=float((prices.get(side) or {}).get(phase))
      except (TypeError,ValueError,AttributeError):continue
      if not 1.01<price<100:continue
-     rows.append(dict(match_id=r.match_id,period="2026" if r.date>=pd.Timestamp("2026-01-01") else "2025",bookmaker=book,phase=phase,line=line,side=side,price=price,analogues=len(sample),predicted_roi=(price-1)*w-l,baseline_roi=(price-1)*bw-bl,profit=(price-1)*aw-al,model_fair=1+l/w if w else np.nan,baseline_fair=1+bl/bw if bw else np.nan,model_brier=(w-aw)**2+(l-al)**2,baseline_brier=(bw-aw)**2+(bl-al)**2))
+     rows.append(dict(match_id=r.match_id,period=str(r.date.year),bookmaker=book,phase=phase,line=line,side=side,price=price,analogues=len(sample),predicted_roi=(price-1)*w-l,baseline_roi=(price-1)*bw-bl,profit=(price-1)*aw-al,model_fair=1+l/w if w else np.nan,baseline_fair=1+bl/bw if bw else np.nan,model_brier=(w-aw)**2+(l-al)**2,baseline_brier=(bw-aw)**2+(bl-al)**2))
  if (i+1)%50==0:print("PROGRESS",i+1,flush=True)
 
 df=pd.DataFrame(rows)
 if df.empty: raise RuntimeError("No matched goal quotes")
 os.makedirs("research_results",exist_ok=True)
-# Use a predetermined chronological cutoff; 2026 is untouched by 2025 selection.
+# Historical annual audit: preserve chronological analogue eligibility and original selection criteria.
 df=df[(df.phase=="last_seen")&(df.side=="under")&
  (df.line.between(1.5,4.5))&(df.price.between(1.5,3.0))].copy()
 df["year"]=df.period
