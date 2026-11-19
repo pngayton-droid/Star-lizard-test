@@ -108,3 +108,37 @@ for name,score in (("matrix","predicted_roi"),("baseline","baseline_roi")):
   chosen.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).reset_index().to_csv(f"research_results/asian_goals_unders_{name}_summary.csv",index=False)
   chosen.groupby(["period","bookmaker","phase","line"]).apply(summarize,include_groups=False).reset_index().to_csv(f"research_results/asian_goals_unders_{name}_by_line.csv",index=False)
   print("UNDERS",name,chosen.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).to_string(),flush=True)
+
+# Cross-bookmaker identical-fixture/identical-line comparison.
+# Anchor selections on Bet365 only; never reselect using another bookmaker's result.
+anchor=(unders[(unders.bookmaker=="Bet365")&(unders.phase=="last_seen")]
+        .sort_values(["predicted_roi","line"],ascending=[False,True])
+        .drop_duplicates("match_id"))
+anchor=anchor[anchor.predicted_roi>=.05].copy()
+others=unders[unders.phase=="last_seen"].copy()
+matched=others.merge(anchor[["match_id","line","period","price","profit"]].rename(columns={"price":"bet365_price","profit":"bet365_profit"}),on=["match_id","line","period"],how="inner")
+matched["price_advantage"]=matched.price-matched.bet365_price
+matched["profit_advantage"]=matched.profit-matched.bet365_profit
+matched.to_csv("research_results/asian_goals_same_fixture_quotes.csv",index=False)
+matched.groupby(["period","bookmaker"]).agg(
+ bets=("match_id","size"),matches=("match_id","nunique"),
+ bookmaker_roi=("profit","mean"),bet365_same_bets_roi=("bet365_profit","mean"),
+ bookmaker_mean_odds=("price","mean"),bet365_mean_odds=("bet365_price","mean"),
+ mean_odds_difference=("price_advantage","mean"),mean_roi_difference=("profit_advantage","mean")
+).reset_index().to_csv("research_results/asian_goals_same_fixture_summary.csv",index=False)
+# Additional audit of stored prices, including bookmaker availability, opening vs last-seen,
+# extreme differences, and whether data contains actual quote timestamps.
+audit=df[df.phase=="last_seen"].merge(
+ df[df.phase=="opening"][["match_id","bookmaker","line","side","price"]].rename(columns={"price":"opening_price"}),
+ on=["match_id","bookmaker","line","side"],how="left")
+audit["price_ratio_to_open"]=audit.price/audit.opening_price
+audit.groupby(["period","bookmaker"]).agg(
+ quotes=("match_id","size"),matches=("match_id","nunique"),
+ opening_coverage=("opening_price",lambda x:x.notna().mean()),
+ opening_median=("opening_price","median"),last_seen_median=("price","median"),
+ price_ratio_median=("price_ratio_to_open","median"),
+ price_ratio_over_2=("price_ratio_to_open",lambda x:(x>2).sum()),
+ price_ratio_under_half=("price_ratio_to_open",lambda x:(x<.5).sum())
+).reset_index().to_csv("research_results/asian_goals_quote_quality.csv",index=False)
+print("SAME-FIXTURE COMPARISON",flush=True)
+print(pd.read_csv("research_results/asian_goals_same_fixture_summary.csv").to_string(index=False),flush=True)
