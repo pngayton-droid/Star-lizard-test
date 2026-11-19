@@ -142,3 +142,20 @@ audit.groupby(["period","bookmaker"]).agg(
 ).reset_index().to_csv("research_results/asian_goals_quote_quality.csv",index=False)
 print("SAME-FIXTURE COMPARISON",flush=True)
 print(pd.read_csv("research_results/asian_goals_same_fixture_summary.csv").to_string(index=False),flush=True)
+
+# Diagnose Betfair opening/last-seen odds movements with exact market keys.
+bf=audit[(audit.bookmaker=="Betfair Exchange")&audit.opening_price.notna()].copy()
+bf["movement_bucket"]=pd.cut(bf.price_ratio_to_open,bins=[0,.5,.8,1.2,1.5,2,3,5,10,float("inf")],include_lowest=True)
+bf.groupby(["period","side","movement_bucket"],observed=True).agg(
+ quotes=("match_id","size"),matches=("match_id","nunique"),
+ opening_median=("opening_price","median"),last_seen_median=("price","median"),
+ price_ratio_median=("price_ratio_to_open","median")
+).reset_index().to_csv("research_results/asian_goals_betfair_movement_buckets.csv",index=False)
+bf["extreme_up"]=bf.price_ratio_to_open>2
+bf.groupby(["period","line","side","extreme_up"]).agg(
+ quotes=("match_id","size"),matches=("match_id","nunique"),
+ opening_median=("opening_price","median"),last_seen_median=("price","median")
+).reset_index().to_csv("research_results/asian_goals_betfair_movement_lines.csv",index=False)
+bf[bf.extreme_up].sort_values("price_ratio_to_open",ascending=False).to_csv("research_results/asian_goals_betfair_extreme_quotes.csv",index=False)
+print("BETFAIR EXTREME",len(bf[bf.extreme_up]),"MATCHES",bf.loc[bf.extreme_up,"match_id"].nunique(),flush=True)
+print(bf.groupby(["side","extreme_up"]).size().to_string(),flush=True)
