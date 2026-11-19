@@ -139,15 +139,29 @@ if mode=="Half-time":
     if pd.isna(target["ht_h"]) or pd.isna(target["ht_a"]):
         st.warning("Half-time score unavailable for this fixture.");st.stop()
     st.write(f"Half-time score: **{int(target['ht_h'])}–{int(target['ht_a'])}**")
-# Fixed, disclosed similarity-quality threshold; not tuned to outcomes.
-MAX_DISTANCE=1.0
-MIN_SAMPLE=75
-matches=analogues(df,target,mode,target["date"],MAX_DISTANCE)
-st.subheader(f"Qualifying historical matches: {int(matches.shape[0]):,}")
-st.caption(f"Only matches with similarity distance ≤ {MAX_DISTANCE:.2f} are included. No forced 500-match quota. Threshold is provisional, not backtested.")
-if len(matches)<MIN_SAMPLE:
-    st.warning(f"Insufficient comparable evidence ({len(matches)} matches; minimum {MIN_SAMPLE}). Fair odds withheld rather than filling the sample with weaker comparisons.")
+# Graduated similarity bands: no arbitrary fixed-size nearest-neighbour quota.
+MIN_SAMPLE=30
+TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
+selected_band=None
+matches=None
+band_counts=[]
+for limit,label in TIERS:
+    candidate=analogues(df,target,mode,target["date"],limit)
+    band_counts.append((label,len(candidate)))
+    if selected_band is None and len(candidate)>=MIN_SAMPLE:
+        selected_band=(limit,label)
+        matches=candidate
+if matches is None:
+    matches=analogues(df,target,mode,target["date"],TIERS[-1][0])
+st.subheader(f"Comparable historical matches: {len(matches):,}")
+st.caption(" · ".join(f"{label}: {count:,}" for label,count in band_counts))
+if selected_band is None:
+    st.warning(f"Only {len(matches)} matches meet even the broad similarity threshold. No fair odds shown (minimum {MIN_SAMPLE}).")
 else:
+    limit,label=selected_band
+    st.caption(f"Using {label.lower()} comparisons (distance ≤ {limit:.1f}); sample size is determined by match quality, not forced to 500.")
+    if label!="Close":
+        st.warning("The close-match sample was too small, so this uses a wider comparison band. These historical prices are less specific to this fixture.")
     st.dataframe(score_card(matches,mode),hide_index=True,use_container_width=True)
     st.caption("Descriptive historical prices, not proven profitable or calibrated forecasts. Confidence intervals ignore match dependence and selection uncertainty.")
 with st.expander("Inspect qualifying historical fixtures"):
