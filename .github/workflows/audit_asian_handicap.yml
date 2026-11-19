@@ -26,5 +26,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research_results/asian_handicap_audit_*.csv
+          git add research_results/asian_handicap_audit_*.csv research_results/asian_handicap_bookmaker_*.csv
           git diff --cached --quiet || (git commit -m "Save Asian handicap historical audit" && git push)
