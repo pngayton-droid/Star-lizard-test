@@ -1,0 +1,7 @@
+period,bookmaker,quotes,matches,opening_coverage,opening_median,last_seen_median,price_ratio_median,price_ratio_over_2,price_ratio_under_half
+2025,Bet365,4842,350,0.0,,2.15,,0,0
+2026,Bet365,7206,511,0.17624202053844018,2.0,2.1,1.0,0,0
+2026,BetMGM UK,815,88,0.9938650306748467,1.91,1.88,1.0,0,0
+2026,Betfair Exchange,4772,93,0.9631181894383906,1.69,2.13,1.0506432177169842,704,2
+2026,Paddy Power,1080,93,0.9962962962962963,1.95,1.95,1.0,0,0
+2026,Pinnacle,510,87,1.0,1.9,1.934,1.0133914230145704,0,0
