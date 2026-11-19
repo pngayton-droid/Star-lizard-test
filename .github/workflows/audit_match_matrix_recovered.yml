@@ -1,4 +1,4 @@
-name: Consolidated Match Matrix recovered-data audit
+name: Consolidated Match Matrix strength-segment audit
 on:
   push:
     branches: [main]
@@ -25,5 +25,5 @@ jobs:
         if: always()
         with:
           name: consolidated-match-matrix-results
-          path: consolidated_match_matrix_test.csv
+          path: |\n            consolidated_match_matrix_test.csv\n            match_matrix_strength_segments.csv
           if-no-files-found: ignore
