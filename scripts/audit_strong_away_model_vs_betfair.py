@@ -3,6 +3,7 @@ Historical analogues strictly precede kickoff; no TheStatsAPI requests.
 Results saved to repo for direct retrieval. No optimisation on the test period.
 """
 import os,ast,json
+from collections import defaultdict,deque
 import numpy as np,pandas as pd
 from supabase import create_client
 db=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
