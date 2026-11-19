@@ -1,0 +1,43 @@
+name: Match Matrix edge versus Betfair saved report
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit_strong_away_model_vs_betfair.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: match-matrix-edge-report
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Compare pre-match strength model with Betfair
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/audit_strong_away_model_vs_betfair.py
+      - name: Save results permanently in repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/strong_away_model_vs_betfair_*
+          if ! git diff --cached --quiet; then
+            git commit -m "Save Match Matrix vs Betfair test results [skip ci]"
+            git push
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: match-matrix-versus-betfair
+          path: research_results/strong_away_model_vs_betfair_*
+          if-no-files-found: ignore
