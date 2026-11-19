@@ -1,0 +1,3 @@
+comparison,fixtures,logloss_gain,ci_low,ci_high,positive_years,years
+M1_market_plus_strength minus M0,12070,-0.0013330965270102369,-0.0021611245683536167,-0.0005195818137857422,0,5
+M2_plus_matrix_residual minus M0,12070,-0.004880985073048869,-0.005914066299561074,-0.003849344814400446,0,5
