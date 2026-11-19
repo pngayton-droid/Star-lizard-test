@@ -112,7 +112,8 @@ def features():
             hs=standings[key][h];ass=standings[key][a]
             hdisc=list(discipline[(league,h,"home")]);adisc=list(discipline[(league,a,"away")])
             def form(v,index):
-                return float(np.mean([x[index] for x in v])) if len(v)>=3 else np.nan
+                values=[x[index] for x in v if pd.notna(x[index])]
+                return float(np.mean(values)) if len(values)>=3 else np.nan
             def ppg(s):return s[1]/s[0] if s[0] else np.nan
             def gdpg(s):return s[2]/s[0] if s[0] else np.nan
             def rank(team):
