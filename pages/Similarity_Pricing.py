@@ -9,8 +9,38 @@ import pandas as pd
 import streamlit as st
 from supabase import create_client
 
-st.set_page_config(page_title="Starlizard | Similar Matches",page_icon="⚽",layout="wide")
-st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
+st.set_page_config(page_title="United | Starlizard Pricing",page_icon="🔴",layout="wide")
+st.markdown("""
+<style>
+:root { --united-red: #da291c; --united-gold: #fbe122; }
+[data-testid="stAppViewContainer"] {
+  background: linear-gradient(160deg, rgba(218,41,28,.13), transparent 340px);
+}
+h1, h2, h3 { letter-spacing: -.025em; }
+h1 { color: #da291c !important; }
+[data-testid="stMetricValue"] { color: #da291c; }
+[data-testid="stMetricLabel"] { font-weight: 650; }
+div[data-testid="stVerticalBlockBorderWrapper"] > div[style*="border"] {
+  border-top: 2px solid rgba(218,41,28,.5);
+}
+div.stButton > button[kind="primary"] { background-color: #da291c; color: white; }
+div[data-testid="stRadio"] label:has(input:checked) { color: #da291c; font-weight: 700; }
+.united-header {
+  border-left: 6px solid #fbe122; border-bottom: 3px solid #da291c;
+  padding: 15px 16px; margin-bottom: 15px;
+  background: linear-gradient(110deg,#8b1114,#da291c 72%,#a41918);
+  color: #fff; border-radius: 10px;
+}
+.united-header .kicker { color: #fbe122; font-size: .8rem; font-weight: 800; letter-spacing: .14em; }
+.united-header .heading { color: white; font-size: clamp(1.4rem,4vw,2.1rem); font-weight: 850; line-height: 1.2; }
+.united-header .sub { color: #fff4df; font-size: .88rem; }
+</style>
+<div class="united-header">
+ <div class="kicker">🔴 MANCHESTER UNITED EDITION</div>
+ <div class="heading">PRO STARLIZARD</div>
+ <div class="sub">Historical pricing lab · Goals · Corners · Cards</div>
+</div>
+""", unsafe_allow_html=True)
 st.title("⚽ Historical similarity pricing")
 st.caption("Historical match analogues using only information known before kick-off or at half-time. No TheStatsAPI requests.")
 
