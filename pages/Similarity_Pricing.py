@@ -34,7 +34,7 @@ div[data-testid="stRadio"] label:has(input:checked) { color: #da291c; font-weigh
 .united-crest { float:right; width:clamp(110px,22vw,160px); height:160px; object-fit:contain; margin:0 0 4px 14px; }
 .united-header::after { content:""; display:block; clear:both; }
 .united-header .kicker { color: #fbe122; font-size: .8rem; font-weight: 800; letter-spacing: .14em; }
-.united-header .heading { color: white; font-size: clamp(1.4rem,4vw,2.1rem); font-weight: 850; line-height: 1.2; }
+.united-header .heading { color: white; font-size: clamp(2.3rem,6.5vw,3.8rem); font-weight: 850; line-height: 1.2; }
 .united-header .sub { color: #fff4df; font-size: .88rem; }
 </style>
 <div class="united-header">
