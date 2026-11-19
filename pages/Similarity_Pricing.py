@@ -132,7 +132,7 @@ def features():
             if pd.notna(r.corners_away) and pd.notna(r.yellows_away):discipline[(r.competition_id,r.away_team,"away")].append((r.corners_away,r.yellows_away))
     return pd.DataFrame(out)
 
-@st.cache_data(ttl=900,show_spinner=False)
+@st.cache_data(ttl=3600,show_spinner=False)
 def daily_fixtures(day, supported_leagues):
     key,_,_=settings()
     if not key:
