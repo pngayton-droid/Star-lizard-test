@@ -142,7 +142,7 @@ if mode=="Half-time":
 MAX_DISTANCE=1.0
 MIN_SAMPLE=75
 matches=analogues(df,target,mode,target["date"],MAX_DISTANCE)
-st.metric("Qualifying historical matches",len(matches))
+st.subheader(f"Qualifying historical matches: {int(matches.shape[0]):,}")
 st.caption(f"Only matches with similarity distance ≤ {MAX_DISTANCE:.2f} are included. No forced 500-match quota. Threshold is provisional, not backtested.")
 if len(matches)<MIN_SAMPLE:
     st.warning(f"Insufficient comparable evidence ({len(matches)} matches; minimum {MIN_SAMPLE}). Fair odds withheld rather than filling the sample with weaker comparisons.")
