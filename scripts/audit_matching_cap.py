@@ -62,7 +62,12 @@ for i,r in enumerate(selected.itertuples(index=False)):
   for model,cap in (("Unlimited",None),("Nearest 400",400),("Nearest 100",100)):
    pool=full if cap is None else full.head(cap)
    bands={name:pool[pool.distance<=limit] for name,limit in (("Close",1.0),("Moderate",1.5),("Broad",2.0))}
-   chosen=next((name for name in ("Close","Moderate","Broad") if len(bands[name])>=100),next((name for name in ("Broad","Moderate","Close") if len(bands[name])>=30),next((name for name in ("Broad","Moderate","Close") if len(bands[name])>0,"None")))
+   chosen="None"
+   for threshold,order in ((100,("Close","Moderate","Broad")),(30,("Broad","Moderate","Close")),(1,("Broad","Moderate","Close"))):
+    found=next((name for name in order if len(bands[name])>=threshold),None)
+    if found is not None:
+     chosen=found
+     break
    sample=bands.get(chosen,pool.iloc[:0])
    coverage.append({"match_id":r.match_id,"model":model,"feature_set":fs,"band":chosen,"analogues":len(sample),"usable_30":int(len(sample)>=30),"usable_100":int(len(sample)>=100)})
    if len(sample)<30:continue
