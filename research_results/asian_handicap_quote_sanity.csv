@@ -1,0 +1,9 @@
+bookmaker,phase,quotes,median_price,mean_price,above_5,above_10
+Bet365,last_seen,4026,1.93,2.3100211127670147,263,0
+Bet365,opening,2488,1.925,2.5476868971061095,257,0
+BetMGM UK,last_seen,558,1.88,2.4451792114695343,41,0
+BetMGM UK,opening,558,1.85,2.391057347670251,39,0
+Betfair Exchange,last_seen,4272,2.16,7.692895599250937,1344,834
+Betfair Exchange,opening,4200,1.96,4.8589095238095235,1062,575
+Pinnacle,last_seen,516,1.943,1.9718352713178293,0,0
+Pinnacle,opening,516,1.909,1.9402558139534885,0,0
