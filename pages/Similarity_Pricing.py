@@ -1,6 +1,9 @@
 """Historical similarity pricing — TheStatsAPI saved records, no API calls."""
 import math
 from collections import defaultdict, deque
+from datetime import date, timedelta
+import requests
+from statsapi_refresh import BASE, LEAGUES, settings
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -74,6 +77,63 @@ def features():
             venue[(r.competition_id,season(date),r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
     return pd.DataFrame(out)
 
+@st.cache_data(ttl=900,show_spinner=False)
+def daily_fixtures(day):
+    key,_,_=settings()
+    if not key:
+        return [],"TheStatsAPI key is not configured."
+    rows=[]
+    failures=[]
+    with requests.Session() as session:
+        session.headers.update({"Authorization":f"Bearer {key}"})
+        for league,comp in LEAGUES.items():
+            try:
+                response=session.get(BASE+"/football/matches",params={"competition_id":comp,"date_from":day,"date_to":day,"per_page":100,"page":1},timeout=15)
+                response.raise_for_status()
+                payload=response.json().get("data") or []
+                if isinstance(payload,dict):
+                    payload=payload.get("matches") or payload.get("items") or []
+                for match in payload:
+                    if not isinstance(match,dict):continue
+                    home=match.get("home_team") or {}
+                    away=match.get("away_team") or {}
+                    if not isinstance(home,dict) or not isinstance(away,dict):continue
+                    kickoff=match.get("utc_date") or match.get("kickoff_utc") or ""
+                    if not kickoff:continue
+                    parsed=pd.to_datetime(kickoff,utc=True,errors="coerce")
+                    if pd.isna(parsed) or parsed.tz_convert("Europe/London").date().isoformat()!=day:continue
+                    rows.append({"date":parsed,"home":home.get("name"),"away":away.get("name"),"league":comp,"league_name":league,"status":match.get("status")})
+            except (requests.RequestException,ValueError) as error:
+                failures.append(league)
+    return sorted(rows,key=lambda x:x["date"]),(", ".join(failures) if failures else None)
+
+def upcoming_target(df,match):
+    day=match["date"].tz_convert("Europe/London").tz_localize(None).normalize()
+    league=match["league"]
+    raw=load()
+    history=raw[(raw.competition_id==league)&(raw.match_date<day)&raw.home_goals.notna()&raw.away_goals.notna()].copy()
+    h,a=match["home"],match["away"]
+    season_start=pd.Timestamp(year=season(day),month=7,day=1)
+    current=history[history.match_date>=season_start]
+    def strength(team):
+        played=current[(current.home_team==team)|(current.away_team==team)]
+        pts=0;gd=0
+        for x in played.itertuples(index=False):
+            gf,ga=(x.home_goals,x.away_goals) if x.home_team==team else (x.away_goals,x.home_goals)
+            pts+=3 if gf>ga else (1 if gf==ga else 0)
+            gd+=gf-ga
+        return (pts/len(played),gd/len(played)) if len(played)>=3 else (np.nan,np.nan)
+    def venue(team,side):
+        col="home_team" if side=="home" else "away_team"
+        recent=current[current[col]==team].sort_values("match_date").tail(5)
+        if len(recent)<3:return (np.nan,np.nan)
+        gf="home_goals" if side=="home" else "away_goals"
+        ga="away_goals" if side=="home" else "home_goals"
+        return float(recent[gf].mean()),float(recent[ga].mean())
+    hp,hgd=strength(h);ap,agd=strength(a)
+    hf,hc=venue(h,"home");af,ac=venue(a,"away")
+    return {"date":day,"league":league,"home":h,"away":a,"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac}
+
 def analogues(df,target,mode,cutoff,max_distance):
     pool=df[(df.date<cutoff)&df.hg.notna()&df.ag.notna()&df.h_ppg.notna()&df.a_ppg.notna()].copy()
     if mode=="Half-time":
@@ -128,17 +188,36 @@ if df.empty:
     st.error("No historical data available.");st.stop()
 st.caption(f"{len(df):,} saved fixtures · {df.date.min().date()} to {df.date.max().date()} · {df.league.nunique()} leagues")
 mode=st.radio("Analysis",["Pre-match","Half-time"],horizontal=True)
-# Pick a historical fixture to enable a genuine point-in-time comparison.
-eligible=df[(df.date>=df.date.max()-pd.Timedelta(days=365))&df.h_ppg.notna()&df.a_ppg.notna()]
-if eligible.empty:st.warning("Insufficient prior-season data.");st.stop()
-eligible=eligible.sort_values("date",ascending=False).head(1200)
-options={f"{r.date.date()} · {r.home} v {r.away}":i for i,r in eligible.iterrows()}
-chosen=st.selectbox("Historical fixture to price (as it stood at the time)",list(options))
-target=df.loc[options[chosen]].to_dict()
-if mode=="Half-time":
-    if pd.isna(target["ht_h"]) or pd.isna(target["ht_a"]):
-        st.warning("Half-time score unavailable for this fixture.");st.stop()
-    st.write(f"Half-time score: **{int(target['ht_h'])}–{int(target['ht_a'])}**")
+source=st.radio("Fixtures",["Today's fixtures","Historical fixtures"],horizontal=True)
+if source=="Today's fixtures":
+    selected_day=st.date_input("Fixture date",value=date.today())
+    with st.spinner("Checking scheduled kick-offs across selected leagues…"):
+        schedule,error=daily_fixtures(selected_day.isoformat())
+    if error:st.warning(f"Some leagues could not be loaded: {error}")
+    if not schedule:
+        st.info("No scheduled fixtures returned for this date. Historical fixtures remain available.")
+        st.stop()
+    st.caption(f"{len(schedule)} fixtures · kick-off times in UK local time · ordered earliest first")
+    options=[f"{m['date'].tz_convert('Europe/London').strftime('%H:%M')} · {m['home']} v {m['away']} · {m['league_name']}" for m in schedule]
+    index=st.selectbox("Select a match",range(len(schedule)),format_func=lambda i:options[i])
+    target=upcoming_target(df,schedule[index])
+    if mode=="Half-time":
+        st.warning("Live half-time scores and xG are not connected to this fixture list yet. Use pre-match analysis.")
+        st.stop()
+    if pd.isna(target["h_ppg"]) or pd.isna(target["a_ppg"]):
+        st.warning("Not enough current-season results to calculate both teams' strengths.")
+        st.stop()
+else:
+    eligible=df[(df.date>=df.date.max()-pd.Timedelta(days=365))&df.h_ppg.notna()&df.a_ppg.notna()]
+    if eligible.empty:st.warning("Insufficient historical data.");st.stop()
+    eligible=eligible.sort_values("date",ascending=False).head(1200)
+    options={f"{r.date.date()} · {r.home} v {r.away}":i for i,r in eligible.iterrows()}
+    chosen=st.selectbox("Historical fixture to price (as it stood at the time)",list(options))
+    target=df.loc[options[chosen]].to_dict()
+    if mode=="Half-time":
+        if pd.isna(target["ht_h"]) or pd.isna(target["ht_a"]):
+            st.warning("Half-time score unavailable for this fixture.");st.stop()
+        st.write(f"Half-time score: **{int(target['ht_h'])}–{int(target['ht_a'])}**")
 # Show all bands side by side: a small close sample may still be informative.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
 samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in TIERS}
@@ -173,4 +252,4 @@ else:
     with st.expander("Inspect qualifying historical fixtures"):
         st.dataframe(matches[["date","home","away","ht_h","ht_a","hg","ag","distance"]],hide_index=True,use_container_width=True)
 st.warning("Strength check: this research model does not yet match historical bookmaker starting prices. Large disagreement with market favourites is a reason to investigate, not an automatic value bet.")
-st.info("This is a historical point-in-time research page. Current upcoming-fixture predictions and live halftime odds are not yet connected. No bookmaker ROI is claimed.")
+st.info("Fixture list comes from TheStatsAPI; comparisons use saved historical data. Live half-time pricing and bookmaker ROI are not connected. No betting edge is claimed.")
