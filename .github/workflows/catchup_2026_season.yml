@@ -1,0 +1,29 @@
+name: One-time 2026 season fixture catch-up
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/catchup_2026_season.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: one-time-2026-catchup
+  cancel-in-progress: false
+jobs:
+  catchup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests supabase
+      - name: Save current-season scores before enriching missing xG
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          CATCHUP_MAX_REQUESTS: '8000'
+          CATCHUP_MIN_REMAINING: '400'
+        run: python -u scripts/catchup_2026_season.py
