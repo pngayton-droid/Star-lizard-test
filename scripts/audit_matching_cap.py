@@ -32,7 +32,10 @@ def match_corners_cards():
     except (ValueError,TypeError,KeyError):rec[f"{prefix}_{side}"]=np.nan
   rows.append(rec)
  return pd.DataFrame(rows,columns=["match_id","corners_home","corners_away","yellows_home","yellows_away"])
-tree=ast.parse(open("pages/Similarity_Pricing.py",encoding="utf-8").read())
+source=open("pages/Similarity_Pricing.py",encoding="utf-8").read()
+# Restore uncapped matching for a valid comparison with the old behaviour.
+source=source.replace('return pool.loc[pool["distance"]<=max_distance].sort_values("distance").head(400)','return pool.loc[pool["distance"]<=max_distance].sort_values("distance")')
+tree=ast.parse(source)
 nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in {"season","features","analogues","market_results","opponent_adjusted_xg"}]
 for n in nodes:n.decorator_list=[]
 exec(compile(ast.fix_missing_locations(ast.Module(body=nodes,type_ignores=[])),"Similarity_Pricing.py","exec"),globals())
@@ -53,11 +56,11 @@ for i,r in enumerate(selected.itertuples(index=False)):
  actual={"Home win":int(r.hg>r.ag),"Draw":int(r.hg==r.ag),"Away win":int(r.hg<r.ag),"Over 2.5 goals":int(r.hg+r.ag>=3),"BTTS Yes":int(r.hg>0 and r.ag>0)}
  if pd.notna(r.corners_home) and pd.notna(r.corners_away):actual["Over 9.5 corners"]=int(r.corners_home+r.corners_away>=10)
  if pd.notna(r.yellows_home) and pd.notna(r.yellows_away):actual["Over 4.5 yellow cards"]=int(r.yellows_home+r.yellows_away>=5)
- # Compare previous unlimited matching, current 400 nearest, and 100 nearest, each with same coverage fallback.
- for model,cap in (("Unlimited",None),("Nearest 400",400),("Nearest 100",100)):
-  for fs in ("combined","strength"):
-   pool=analogues(data,target,"Pre-match",r.date,2.0,feature_set=fs)
-   if cap is not None:pool=pool.head(cap)
+ # Compute expensive similarity distances only twice per fixture, not six times.
+ for fs in ("combined","strength"):
+  full=analogues(data,target,"Pre-match",r.date,2.0,feature_set=fs)
+  for model,cap in (("Unlimited",None),("Nearest 400",400),("Nearest 100",100)):
+   pool=full if cap is None else full.head(cap)
    bands={name:pool[pool.distance<=limit] for name,limit in (("Close",1.0),("Moderate",1.5),("Broad",2.0))}
    chosen=next((name for name in ("Close","Moderate","Broad") if len(bands[name])>=100),next((name for name in ("Broad","Moderate","Close") if len(bands[name])>=30),next((name for name in ("Broad","Moderate","Close") if len(bands[name])>0,"None")))
    sample=bands.get(chosen,pool.iloc[:0])
