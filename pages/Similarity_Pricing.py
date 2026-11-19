@@ -101,9 +101,9 @@ def features():
             league=r.competition_id
             key=(league,season(date))
             h,a=r.home_team,r.away_team
-            hv=list(venue[(league,season(date),h,"home")]);av=list(venue[(league,season(date),a,"away")])
+            hv=list(venue[(league,h,"home")]);av=list(venue[(league,a,"away")])
             hs=standings[key][h];ass=standings[key][a]
-            hdisc=list(discipline[(league,season(date),h,"home")]);adisc=list(discipline[(league,season(date),a,"away")])
+            hdisc=list(discipline[(league,h,"home")]);adisc=list(discipline[(league,a,"away")])
             def form(v,index):
                 return float(np.mean([x[index] for x in v])) if len(v)>=3 else np.nan
             def ppg(s):return s[1]/s[0] if s[0] else np.nan
@@ -126,10 +126,10 @@ def features():
             hg,ag=float(r.home_goals),float(r.away_goals)
             for team,gf,ga in [(r.home_team,hg,ag),(r.away_team,ag,hg)]:
                 v=standings[key][team];v[0]+=1;v[1]+=3 if gf>ga else (1 if gf==ga else 0);v[2]+=gf-ga
-            venue[(r.competition_id,season(date),r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else hg))
-            venue[(r.competition_id,season(date),r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
-            if pd.notna(r.corners_home) and pd.notna(r.yellows_home):discipline[(r.competition_id,season(date),r.home_team,"home")].append((r.corners_home,r.yellows_home))
-            if pd.notna(r.corners_away) and pd.notna(r.yellows_away):discipline[(r.competition_id,season(date),r.away_team,"away")].append((r.corners_away,r.yellows_away))
+            venue[(r.competition_id,r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else hg))
+            venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
+            if pd.notna(r.corners_home) and pd.notna(r.yellows_home):discipline[(r.competition_id,r.home_team,"home")].append((r.corners_home,r.yellows_home))
+            if pd.notna(r.corners_away) and pd.notna(r.yellows_away):discipline[(r.competition_id,r.away_team,"away")].append((r.corners_away,r.yellows_away))
     return pd.DataFrame(out)
 
 @st.cache_data(ttl=900,show_spinner=False)
@@ -238,22 +238,27 @@ def attach_opening_prices(df):
     prices=historical_opening_prices()
     return df.merge(prices,on="match_id",how="left",validate="one_to_one")
 
-def analogues(df,target,mode,cutoff,max_distance):
+def analogues(df,target,mode,cutoff,max_distance,feature_set="combined"):
     pool=df[(df.date<cutoff)&df.hg.notna()&df.ag.notna()&df.h_ppg.notna()&df.a_ppg.notna()].copy()
     if mode=="Half-time":
         pool=pool[pool.ht_h.notna()&pool.ht_a.notna()]
         pool=pool[(pool.ht_h==target["ht_h"])&(pool.ht_a==target["ht_a"])]
     fields={"h_ppg":0.55,"a_ppg":0.55,"h_gdpg":0.45,"a_gdpg":0.45,
             "h_form":0.8,"a_form":0.8,"h_concede":0.8,"a_concede":0.8}
+    if feature_set=="strength":
+        fields={k:v for k,v in fields.items() if k in ("h_ppg","a_ppg","h_gdpg","a_gdpg")}
+    elif feature_set=="form":
+        fields={k:v for k,v in fields.items() if k in ("h_form","a_form","h_concede","a_concede")}
     if mode=="Half-time":
         fields.update({"ht_xg_h":0.6,"ht_xg_a":0.6})
-    if pd.notna(target.get("h_rank",np.nan)) and pd.notna(target.get("a_rank",np.nan)):
+    if feature_set!="form" and pd.notna(target.get("h_rank",np.nan)) and pd.notna(target.get("a_rank",np.nan)):
         sizes=df.groupby("league")["home"].nunique().combine(df.groupby("league")["away"].nunique(),max).clip(lower=2)
         size=float(sizes.get(target["league"],20))
         target=dict(target,rank_gap=(target["a_rank"]-target["h_rank"])/size)
         pool["rank_gap"]=(pool.a_rank-pool.h_rank)/pool.league.map(sizes)
         fields["rank_gap"]=0.20
-    fields.update({"h_corners_form":2.5,"a_corners_form":2.5,"h_yellows_form":1.5,"a_yellows_form":1.5})
+    if feature_set=="combined":
+        fields.update({"h_corners_form":2.5,"a_corners_form":2.5,"h_yellows_form":1.5,"a_yellows_form":1.5})
     odds_enabled=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
     if odds_enabled:
         pool=pool.dropna(subset=["market_home","market_draw","market_away"])
@@ -268,7 +273,7 @@ def analogues(df,target,mode,cutoff,max_distance):
         # Missing fields are penalized, not treated as a zero statistic.
         score+=delta.fillna(2.5).clip(upper=5).to_numpy()**2
         available+=1
-    if available<4:return pool.iloc[:0].assign(distance=pd.Series(dtype=float))
+    if available<2:return pool.iloc[:0].assign(distance=pd.Series(dtype=float))
     # Same competition preferred but never a mandatory filter.
     score+=np.where(pool.league==target["league"],0,0.5)
     pool["distance"]=np.sqrt(score/available)
@@ -391,6 +396,42 @@ with st.spinner("Preparing historical features without future-data leakage…"):
     df=attach_opening_prices(features())
 if df.empty:
     st.error("No historical data available.");st.stop()
+
+@st.cache_data(ttl=3600,show_spinner=False)
+def compare_form_strength(data,n=300):
+    """Three-model chronological comparison, same fixtures, no bookmaker inputs."""
+    eligible=data[(data.date>=pd.Timestamp("2025-07-01")) & data.hg.notna() & data.ag.notna() & data.h_ppg.notna() & data.a_ppg.notna() & data.h_form.notna() & data.a_form.notna()].sort_values(["date","match_id"])
+    if eligible.empty:return pd.DataFrame()
+    selected=eligible.iloc[np.unique(np.linspace(0,len(eligible)-1,min(n,len(eligible)),dtype=int))]
+    rows=[]
+    for r in selected.itertuples(index=False):
+        target=r._asdict()
+        for k in ("market_home","market_draw","market_away"):target[k]=np.nan
+        actual=np.array([r.hg>r.ag,r.hg==r.ag,r.hg<r.ag],dtype=float)
+        probs={}
+        for variant in ("strength","combined","form"):
+            matches=analogues(data,target,"Pre-match",r.date,2.0,feature_set=variant)
+            if len(matches)<30:break
+            probs[variant]=np.array([(matches.hg>matches.ag).mean(),(matches.hg==matches.ag).mean(),(matches.hg<matches.ag).mean()])
+        if len(probs)!=3:continue
+        for variant,p in probs.items():
+            rows.append({"Match ID":r.match_id,"Model":variant,"Brier":float(np.mean((p-actual)**2)),
+                         "Home forecast":p[0],"Draw forecast":p[1],"Away forecast":p[2],
+                         "Actual":["Home","Draw","Away"][int(np.argmax(actual))]})
+    return pd.DataFrame(rows)
+
+with st.expander("🧪 Last-five form vs league strength — three-model test"):
+    st.caption("Same fixtures, chronological historical matches only. Five home/away matches carry across seasons. No bookmaker odds used as model inputs. Lower Brier is better.")
+    if st.button("Run three-model form test",key="run_form_strength"):
+        with st.spinner("Testing all three versions on the same historical fixtures…"):
+            form_test=compare_form_strength(df,300)
+        if form_test.empty:
+            st.warning("Not enough eligible historical fixtures.")
+        else:
+            summary=form_test.groupby("Model",as_index=False).agg(Matches=("Match ID","nunique"),Brier=("Brier","mean"))
+            st.dataframe(summary.round(5),use_container_width=True,hide_index=True)
+            st.download_button("Download three-model predictions",form_test.to_csv(index=False).encode("utf-8"),file_name="match_matrix_three_model_form_test.csv",mime="text/csv")
+
 with st.expander("🧪 Large historical accuracy test — similarity vs league averages"):
     st.caption("Walk-forward test using only earlier fixtures. Both models evaluated on exactly the same matches, separately for each market and similarity band. Lower Brier score is better; positive improvement favours similarity. No bookmaker odds or ROI claims.")
     test_count=st.selectbox("Historical fixtures to replay",[500,1000,2000],index=1)
