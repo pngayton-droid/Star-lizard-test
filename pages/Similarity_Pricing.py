@@ -420,47 +420,6 @@ def compare_form_strength(data,n=300):
                          "Actual":["Home","Draw","Away"][int(np.argmax(actual))]})
     return pd.DataFrame(rows)
 
-with st.expander("🧪 Last-five form vs league strength — three-model test"):
-    st.caption("Same fixtures, chronological historical matches only. Five home/away matches carry across seasons. No bookmaker odds used as model inputs. Lower Brier is better.")
-    form_test_count=st.selectbox("Fixtures to test",[300,1000,2000],index=2,key="form_test_count")
-    if st.button("Run three-model form test",key="run_form_strength"):
-        with st.spinner("Testing all three versions on the same historical fixtures…"):
-            form_test=compare_form_strength(df,form_test_count)
-        if form_test.empty:
-            st.warning("Not enough eligible historical fixtures.")
-        else:
-            summary=form_test.groupby("Model",as_index=False).agg(Matches=("Match ID","nunique"),Brier=("Brier","mean"))
-            st.dataframe(summary.round(5),use_container_width=True,hide_index=True)
-            st.download_button("Download three-model predictions",form_test.to_csv(index=False).encode("utf-8"),file_name="match_matrix_three_model_form_test.csv",mime="text/csv")
-
-with st.expander("🧪 Large historical accuracy test — similarity vs league averages"):
-    st.caption("Walk-forward test using only earlier fixtures. Both models evaluated on exactly the same matches, separately for each market and similarity band. Lower Brier score is better; positive improvement favours similarity. No bookmaker odds or ROI claims.")
-    test_count=st.selectbox("Historical fixtures to replay",[500,1000,2000],index=1)
-    if st.button("Run large accuracy test",key="run_matrix_backtest"):
-        with st.spinner("Replaying historical matches — this may take several minutes…"):
-            report,detail=backtest_similarity(df,test_count)
-        if report.empty:
-            st.warning("No predictions passed the minimum history and sample requirements.")
-        else:
-            display=report.rename(columns={"Similarity_Brier":"Matrix Brier","Baseline_Brier":"League Brier","Actual_rate":"Actual hit rate"})
-            st.dataframe(display.round(4),use_container_width=True,hide_index=True)
-            st.caption(f"{detail.Fixture.nunique():,} distinct fixtures evaluated. Positive Improvement means the Match Matrix beat the league baseline. Each band/market can have a different number of qualifying fixtures.")
-            st.download_button("Download test predictions",detail.to_csv(index=False).encode("utf-8"),file_name="match_matrix_large_backtest.csv",mime="text/csv")
-            st.caption("Caution: comparison uses historical league averages rather than bookmaker closing prices; it does not establish betting profitability.")
-
-with st.expander("⚖️ Match Matrix vs real bookmaker opening odds"):
-    st.caption("Strict same-fixture comparison using saved opening odds, no closing odds or last-seen substitutes. The Matrix is evaluated without seeing the bookmaker quote. Minimum 30 historical analogues per band.")
-    if st.button("Run bookmaker head-to-head",key="run_bookmaker_comparison"):
-        with st.spinner("Testing every fixture with verified opening odds against earlier historical matches…"):
-            comparison,match_detail=bookmaker_head_to_head(df)
-        if comparison.empty:
-            st.warning("No bookmaker-priced fixtures passed the historical comparison requirements.")
-        else:
-            st.dataframe(comparison.round(4),use_container_width=True,hide_index=True)
-            st.caption("Positive improvement means Matrix is more accurate than bookmaker probabilities. Each band may cover a different set of fixtures.")
-            st.download_button("Download same-match bookmaker comparison",match_detail.to_csv(index=False).encode("utf-8"),file_name="match_matrix_vs_bookmakers.csv",mime="text/csv")
-            st.caption("Opening odds are normalized to remove bookmaker margin. Accuracy is not proof of betting value or positive ROI.")
-
 st.caption(f"{len(df):,} saved fixtures · {df.date.min().date()} to {df.date.max().date()} · {df.league.nunique()} leagues")
 mode=st.radio("Analysis",["Pre-match","Half-time"],horizontal=True)
 source=st.radio("Fixtures",["Today's fixtures","Historical fixtures"],horizontal=True)
