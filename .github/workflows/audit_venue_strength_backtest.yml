@@ -1,0 +1,35 @@
+name: Audit updated Match Matrix versus previous version
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/audit_venue_strength_backtest.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Test historical similarity
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/audit_venue_strength_backtest.py
+      - name: Commit permanent results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/venue_strength_backtest_*
+          git diff --cached --quiet || (git commit -m "Save xG similarity chronological backtest results" && git push)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: venue-strength-backtest
+          path: research_results/venue_strength_backtest_*
+          if-no-files-found: ignore
