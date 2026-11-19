@@ -260,7 +260,7 @@ def analogues(df,target,mode,cutoff,max_distance,feature_set="combined"):
     if feature_set=="combined":
         fields.update({"h_corners_form":2.5,"a_corners_form":2.5,"h_yellows_form":1.5,"a_yellows_form":1.5})
     odds_enabled=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
-    if odds_enabled:
+    if odds_enabled and feature_set=="combined":
         pool=pool.dropna(subset=["market_home","market_draw","market_away"])
         fields.update({"market_home":0.12,"market_draw":0.08,"market_away":0.12})
     if len(pool)==0:return pool.assign(distance=pd.Series(dtype=float))
@@ -375,7 +375,7 @@ def bookmaker_head_to_head(data):
         # Compare form-only model against bookmaker; don't feed bookmaker probabilities to model.
         for field in ("market_home","market_draw","market_away"):
             target[field]=np.nan
-        sample=analogues(data,target,"Pre-match",r.date,2.0)
+        sample=analogues(data,target,"Pre-match",r.date,2.0,feature_set="strength")
         for cutoff,band in ((1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")):
             subset=sample[sample.distance<=cutoff]
             if len(subset)<30:continue
@@ -527,9 +527,11 @@ st.caption("Historical standings reconstructed from saved results before kick-of
 # Show all bands side by side: a small close sample may still be informative.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
 samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in TIERS}
+match_odds_samples={label:analogues(df,target,mode,target["date"],limit,feature_set="strength") for limit,label in TIERS}
 st.subheader("Historical comparison quality")
 st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for _,label in TIERS))
 st.caption("All bands are cumulative. Close matches are included within moderate and broad groups. Distances are exploratory, not calibrated.")
+st.caption("Match odds use league strength (PPG, goal difference and available league position). Goals, corners and cards retain recent-form similarity. Match-odds and other-market samples can differ.")
 default_band=next((label for _,label in TIERS if len(samples[label])>=30),next((label for _,label in TIERS if len(samples[label])>0),"Close"))
 selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=["Close","Moderate","Broad"].index(default_band))
 matches=samples[selected]
@@ -540,9 +542,17 @@ if len(matches)==0:
     st.info("No historical comparisons in this band.")
 else:
     prices=score_card(matches,mode)
+    strength_matches=match_odds_samples[selected]
+    strength_prices=score_card(strength_matches,mode) if len(strength_matches) else pd.DataFrame()
+    match_odds_markets={"Home win","Draw","Away win","Home wins from HT","Draw from HT","Away wins from HT"}
+    if not strength_prices.empty:
+        prices=pd.concat([prices[~prices.Market.isin(match_odds_markets)],strength_prices[strength_prices.Market.isin(match_odds_markets)]],ignore_index=True)
+    else:
+        prices=prices[~prices.Market.isin(match_odds_markets)]
     for item in prices.to_dict("records"):
         with st.container(border=True):
             st.markdown(f"**{item['Market']}**")
+            if item["Market"] in match_odds_markets:st.caption("League-strength matching · recent form excluded")
             a,b,d=st.columns(3)
             a.metric("Fair odds",item["Historical fair odds"])
             b.metric("Hit rate",item["Hit rate"])
@@ -553,11 +563,14 @@ else:
         for _,label in TIERS:
             sample=samples[label]
             if len(sample)==0:continue
-            for market,(wins,count) in market_results(sample,mode).items():
+            combined_results=market_results(sample,mode)
+            strength_sample=match_odds_samples[label]
+            strength_results=market_results(strength_sample,mode) if len(strength_sample) else {}
+            for market,(wins,count) in {**{k:v for k,v in combined_results.items() if k not in match_odds_markets},**{k:v for k,v in strength_results.items() if k in match_odds_markets}}.items():
                 rate=wins/count if count else 0
                 rows.append({"Market":market,"Band":label,"Games":count,"Hit rate":f"{rate:.1%}" if count else "—","Fair odds":f"{1/rate:.2f}" if wins else "—"})
         st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
     with st.expander("Inspect qualifying historical fixtures"):
         st.dataframe(matches[["date","home","away","ht_h","ht_a","hg","ag","distance"]],hide_index=True,use_container_width=True)
-st.warning("Strength check: this research model does not yet match historical bookmaker starting prices. Large disagreement with market favourites is a reason to investigate, not an automatic value bet.")
+st.warning("Strength check: the model has not demonstrated an advantage over bookmaker opening odds. Large disagreement with market favourites is a reason to investigate, not an automatic value bet.")
 st.info("Fixture list comes from TheStatsAPI; comparisons use saved historical data. Live half-time pricing and bookmaker ROI are not connected. No betting edge is claimed.")
