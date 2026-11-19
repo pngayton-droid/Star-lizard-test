@@ -97,7 +97,8 @@ def analogues(df,target,mode,cutoff,max_distance):
     # Same competition preferred but never a mandatory filter.
     score+=np.where(pool.league==target["league"],0,0.5)
     pool["distance"]=np.sqrt(score/available)
-    # Quality gate: do not force a fixed number of weak analogues.\n    return pool.loc[pool["distance"]<=max_distance].sort_values("distance")
+    # Quality gate: do not force a fixed number of weak analogues.
+    return pool.loc[pool["distance"]<=max_distance].sort_values("distance")
 
 def market_results(df,mode):
     h=df.hg.to_numpy();a=df.ag.to_numpy()
