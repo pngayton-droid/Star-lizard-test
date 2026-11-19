@@ -1,4 +1,4 @@
-"""Chronological Match Matrix card totals against saved Bet365 prices.\nYellow-card-only proxy: NOT bookmaker settlement verified (reds/second yellows).\n"""
+"""Chronological Match Matrix card totals against saved Bet365 prices.\nZero-red-card fixtures only: dismissal settlement cannot be verified from aggregates.\n"""
 import os,ast
 import numpy as np,pandas as pd
 from supabase import create_client
@@ -19,18 +19,30 @@ def import_functions(path,names):
 import_functions("pages/Similarity_Pricing.py",{"season","features","analogues","opponent_adjusted_xg"})
 import_functions("scripts/test_shots_similarity.py",{"load","match_corners_cards"})
 data=features()
+# Aggregates cannot distinguish straight red from second yellow.
+# Only zero-red fixtures are used for both analogue history and evaluation.
+red_counts={}
+for rec in fetch("historical_match_events","match_id,stats_data"):
+ red=(((rec.get("stats_data") or {}).get("overview") or {}).get("red_cards") or {}).get("all") or {}
+ try:
+  if red.get("home") is not None and red.get("away") is not None:
+   red_counts[rec["match_id"]]=int(red["home"])+int(red["away"])
+ except (ValueError,TypeError):pass
+data["red_total"]=data.match_id.map(red_counts)
+data_zero_red=data[data.red_total.eq(0)].copy()
+print("ZERO_RED_MATCHES",len(data_zero_red),"ALL_MATCHES",len(data),flush=True)
 quotes={}
 for rec in fetch("historical_match_odds","match_id,odds_payload"):
  for b in (((rec.get("odds_payload") or {}).get("data") or {}).get("bookmakers") or []):
   if b.get("bookmaker")=="Bet365":
    quotes[rec["match_id"]]=(b.get("markets") or {}).get("total_cards") or {}
    break
-eligible=data[(data.date>=pd.Timestamp("2021-01-01"))&data.hg.notna()&data.ag.notna()&data.h_ppg.notna()&data.a_ppg.notna()&data.yellows_home.notna()&data.yellows_away.notna()&data.match_id.isin(quotes)].sort_values(["date","match_id"])
+eligible=data_zero_red[(data_zero_red.date>=pd.Timestamp("2021-01-01"))&data.hg.notna()&data.ag.notna()&data.h_ppg.notna()&data.a_ppg.notna()&data.yellows_home.notna()&data.yellows_away.notna()&data.match_id.isin(quotes)].sort_values(["date","match_id"])
 rows=[]
 for i,r in enumerate(eligible.itertuples(index=False)):
  target=r._asdict()
  for k in ("market_home","market_draw","market_away"):target[k]=np.nan
- sample=analogues(data,target,"Pre-match",r.date,2.0,feature_set="combined").head(250)
+ sample=analogues(data_zero_red,target,"Pre-match",r.date,2.0,feature_set="combined").head(250)
  sample=sample[sample.yellows_home.notna()&sample.yellows_away.notna()]
  if len(sample)<50:continue
  total=float(r.yellows_home+r.yellows_away)
@@ -66,5 +78,5 @@ for name,cols in [("year",["year"]),("side",["side"]),("line",["line","side"]),(
  else:out.append(a)
 result=pd.concat(out,ignore_index=True)
 result.to_csv("research_results/asian_cards_matrix_summary.csv",index=False)
-print("TOTAL (YELLOW-ONLY PROXY, NOT SETTLED CARD POINTS)",len(df),"ROI",df.profit.mean(),flush=True)
+print("TOTAL (ZERO-RED SUBSET)",len(df),"ROI",df.profit.mean(),flush=True)
 print(result.to_string(index=False),flush=True)
