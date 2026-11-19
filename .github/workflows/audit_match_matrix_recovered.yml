@@ -1,0 +1,29 @@
+name: Consolidated Match Matrix recovered-data audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit_match_matrix_recovered.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Test 2000 chronological fixtures against strength form and bookmaker opening odds
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/audit_match_matrix_recovered.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consolidated-match-matrix-results
+          path: consolidated_match_matrix_test.csv
+          if-no-files-found: ignore
