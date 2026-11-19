@@ -46,7 +46,7 @@ def features():
             league=r.competition_id
             key=(league,season(date))
             h,a=r.home_team,r.away_team
-            hv=list(venue[(league,h,"home")]);av=list(venue[(league,a,"away")])
+            hv=list(venue[(league,season(date),h,"home")]);av=list(venue[(league,season(date),a,"away")])
             hs=standings[key][h];ass=standings[key][a]
             def form(v,index):
                 return float(np.mean([x[index] for x in v])) if len(v)>=3 else np.nan
@@ -70,8 +70,8 @@ def features():
             hg,ag=float(r.home_goals),float(r.away_goals)
             for team,gf,ga in [(r.home_team,hg,ag),(r.away_team,ag,hg)]:
                 v=standings[key][team];v[0]+=1;v[1]+=3 if gf>ga else (1 if gf==ga else 0);v[2]+=gf-ga
-            venue[(r.competition_id,r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else hg))
-            venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
+            venue[(r.competition_id,season(date),r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else hg))
+            venue[(r.competition_id,season(date),r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
     return pd.DataFrame(out)
 
 def analogues(df,target,mode,cutoff,max_distance):
@@ -139,31 +139,38 @@ if mode=="Half-time":
     if pd.isna(target["ht_h"]) or pd.isna(target["ht_a"]):
         st.warning("Half-time score unavailable for this fixture.");st.stop()
     st.write(f"Half-time score: **{int(target['ht_h'])}–{int(target['ht_a'])}**")
-# Graduated similarity bands: no arbitrary fixed-size nearest-neighbour quota.
-MIN_SAMPLE=30
+# Show all bands side by side: a small close sample may still be informative.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
-selected_band=None
-matches=None
-band_counts=[]
-for limit,label in TIERS:
-    candidate=analogues(df,target,mode,target["date"],limit)
-    band_counts.append((label,len(candidate)))
-    if selected_band is None and len(candidate)>=MIN_SAMPLE:
-        selected_band=(limit,label)
-        matches=candidate
-if matches is None:
-    matches=analogues(df,target,mode,target["date"],TIERS[-1][0])
-st.subheader(f"Comparable historical matches: {len(matches):,}")
-st.caption(" · ".join(f"{label}: {count:,}" for label,count in band_counts))
-if selected_band is None:
-    st.warning(f"Only {len(matches)} matches meet even the broad similarity threshold. No fair odds shown (minimum {MIN_SAMPLE}).")
+samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in TIERS}
+st.subheader("Historical comparison quality")
+st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for _,label in TIERS))
+st.caption("All bands are cumulative. Close matches are included within moderate and broad groups.")
+selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=0)
+matches=samples[selected]
+st.write(f"**{len(matches):,} qualifying matches** in the {selected.lower()} band")
+if len(matches)<30:
+    st.warning("Small sample: prices below are exploratory and highly uncertain. Compare other bands before drawing conclusions.")
+if len(matches)==0:
+    st.info("No historical comparisons in this band.")
 else:
-    limit,label=selected_band
-    st.caption(f"Using {label.lower()} comparisons (distance ≤ {limit:.1f}); sample size is determined by match quality, not forced to 500.")
-    if label!="Close":
-        st.warning("The close-match sample was too small, so this uses a wider comparison band. These historical prices are less specific to this fixture.")
-    st.dataframe(score_card(matches,mode),hide_index=True,use_container_width=True)
-    st.caption("Descriptive historical prices, not proven profitable or calibrated forecasts. Confidence intervals ignore match dependence and selection uncertainty.")
-with st.expander("Inspect qualifying historical fixtures"):
-    st.dataframe(matches[["date","home","away","ht_h","ht_a","hg","ag","distance"]],hide_index=True,use_container_width=True)
+    prices=score_card(matches,mode)
+    for item in prices.to_dict("records"):
+        with st.container(border=True):
+            st.markdown(f"**{item['Market']}**")
+            a,b,d=st.columns(3)
+            a.metric("Fair odds",item["Historical fair odds"])
+            b.metric("Hit rate",item["Hit rate"])
+            d.metric("Wins / games",f"{item['Wins']}/{item['Matches']}")
+            st.caption(f"Approximate 95% interval: {item['Approx. 95% interval']}")
+    with st.expander("Compare all three similarity bands"):
+        rows=[]
+        for _,label in TIERS:
+            sample=samples[label]
+            if len(sample)==0:continue
+            for market,rate in market_results(sample,mode).items():
+                rows.append({"Market":market,"Band":label,"Games":len(sample),"Hit rate":f"{rate:.1%}","Fair odds":f"{1/rate:.2f}" if rate else "—"})
+        st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
+    with st.expander("Inspect qualifying historical fixtures"):
+        st.dataframe(matches[["date","home","away","ht_h","ht_a","hg","ag","distance"]],hide_index=True,use_container_width=True)
+st.warning("Strength check: this research model does not yet match historical bookmaker starting prices. Large disagreement with market favourites is a reason to investigate, not an automatic value bet.")
 st.info("This is a historical point-in-time research page. Current upcoming-fixture predictions and live halftime odds are not yet connected. No bookmaker ROI is claimed.")
