@@ -25,5 +25,7 @@ jobs:
         if: always()
         with:
           name: consolidated-match-matrix-results
-          path: |\n            consolidated_match_matrix_test.csv\n            match_matrix_strength_segments.csv
+          path: |
+            consolidated_match_matrix_test.csv
+            match_matrix_strength_segments.csv
           if-no-files-found: ignore
