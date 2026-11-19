@@ -1,0 +1,246 @@
+{
+  "fixtures_tested": 240,
+  "paired_cases": 1672,
+  "method": "Chronological recent historical fixtures; cap 100/400/unlimited, close/moderate/broad fallback, 30 minimum; 1X2 strength-only; other markets combined; exploratory not untouched holdout",
+  "summary": [
+    {
+      "market": "Away win",
+      "model": "Nearest 100",
+      "tests": 238,
+      "brier": 0.197167,
+      "mean_predicted": 0.309295,
+      "actual_rate": 0.319328,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Away win",
+      "model": "Nearest 400",
+      "tests": 238,
+      "brier": 0.20148,
+      "mean_predicted": 0.313425,
+      "actual_rate": 0.319328,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Away win",
+      "model": "Unlimited",
+      "tests": 238,
+      "brier": 0.201712,
+      "mean_predicted": 0.313746,
+      "actual_rate": 0.319328,
+      "median_analogues": 2364.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Nearest 100",
+      "tests": 240,
+      "brier": 0.251417,
+      "mean_predicted": 0.535792,
+      "actual_rate": 0.541667,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Nearest 400",
+      "tests": 240,
+      "brier": 0.24676,
+      "mean_predicted": 0.540725,
+      "actual_rate": 0.541667,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Unlimited",
+      "tests": 240,
+      "brier": 0.247646,
+      "mean_predicted": 0.541954,
+      "actual_rate": 0.541667,
+      "median_analogues": 4162.0
+    },
+    {
+      "market": "Draw",
+      "model": "Nearest 100",
+      "tests": 238,
+      "brier": 0.174137,
+      "mean_predicted": 0.25275,
+      "actual_rate": 0.214286,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Draw",
+      "model": "Nearest 400",
+      "tests": 238,
+      "brier": 0.171872,
+      "mean_predicted": 0.25217,
+      "actual_rate": 0.214286,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Draw",
+      "model": "Unlimited",
+      "tests": 238,
+      "brier": 0.170289,
+      "mean_predicted": 0.253259,
+      "actual_rate": 0.214286,
+      "median_analogues": 2364.0
+    },
+    {
+      "market": "Home win",
+      "model": "Nearest 100",
+      "tests": 238,
+      "brier": 0.227196,
+      "mean_predicted": 0.437955,
+      "actual_rate": 0.466387,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Home win",
+      "model": "Nearest 400",
+      "tests": 238,
+      "brier": 0.23216,
+      "mean_predicted": 0.434405,
+      "actual_rate": 0.466387,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Home win",
+      "model": "Unlimited",
+      "tests": 238,
+      "brier": 0.229876,
+      "mean_predicted": 0.432995,
+      "actual_rate": 0.466387,
+      "median_analogues": 2364.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Nearest 100",
+      "tests": 240,
+      "brier": 0.244786,
+      "mean_predicted": 0.5265,
+      "actual_rate": 0.5625,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Nearest 400",
+      "tests": 240,
+      "brier": 0.242386,
+      "mean_predicted": 0.523907,
+      "actual_rate": 0.5625,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Unlimited",
+      "tests": 240,
+      "brier": 0.244098,
+      "mean_predicted": 0.522144,
+      "actual_rate": 0.5625,
+      "median_analogues": 4162.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 100",
+      "tests": 239,
+      "brier": 0.218635,
+      "mean_predicted": 0.379537,
+      "actual_rate": 0.334728,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 400",
+      "tests": 239,
+      "brier": 0.220799,
+      "mean_predicted": 0.380657,
+      "actual_rate": 0.334728,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Unlimited",
+      "tests": 239,
+      "brier": 0.221738,
+      "mean_predicted": 0.389589,
+      "actual_rate": 0.334728,
+      "median_analogues": 4151.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Nearest 100",
+      "tests": 239,
+      "brier": 0.249927,
+      "mean_predicted": 0.514955,
+      "actual_rate": 0.518828,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Nearest 400",
+      "tests": 239,
+      "brier": 0.249791,
+      "mean_predicted": 0.508941,
+      "actual_rate": 0.518828,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Unlimited",
+      "tests": 239,
+      "brier": 0.249656,
+      "mean_predicted": 0.505523,
+      "actual_rate": 0.518828,
+      "median_analogues": 4151.0
+    }
+  ],
+  "coverage": [
+    {
+      "model": "Nearest 100",
+      "feature_set": "combined",
+      "fixtures": 240,
+      "usable_30": 240,
+      "usable_100": 240,
+      "median_analogues": 100.0
+    },
+    {
+      "model": "Nearest 100",
+      "feature_set": "strength",
+      "fixtures": 240,
+      "usable_30": 238,
+      "usable_100": 237,
+      "median_analogues": 100.0
+    },
+    {
+      "model": "Nearest 400",
+      "feature_set": "combined",
+      "fixtures": 240,
+      "usable_30": 240,
+      "usable_100": 240,
+      "median_analogues": 400.0
+    },
+    {
+      "model": "Nearest 400",
+      "feature_set": "strength",
+      "fixtures": 240,
+      "usable_30": 238,
+      "usable_100": 237,
+      "median_analogues": 400.0
+    },
+    {
+      "model": "Unlimited",
+      "feature_set": "combined",
+      "fixtures": 240,
+      "usable_30": 240,
+      "usable_100": 240,
+      "median_analogues": 4162.0
+    },
+    {
+      "model": "Unlimited",
+      "feature_set": "strength",
+      "fixtures": 240,
+      "usable_30": 238,
+      "usable_100": 237,
+      "median_analogues": 2336.5
+    }
+  ]
+}

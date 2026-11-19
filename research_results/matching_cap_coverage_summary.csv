@@ -1,0 +1,7 @@
+model,feature_set,fixtures,usable_30,usable_100,median_analogues
+Nearest 100,combined,240,240,240,100.0
+Nearest 100,strength,240,238,237,100.0
+Nearest 400,combined,240,240,240,400.0
+Nearest 400,strength,240,238,237,400.0
+Unlimited,combined,240,240,240,4162.0
+Unlimited,strength,240,238,237,2336.5

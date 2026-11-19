@@ -1,0 +1,1441 @@
+match_id,model,feature_set,band,analogues,usable_30,usable_100
+mt_747304970,Unlimited,combined,Close,907,1,1
+mt_747304970,Nearest 400,combined,Close,400,1,1
+mt_747304970,Nearest 100,combined,Close,100,1,1
+mt_747304970,Unlimited,strength,Close,357,1,1
+mt_747304970,Nearest 400,strength,Close,357,1,1
+mt_747304970,Nearest 100,strength,Close,100,1,1
+mt_191588061,Unlimited,combined,Moderate,4957,1,1
+mt_191588061,Nearest 400,combined,Moderate,400,1,1
+mt_191588061,Nearest 100,combined,Moderate,100,1,1
+mt_191588061,Unlimited,strength,Broad,323,1,1
+mt_191588061,Nearest 400,strength,Broad,323,1,1
+mt_191588061,Nearest 100,strength,Broad,100,1,1
+mt_585155582,Unlimited,combined,Moderate,1436,1,1
+mt_585155582,Nearest 400,combined,Moderate,400,1,1
+mt_585155582,Nearest 100,combined,Moderate,100,1,1
+mt_585155582,Unlimited,strength,Broad,15,0,0
+mt_585155582,Nearest 400,strength,Broad,15,0,0
+mt_585155582,Nearest 100,strength,Broad,15,0,0
+mt_404644462,Unlimited,combined,Moderate,988,1,1
+mt_404644462,Nearest 400,combined,Moderate,400,1,1
+mt_404644462,Nearest 100,combined,Moderate,100,1,1
+mt_404644462,Unlimited,strength,Broad,150,1,1
+mt_404644462,Nearest 400,strength,Broad,150,1,1
+mt_404644462,Nearest 100,strength,Broad,100,1,1
+mt_010243573,Unlimited,combined,Close,668,1,1
+mt_010243573,Nearest 400,combined,Close,400,1,1
+mt_010243573,Nearest 100,combined,Close,100,1,1
+mt_010243573,Unlimited,strength,Close,249,1,1
+mt_010243573,Nearest 400,strength,Close,249,1,1
+mt_010243573,Nearest 100,strength,Close,100,1,1
+mt_747926959,Unlimited,combined,Close,561,1,1
+mt_747926959,Nearest 400,combined,Close,400,1,1
+mt_747926959,Nearest 100,combined,Close,100,1,1
+mt_747926959,Unlimited,strength,Moderate,346,1,1
+mt_747926959,Nearest 400,strength,Moderate,346,1,1
+mt_747926959,Nearest 100,strength,Moderate,100,1,1
+mt_191511176,Unlimited,combined,Close,3391,1,1
+mt_191511176,Nearest 400,combined,Close,400,1,1
+mt_191511176,Nearest 100,combined,Close,100,1,1
+mt_191511176,Unlimited,strength,Close,1276,1,1
+mt_191511176,Nearest 400,strength,Close,400,1,1
+mt_191511176,Nearest 100,strength,Close,100,1,1
+mt_585485891,Unlimited,combined,Moderate,221,1,1
+mt_585485891,Nearest 400,combined,Moderate,221,1,1
+mt_585485891,Nearest 100,combined,Moderate,100,1,1
+mt_585485891,Unlimited,strength,Broad,25,0,0
+mt_585485891,Nearest 400,strength,Broad,25,0,0
+mt_585485891,Nearest 100,strength,Broad,25,0,0
+mt_979847288,Unlimited,combined,Close,3489,1,1
+mt_979847288,Nearest 400,combined,Close,400,1,1
+mt_979847288,Nearest 100,combined,Close,100,1,1
+mt_979847288,Unlimited,strength,Close,1652,1,1
+mt_979847288,Nearest 400,strength,Close,400,1,1
+mt_979847288,Nearest 100,strength,Close,100,1,1
+mt_626310352,Unlimited,combined,Close,1957,1,1
+mt_626310352,Nearest 400,combined,Close,400,1,1
+mt_626310352,Nearest 100,combined,Close,100,1,1
+mt_626310352,Unlimited,strength,Close,308,1,1
+mt_626310352,Nearest 400,strength,Close,308,1,1
+mt_626310352,Nearest 100,strength,Close,100,1,1
+mt_838547570,Unlimited,combined,Close,1147,1,1
+mt_838547570,Nearest 400,combined,Close,400,1,1
+mt_838547570,Nearest 100,combined,Close,100,1,1
+mt_838547570,Unlimited,strength,Close,1998,1,1
+mt_838547570,Nearest 400,strength,Close,400,1,1
+mt_838547570,Nearest 100,strength,Close,100,1,1
+mt_404678247,Unlimited,combined,Close,1003,1,1
+mt_404678247,Nearest 400,combined,Close,400,1,1
+mt_404678247,Nearest 100,combined,Close,100,1,1
+mt_404678247,Unlimited,strength,Close,192,1,1
+mt_404678247,Nearest 400,strength,Close,192,1,1
+mt_404678247,Nearest 100,strength,Close,100,1,1
+mt_838950787,Unlimited,combined,Close,1626,1,1
+mt_838950787,Nearest 400,combined,Close,400,1,1
+mt_838950787,Nearest 100,combined,Close,100,1,1
+mt_838950787,Unlimited,strength,Close,525,1,1
+mt_838950787,Nearest 400,strength,Close,400,1,1
+mt_838950787,Nearest 100,strength,Close,100,1,1
+mt_252085760,Unlimited,combined,Close,3163,1,1
+mt_252085760,Nearest 400,combined,Close,400,1,1
+mt_252085760,Nearest 100,combined,Close,100,1,1
+mt_252085760,Unlimited,strength,Close,2797,1,1
+mt_252085760,Nearest 400,strength,Close,400,1,1
+mt_252085760,Nearest 100,strength,Close,100,1,1
+mt_010444375,Unlimited,combined,Close,626,1,1
+mt_010444375,Nearest 400,combined,Close,400,1,1
+mt_010444375,Nearest 100,combined,Close,100,1,1
+mt_010444375,Unlimited,strength,Close,521,1,1
+mt_010444375,Nearest 400,strength,Close,400,1,1
+mt_010444375,Nearest 100,strength,Close,100,1,1
+mt_191691549,Unlimited,combined,Close,2346,1,1
+mt_191691549,Nearest 400,combined,Close,400,1,1
+mt_191691549,Nearest 100,combined,Close,100,1,1
+mt_191691549,Unlimited,strength,Close,1444,1,1
+mt_191691549,Nearest 400,strength,Close,400,1,1
+mt_191691549,Nearest 100,strength,Close,100,1,1
+mt_626315584,Unlimited,combined,Close,3255,1,1
+mt_626315584,Nearest 400,combined,Close,400,1,1
+mt_626315584,Nearest 100,combined,Close,100,1,1
+mt_626315584,Unlimited,strength,Close,2271,1,1
+mt_626315584,Nearest 400,strength,Close,400,1,1
+mt_626315584,Nearest 100,strength,Close,100,1,1
+mt_010489978,Unlimited,combined,Close,2274,1,1
+mt_010489978,Nearest 400,combined,Close,400,1,1
+mt_010489978,Nearest 100,combined,Close,100,1,1
+mt_010489978,Unlimited,strength,Close,527,1,1
+mt_010489978,Nearest 400,strength,Close,400,1,1
+mt_010489978,Nearest 100,strength,Close,100,1,1
+mt_626256691,Unlimited,combined,Close,3728,1,1
+mt_626256691,Nearest 400,combined,Close,400,1,1
+mt_626256691,Nearest 100,combined,Close,100,1,1
+mt_626256691,Unlimited,strength,Close,443,1,1
+mt_626256691,Nearest 400,strength,Close,400,1,1
+mt_626256691,Nearest 100,strength,Close,100,1,1
+mt_892324087,Unlimited,combined,Close,2758,1,1
+mt_892324087,Nearest 400,combined,Close,400,1,1
+mt_892324087,Nearest 100,combined,Close,100,1,1
+mt_892324087,Unlimited,strength,Close,1675,1,1
+mt_892324087,Nearest 400,strength,Close,400,1,1
+mt_892324087,Nearest 100,strength,Close,100,1,1
+mt_191041404,Unlimited,combined,Close,2901,1,1
+mt_191041404,Nearest 400,combined,Close,400,1,1
+mt_191041404,Nearest 100,combined,Close,100,1,1
+mt_191041404,Unlimited,strength,Close,990,1,1
+mt_191041404,Nearest 400,strength,Close,400,1,1
+mt_191041404,Nearest 100,strength,Close,100,1,1
+mt_626386835,Unlimited,combined,Close,5495,1,1
+mt_626386835,Nearest 400,combined,Close,400,1,1
+mt_626386835,Nearest 100,combined,Close,100,1,1
+mt_626386835,Unlimited,strength,Close,3311,1,1
+mt_626386835,Nearest 400,strength,Close,400,1,1
+mt_626386835,Nearest 100,strength,Close,100,1,1
+mt_979298400,Unlimited,combined,Close,2194,1,1
+mt_979298400,Nearest 400,combined,Close,400,1,1
+mt_979298400,Nearest 100,combined,Close,100,1,1
+mt_979298400,Unlimited,strength,Close,1343,1,1
+mt_979298400,Nearest 400,strength,Close,400,1,1
+mt_979298400,Nearest 100,strength,Close,100,1,1
+mt_585224668,Unlimited,combined,Close,457,1,1
+mt_585224668,Nearest 400,combined,Close,400,1,1
+mt_585224668,Nearest 100,combined,Close,100,1,1
+mt_585224668,Unlimited,strength,Close,180,1,1
+mt_585224668,Nearest 400,strength,Close,180,1,1
+mt_585224668,Nearest 100,strength,Close,100,1,1
+mt_010470733,Unlimited,combined,Close,5139,1,1
+mt_010470733,Nearest 400,combined,Close,400,1,1
+mt_010470733,Nearest 100,combined,Close,100,1,1
+mt_010470733,Unlimited,strength,Close,3253,1,1
+mt_010470733,Nearest 400,strength,Close,400,1,1
+mt_010470733,Nearest 100,strength,Close,100,1,1
+mt_252582212,Unlimited,combined,Close,3682,1,1
+mt_252582212,Nearest 400,combined,Close,400,1,1
+mt_252582212,Nearest 100,combined,Close,100,1,1
+mt_252582212,Unlimited,strength,Close,1911,1,1
+mt_252582212,Nearest 400,strength,Close,400,1,1
+mt_252582212,Nearest 100,strength,Close,100,1,1
+mt_363802262,Unlimited,combined,Close,4097,1,1
+mt_363802262,Nearest 400,combined,Close,400,1,1
+mt_363802262,Nearest 100,combined,Close,100,1,1
+mt_363802262,Unlimited,strength,Close,2583,1,1
+mt_363802262,Nearest 400,strength,Close,400,1,1
+mt_363802262,Nearest 100,strength,Close,100,1,1
+mt_626964583,Unlimited,combined,Close,1501,1,1
+mt_626964583,Nearest 400,combined,Close,400,1,1
+mt_626964583,Nearest 100,combined,Close,100,1,1
+mt_626964583,Unlimited,strength,Close,467,1,1
+mt_626964583,Nearest 400,strength,Close,400,1,1
+mt_626964583,Nearest 100,strength,Close,100,1,1
+mt_191006418,Unlimited,combined,Close,564,1,1
+mt_191006418,Nearest 400,combined,Close,400,1,1
+mt_191006418,Nearest 100,combined,Close,100,1,1
+mt_191006418,Unlimited,strength,Close,273,1,1
+mt_191006418,Nearest 400,strength,Close,273,1,1
+mt_191006418,Nearest 100,strength,Close,100,1,1
+mt_404778919,Unlimited,combined,Close,4293,1,1
+mt_404778919,Nearest 400,combined,Close,400,1,1
+mt_404778919,Nearest 100,combined,Close,100,1,1
+mt_404778919,Unlimited,strength,Close,2833,1,1
+mt_404778919,Nearest 400,strength,Close,400,1,1
+mt_404778919,Nearest 100,strength,Close,100,1,1
+mt_010190001,Unlimited,combined,Close,1532,1,1
+mt_010190001,Nearest 400,combined,Close,400,1,1
+mt_010190001,Nearest 100,combined,Close,100,1,1
+mt_010190001,Unlimited,strength,Close,663,1,1
+mt_010190001,Nearest 400,strength,Close,400,1,1
+mt_010190001,Nearest 100,strength,Close,100,1,1
+mt_363853530,Unlimited,combined,Close,1080,1,1
+mt_363853530,Nearest 400,combined,Close,400,1,1
+mt_363853530,Nearest 100,combined,Close,100,1,1
+mt_363853530,Unlimited,strength,Close,311,1,1
+mt_363853530,Nearest 400,strength,Close,311,1,1
+mt_363853530,Nearest 100,strength,Close,100,1,1
+mt_747304569,Unlimited,combined,Close,1897,1,1
+mt_747304569,Nearest 400,combined,Close,400,1,1
+mt_747304569,Nearest 100,combined,Close,100,1,1
+mt_747304569,Unlimited,strength,Close,1125,1,1
+mt_747304569,Nearest 400,strength,Close,400,1,1
+mt_747304569,Nearest 100,strength,Close,100,1,1
+mt_191579686,Unlimited,combined,Close,5215,1,1
+mt_191579686,Nearest 400,combined,Close,400,1,1
+mt_191579686,Nearest 100,combined,Close,100,1,1
+mt_191579686,Unlimited,strength,Close,3293,1,1
+mt_191579686,Nearest 400,strength,Close,400,1,1
+mt_191579686,Nearest 100,strength,Close,100,1,1
+mt_747573031,Unlimited,combined,Close,2336,1,1
+mt_747573031,Nearest 400,combined,Close,400,1,1
+mt_747573031,Nearest 100,combined,Close,100,1,1
+mt_747573031,Unlimited,strength,Close,775,1,1
+mt_747573031,Nearest 400,strength,Close,400,1,1
+mt_747573031,Nearest 100,strength,Close,100,1,1
+mt_979109603,Unlimited,combined,Close,4639,1,1
+mt_979109603,Nearest 400,combined,Close,400,1,1
+mt_979109603,Nearest 100,combined,Close,100,1,1
+mt_979109603,Unlimited,strength,Close,3300,1,1
+mt_979109603,Nearest 400,strength,Close,400,1,1
+mt_979109603,Nearest 100,strength,Close,100,1,1
+mt_191037703,Unlimited,combined,Close,4089,1,1
+mt_191037703,Nearest 400,combined,Close,400,1,1
+mt_191037703,Nearest 100,combined,Close,100,1,1
+mt_191037703,Unlimited,strength,Close,3435,1,1
+mt_191037703,Nearest 400,strength,Close,400,1,1
+mt_191037703,Nearest 100,strength,Close,100,1,1
+mt_585265786,Unlimited,combined,Close,3737,1,1
+mt_585265786,Nearest 400,combined,Close,400,1,1
+mt_585265786,Nearest 100,combined,Close,100,1,1
+mt_585265786,Unlimited,strength,Close,2241,1,1
+mt_585265786,Nearest 400,strength,Close,400,1,1
+mt_585265786,Nearest 100,strength,Close,100,1,1
+mt_838550485,Unlimited,combined,Close,2047,1,1
+mt_838550485,Nearest 400,combined,Close,400,1,1
+mt_838550485,Nearest 100,combined,Close,100,1,1
+mt_838550485,Unlimited,strength,Close,499,1,1
+mt_838550485,Nearest 400,strength,Close,400,1,1
+mt_838550485,Nearest 100,strength,Close,100,1,1
+mt_363855025,Unlimited,combined,Close,4708,1,1
+mt_363855025,Nearest 400,combined,Close,400,1,1
+mt_363855025,Nearest 100,combined,Close,100,1,1
+mt_363855025,Unlimited,strength,Close,3024,1,1
+mt_363855025,Nearest 400,strength,Close,400,1,1
+mt_363855025,Nearest 100,strength,Close,100,1,1
+mt_979279874,Unlimited,combined,Close,4298,1,1
+mt_979279874,Nearest 400,combined,Close,400,1,1
+mt_979279874,Nearest 100,combined,Close,100,1,1
+mt_979279874,Unlimited,strength,Close,3258,1,1
+mt_979279874,Nearest 400,strength,Close,400,1,1
+mt_979279874,Nearest 100,strength,Close,100,1,1
+mt_626319006,Unlimited,combined,Close,3880,1,1
+mt_626319006,Nearest 400,combined,Close,400,1,1
+mt_626319006,Nearest 100,combined,Close,100,1,1
+mt_626319006,Unlimited,strength,Close,2152,1,1
+mt_626319006,Nearest 400,strength,Close,400,1,1
+mt_626319006,Nearest 100,strength,Close,100,1,1
+mt_838555996,Unlimited,combined,Close,2051,1,1
+mt_838555996,Nearest 400,combined,Close,400,1,1
+mt_838555996,Nearest 100,combined,Close,100,1,1
+mt_838555996,Unlimited,strength,Close,1441,1,1
+mt_838555996,Nearest 400,strength,Close,400,1,1
+mt_838555996,Nearest 100,strength,Close,100,1,1
+mt_363853071,Unlimited,combined,Close,4290,1,1
+mt_363853071,Nearest 400,combined,Close,400,1,1
+mt_363853071,Nearest 100,combined,Close,100,1,1
+mt_363853071,Unlimited,strength,Close,2899,1,1
+mt_363853071,Nearest 400,strength,Close,400,1,1
+mt_363853071,Nearest 100,strength,Close,100,1,1
+mt_747390153,Unlimited,combined,Close,2680,1,1
+mt_747390153,Nearest 400,combined,Close,400,1,1
+mt_747390153,Nearest 100,combined,Close,100,1,1
+mt_747390153,Unlimited,strength,Close,1035,1,1
+mt_747390153,Nearest 400,strength,Close,400,1,1
+mt_747390153,Nearest 100,strength,Close,100,1,1
+mt_252720818,Unlimited,combined,Close,4187,1,1
+mt_252720818,Nearest 400,combined,Close,400,1,1
+mt_252720818,Nearest 100,combined,Close,100,1,1
+mt_252720818,Unlimited,strength,Close,2915,1,1
+mt_252720818,Nearest 400,strength,Close,400,1,1
+mt_252720818,Nearest 100,strength,Close,100,1,1
+mt_747920004,Unlimited,combined,Close,5426,1,1
+mt_747920004,Nearest 400,combined,Close,400,1,1
+mt_747920004,Nearest 100,combined,Close,100,1,1
+mt_747920004,Unlimited,strength,Close,3776,1,1
+mt_747920004,Nearest 400,strength,Close,400,1,1
+mt_747920004,Nearest 100,strength,Close,100,1,1
+mt_626386139,Unlimited,combined,Close,4856,1,1
+mt_626386139,Nearest 400,combined,Close,400,1,1
+mt_626386139,Nearest 100,combined,Close,100,1,1
+mt_626386139,Unlimited,strength,Close,3537,1,1
+mt_626386139,Nearest 400,strength,Close,400,1,1
+mt_626386139,Nearest 100,strength,Close,100,1,1
+mt_010310238,Unlimited,combined,Close,593,1,1
+mt_010310238,Nearest 400,combined,Close,400,1,1
+mt_010310238,Nearest 100,combined,Close,100,1,1
+mt_010310238,Unlimited,strength,Close,514,1,1
+mt_010310238,Nearest 400,strength,Close,400,1,1
+mt_010310238,Nearest 100,strength,Close,100,1,1
+mt_404751114,Unlimited,combined,Close,2670,1,1
+mt_404751114,Nearest 400,combined,Close,400,1,1
+mt_404751114,Nearest 100,combined,Close,100,1,1
+mt_404751114,Unlimited,strength,Close,1322,1,1
+mt_404751114,Nearest 400,strength,Close,400,1,1
+mt_404751114,Nearest 100,strength,Close,100,1,1
+mt_838555957,Unlimited,combined,Close,1908,1,1
+mt_838555957,Nearest 400,combined,Close,400,1,1
+mt_838555957,Nearest 100,combined,Close,100,1,1
+mt_838555957,Unlimited,strength,Close,1693,1,1
+mt_838555957,Nearest 400,strength,Close,400,1,1
+mt_838555957,Nearest 100,strength,Close,100,1,1
+mt_363726201,Unlimited,combined,Close,5085,1,1
+mt_363726201,Nearest 400,combined,Close,400,1,1
+mt_363726201,Nearest 100,combined,Close,100,1,1
+mt_363726201,Unlimited,strength,Close,3299,1,1
+mt_363726201,Nearest 400,strength,Close,400,1,1
+mt_363726201,Nearest 100,strength,Close,100,1,1
+mt_747461132,Unlimited,combined,Close,2553,1,1
+mt_747461132,Nearest 400,combined,Close,400,1,1
+mt_747461132,Nearest 100,combined,Close,100,1,1
+mt_747461132,Unlimited,strength,Close,1170,1,1
+mt_747461132,Nearest 400,strength,Close,400,1,1
+mt_747461132,Nearest 100,strength,Close,100,1,1
+mt_191000589,Unlimited,combined,Close,2297,1,1
+mt_191000589,Nearest 400,combined,Close,400,1,1
+mt_191000589,Nearest 100,combined,Close,100,1,1
+mt_191000589,Unlimited,strength,Close,1194,1,1
+mt_191000589,Nearest 400,strength,Close,400,1,1
+mt_191000589,Nearest 100,strength,Close,100,1,1
+mt_404751149,Unlimited,combined,Close,4180,1,1
+mt_404751149,Nearest 400,combined,Close,400,1,1
+mt_404751149,Nearest 100,combined,Close,100,1,1
+mt_404751149,Unlimited,strength,Close,3281,1,1
+mt_404751149,Nearest 400,strength,Close,400,1,1
+mt_404751149,Nearest 100,strength,Close,100,1,1
+mt_838546673,Unlimited,combined,Close,250,1,1
+mt_838546673,Nearest 400,combined,Close,250,1,1
+mt_838546673,Nearest 100,combined,Close,100,1,1
+mt_838546673,Unlimited,strength,Moderate,384,1,1
+mt_838546673,Nearest 400,strength,Moderate,384,1,1
+mt_838546673,Nearest 100,strength,Moderate,100,1,1
+mt_404610107,Unlimited,combined,Close,3646,1,1
+mt_404610107,Nearest 400,combined,Close,400,1,1
+mt_404610107,Nearest 100,combined,Close,100,1,1
+mt_404610107,Unlimited,strength,Close,2872,1,1
+mt_404610107,Nearest 400,strength,Close,400,1,1
+mt_404610107,Nearest 100,strength,Close,100,1,1
+mt_010470805,Unlimited,combined,Close,5011,1,1
+mt_010470805,Nearest 400,combined,Close,400,1,1
+mt_010470805,Nearest 100,combined,Close,100,1,1
+mt_010470805,Unlimited,strength,Close,3041,1,1
+mt_010470805,Nearest 400,strength,Close,400,1,1
+mt_010470805,Nearest 100,strength,Close,100,1,1
+mt_838372269,Unlimited,combined,Close,4555,1,1
+mt_838372269,Nearest 400,combined,Close,400,1,1
+mt_838372269,Nearest 100,combined,Close,100,1,1
+mt_838372269,Unlimited,strength,Close,2483,1,1
+mt_838372269,Nearest 400,strength,Close,400,1,1
+mt_838372269,Nearest 100,strength,Close,100,1,1
+mt_252752072,Unlimited,combined,Close,1634,1,1
+mt_252752072,Nearest 400,combined,Close,400,1,1
+mt_252752072,Nearest 100,combined,Close,100,1,1
+mt_252752072,Unlimited,strength,Close,708,1,1
+mt_252752072,Nearest 400,strength,Close,400,1,1
+mt_252752072,Nearest 100,strength,Close,100,1,1
+mt_626386211,Unlimited,combined,Close,5553,1,1
+mt_626386211,Nearest 400,combined,Close,400,1,1
+mt_626386211,Nearest 100,combined,Close,100,1,1
+mt_626386211,Unlimited,strength,Close,3532,1,1
+mt_626386211,Nearest 400,strength,Close,400,1,1
+mt_626386211,Nearest 100,strength,Close,100,1,1
+mt_191984460,Unlimited,combined,Close,3005,1,1
+mt_191984460,Nearest 400,combined,Close,400,1,1
+mt_191984460,Nearest 100,combined,Close,100,1,1
+mt_191984460,Unlimited,strength,Close,1323,1,1
+mt_191984460,Nearest 400,strength,Close,400,1,1
+mt_191984460,Nearest 100,strength,Close,100,1,1
+mt_747377765,Unlimited,combined,Close,930,1,1
+mt_747377765,Nearest 400,combined,Close,400,1,1
+mt_747377765,Nearest 100,combined,Close,100,1,1
+mt_747377765,Unlimited,strength,Close,896,1,1
+mt_747377765,Nearest 400,strength,Close,400,1,1
+mt_747377765,Nearest 100,strength,Close,100,1,1
+mt_585124936,Unlimited,combined,Close,5957,1,1
+mt_585124936,Nearest 400,combined,Close,400,1,1
+mt_585124936,Nearest 100,combined,Close,100,1,1
+mt_585124936,Unlimited,strength,Close,4180,1,1
+mt_585124936,Nearest 400,strength,Close,400,1,1
+mt_585124936,Nearest 100,strength,Close,100,1,1
+mt_404751295,Unlimited,combined,Close,4023,1,1
+mt_404751295,Nearest 400,combined,Close,400,1,1
+mt_404751295,Nearest 100,combined,Close,100,1,1
+mt_404751295,Unlimited,strength,Close,2202,1,1
+mt_404751295,Nearest 400,strength,Close,400,1,1
+mt_404751295,Nearest 100,strength,Close,100,1,1
+mt_252632551,Unlimited,combined,Close,4286,1,1
+mt_252632551,Nearest 400,combined,Close,400,1,1
+mt_252632551,Nearest 100,combined,Close,100,1,1
+mt_252632551,Unlimited,strength,Close,2827,1,1
+mt_252632551,Nearest 400,strength,Close,400,1,1
+mt_252632551,Nearest 100,strength,Close,100,1,1
+mt_626439685,Unlimited,combined,Close,2137,1,1
+mt_626439685,Nearest 400,combined,Close,400,1,1
+mt_626439685,Nearest 100,combined,Close,100,1,1
+mt_626439685,Unlimited,strength,Close,842,1,1
+mt_626439685,Nearest 400,strength,Close,400,1,1
+mt_626439685,Nearest 100,strength,Close,100,1,1
+mt_191573738,Unlimited,combined,Close,783,1,1
+mt_191573738,Nearest 400,combined,Close,400,1,1
+mt_191573738,Nearest 100,combined,Close,100,1,1
+mt_191573738,Unlimited,strength,Close,401,1,1
+mt_191573738,Nearest 400,strength,Close,400,1,1
+mt_191573738,Nearest 100,strength,Close,100,1,1
+mt_585896656,Unlimited,combined,Close,4811,1,1
+mt_585896656,Nearest 400,combined,Close,400,1,1
+mt_585896656,Nearest 100,combined,Close,100,1,1
+mt_585896656,Unlimited,strength,Close,3971,1,1
+mt_585896656,Nearest 400,strength,Close,400,1,1
+mt_585896656,Nearest 100,strength,Close,100,1,1
+mt_363853678,Unlimited,combined,Close,2830,1,1
+mt_363853678,Nearest 400,combined,Close,400,1,1
+mt_363853678,Nearest 100,combined,Close,100,1,1
+mt_363853678,Unlimited,strength,Close,924,1,1
+mt_363853678,Nearest 400,strength,Close,400,1,1
+mt_363853678,Nearest 100,strength,Close,100,1,1
+mt_010470132,Unlimited,combined,Close,5340,1,1
+mt_010470132,Nearest 400,combined,Close,400,1,1
+mt_010470132,Nearest 100,combined,Close,100,1,1
+mt_010470132,Unlimited,strength,Close,3947,1,1
+mt_010470132,Nearest 400,strength,Close,400,1,1
+mt_010470132,Nearest 100,strength,Close,100,1,1
+mt_585124513,Unlimited,combined,Close,767,1,1
+mt_585124513,Nearest 400,combined,Close,400,1,1
+mt_585124513,Nearest 100,combined,Close,100,1,1
+mt_585124513,Unlimited,strength,Close,179,1,1
+mt_585124513,Nearest 400,strength,Close,179,1,1
+mt_585124513,Nearest 100,strength,Close,100,1,1
+mt_838950809,Unlimited,combined,Close,6074,1,1
+mt_838950809,Nearest 400,combined,Close,400,1,1
+mt_838950809,Nearest 100,combined,Close,100,1,1
+mt_838950809,Unlimited,strength,Close,3905,1,1
+mt_838950809,Nearest 400,strength,Close,400,1,1
+mt_838950809,Nearest 100,strength,Close,100,1,1
+mt_252666651,Unlimited,combined,Close,6240,1,1
+mt_252666651,Nearest 400,combined,Close,400,1,1
+mt_252666651,Nearest 100,combined,Close,100,1,1
+mt_252666651,Unlimited,strength,Close,4201,1,1
+mt_252666651,Nearest 400,strength,Close,400,1,1
+mt_252666651,Nearest 100,strength,Close,100,1,1
+mt_979100088,Unlimited,combined,Close,2040,1,1
+mt_979100088,Nearest 400,combined,Close,400,1,1
+mt_979100088,Nearest 100,combined,Close,100,1,1
+mt_979100088,Unlimited,strength,Close,787,1,1
+mt_979100088,Nearest 400,strength,Close,400,1,1
+mt_979100088,Nearest 100,strength,Close,100,1,1
+mt_010243001,Unlimited,combined,Close,3648,1,1
+mt_010243001,Nearest 400,combined,Close,400,1,1
+mt_010243001,Nearest 100,combined,Close,100,1,1
+mt_010243001,Unlimited,strength,Close,2781,1,1
+mt_010243001,Nearest 400,strength,Close,400,1,1
+mt_010243001,Nearest 100,strength,Close,100,1,1
+mt_404777776,Unlimited,combined,Close,2503,1,1
+mt_404777776,Nearest 400,combined,Close,400,1,1
+mt_404777776,Nearest 100,combined,Close,100,1,1
+mt_404777776,Unlimited,strength,Close,1812,1,1
+mt_404777776,Nearest 400,strength,Close,400,1,1
+mt_404777776,Nearest 100,strength,Close,100,1,1
+mt_838950886,Unlimited,combined,Close,3611,1,1
+mt_838950886,Nearest 400,combined,Close,400,1,1
+mt_838950886,Nearest 100,combined,Close,100,1,1
+mt_838950886,Unlimited,strength,Close,2625,1,1
+mt_838950886,Nearest 400,strength,Close,400,1,1
+mt_838950886,Nearest 100,strength,Close,100,1,1
+mt_626388862,Unlimited,combined,Close,1227,1,1
+mt_626388862,Nearest 400,combined,Close,400,1,1
+mt_626388862,Nearest 100,combined,Close,100,1,1
+mt_626388862,Unlimited,strength,Close,1511,1,1
+mt_626388862,Nearest 400,strength,Close,400,1,1
+mt_626388862,Nearest 100,strength,Close,100,1,1
+mt_626060368,Unlimited,combined,Close,1189,1,1
+mt_626060368,Nearest 400,combined,Close,400,1,1
+mt_626060368,Nearest 100,combined,Close,100,1,1
+mt_626060368,Unlimited,strength,Close,532,1,1
+mt_626060368,Nearest 400,strength,Close,400,1,1
+mt_626060368,Nearest 100,strength,Close,100,1,1
+mt_979109738,Unlimited,combined,Close,6122,1,1
+mt_979109738,Nearest 400,combined,Close,400,1,1
+mt_979109738,Nearest 100,combined,Close,100,1,1
+mt_979109738,Unlimited,strength,Close,4326,1,1
+mt_979109738,Nearest 400,strength,Close,400,1,1
+mt_979109738,Nearest 100,strength,Close,100,1,1
+mt_838956248,Unlimited,combined,Close,2538,1,1
+mt_838956248,Nearest 400,combined,Close,400,1,1
+mt_838956248,Nearest 100,combined,Close,100,1,1
+mt_838956248,Unlimited,strength,Close,1026,1,1
+mt_838956248,Nearest 400,strength,Close,400,1,1
+mt_838956248,Nearest 100,strength,Close,100,1,1
+mt_363853755,Unlimited,combined,Close,5290,1,1
+mt_363853755,Nearest 400,combined,Close,400,1,1
+mt_363853755,Nearest 100,combined,Close,100,1,1
+mt_363853755,Unlimited,strength,Close,3191,1,1
+mt_363853755,Nearest 400,strength,Close,400,1,1
+mt_363853755,Nearest 100,strength,Close,100,1,1
+mt_838956292,Unlimited,combined,Close,4773,1,1
+mt_838956292,Nearest 400,combined,Close,400,1,1
+mt_838956292,Nearest 100,combined,Close,100,1,1
+mt_838956292,Unlimited,strength,Close,3062,1,1
+mt_838956292,Nearest 400,strength,Close,400,1,1
+mt_838956292,Nearest 100,strength,Close,100,1,1
+mt_979109864,Unlimited,combined,Close,6328,1,1
+mt_979109864,Nearest 400,combined,Close,400,1,1
+mt_979109864,Nearest 100,combined,Close,100,1,1
+mt_979109864,Unlimited,strength,Close,4606,1,1
+mt_979109864,Nearest 400,strength,Close,400,1,1
+mt_979109864,Nearest 100,strength,Close,100,1,1
+mt_626208125,Unlimited,combined,Close,4122,1,1
+mt_626208125,Nearest 400,combined,Close,400,1,1
+mt_626208125,Nearest 100,combined,Close,100,1,1
+mt_626208125,Unlimited,strength,Close,2339,1,1
+mt_626208125,Nearest 400,strength,Close,400,1,1
+mt_626208125,Nearest 100,strength,Close,100,1,1
+mt_191507476,Unlimited,combined,Close,5372,1,1
+mt_191507476,Nearest 400,combined,Close,400,1,1
+mt_191507476,Nearest 100,combined,Close,100,1,1
+mt_191507476,Unlimited,strength,Close,3490,1,1
+mt_191507476,Nearest 400,strength,Close,400,1,1
+mt_191507476,Nearest 100,strength,Close,100,1,1
+mt_838555568,Unlimited,combined,Close,4635,1,1
+mt_838555568,Nearest 400,combined,Close,400,1,1
+mt_838555568,Nearest 100,combined,Close,100,1,1
+mt_838555568,Unlimited,strength,Close,2624,1,1
+mt_838555568,Nearest 400,strength,Close,400,1,1
+mt_838555568,Nearest 100,strength,Close,100,1,1
+mt_363645073,Unlimited,combined,Close,2633,1,1
+mt_363645073,Nearest 400,combined,Close,400,1,1
+mt_363645073,Nearest 100,combined,Close,100,1,1
+mt_363645073,Unlimited,strength,Close,887,1,1
+mt_363645073,Nearest 400,strength,Close,400,1,1
+mt_363645073,Nearest 100,strength,Close,100,1,1
+mt_363806124,Unlimited,combined,Close,3201,1,1
+mt_363806124,Nearest 400,combined,Close,400,1,1
+mt_363806124,Nearest 100,combined,Close,100,1,1
+mt_363806124,Unlimited,strength,Close,2215,1,1
+mt_363806124,Nearest 400,strength,Close,400,1,1
+mt_363806124,Nearest 100,strength,Close,100,1,1
+mt_363434267,Unlimited,combined,Close,2550,1,1
+mt_363434267,Nearest 400,combined,Close,400,1,1
+mt_363434267,Nearest 100,combined,Close,100,1,1
+mt_363434267,Unlimited,strength,Close,2215,1,1
+mt_363434267,Nearest 400,strength,Close,400,1,1
+mt_363434267,Nearest 100,strength,Close,100,1,1
+mt_028197287,Unlimited,combined,Close,3114,1,1
+mt_028197287,Nearest 400,combined,Close,400,1,1
+mt_028197287,Nearest 100,combined,Close,100,1,1
+mt_028197287,Unlimited,strength,Close,1466,1,1
+mt_028197287,Nearest 400,strength,Close,400,1,1
+mt_028197287,Nearest 100,strength,Close,100,1,1
+mt_010444409,Unlimited,combined,Close,2753,1,1
+mt_010444409,Nearest 400,combined,Close,400,1,1
+mt_010444409,Nearest 100,combined,Close,100,1,1
+mt_010444409,Unlimited,strength,Close,1583,1,1
+mt_010444409,Nearest 400,strength,Close,400,1,1
+mt_010444409,Nearest 100,strength,Close,100,1,1
+mt_404777894,Unlimited,combined,Close,5275,1,1
+mt_404777894,Nearest 400,combined,Close,400,1,1
+mt_404777894,Nearest 100,combined,Close,100,1,1
+mt_404777894,Unlimited,strength,Close,2803,1,1
+mt_404777894,Nearest 400,strength,Close,400,1,1
+mt_404777894,Nearest 100,strength,Close,100,1,1
+mt_838528995,Unlimited,combined,Close,4158,1,1
+mt_838528995,Nearest 400,combined,Close,400,1,1
+mt_838528995,Nearest 100,combined,Close,100,1,1
+mt_838528995,Unlimited,strength,Close,2113,1,1
+mt_838528995,Nearest 400,strength,Close,400,1,1
+mt_838528995,Nearest 100,strength,Close,100,1,1
+mt_191036898,Unlimited,combined,Close,4563,1,1
+mt_191036898,Nearest 400,combined,Close,400,1,1
+mt_191036898,Nearest 100,combined,Close,100,1,1
+mt_191036898,Unlimited,strength,Close,3481,1,1
+mt_191036898,Nearest 400,strength,Close,400,1,1
+mt_191036898,Nearest 100,strength,Close,100,1,1
+mt_838963664,Unlimited,combined,Close,5864,1,1
+mt_838963664,Nearest 400,combined,Close,400,1,1
+mt_838963664,Nearest 100,combined,Close,100,1,1
+mt_838963664,Unlimited,strength,Close,4124,1,1
+mt_838963664,Nearest 400,strength,Close,400,1,1
+mt_838963664,Nearest 100,strength,Close,100,1,1
+mt_585265147,Unlimited,combined,Close,5309,1,1
+mt_585265147,Nearest 400,combined,Close,400,1,1
+mt_585265147,Nearest 100,combined,Close,100,1,1
+mt_585265147,Unlimited,strength,Close,3678,1,1
+mt_585265147,Nearest 400,strength,Close,400,1,1
+mt_585265147,Nearest 100,strength,Close,100,1,1
+mt_010481980,Unlimited,combined,Close,4620,1,1
+mt_010481980,Nearest 400,combined,Close,400,1,1
+mt_010481980,Nearest 100,combined,Close,100,1,1
+mt_010481980,Unlimited,strength,Close,2200,1,1
+mt_010481980,Nearest 400,strength,Close,400,1,1
+mt_010481980,Nearest 100,strength,Close,100,1,1
+mt_585274928,Unlimited,combined,Close,5401,1,1
+mt_585274928,Nearest 400,combined,Close,400,1,1
+mt_585274928,Nearest 100,combined,Close,100,1,1
+mt_585274928,Unlimited,strength,Close,4188,1,1
+mt_585274928,Nearest 400,strength,Close,400,1,1
+mt_585274928,Nearest 100,strength,Close,100,1,1
+mt_979109837,Unlimited,combined,Close,5214,1,1
+mt_979109837,Nearest 400,combined,Close,400,1,1
+mt_979109837,Nearest 100,combined,Close,100,1,1
+mt_979109837,Unlimited,strength,Close,4428,1,1
+mt_979109837,Nearest 400,strength,Close,400,1,1
+mt_979109837,Nearest 100,strength,Close,100,1,1
+mt_404615112,Unlimited,combined,Close,4235,1,1
+mt_404615112,Nearest 400,combined,Close,400,1,1
+mt_404615112,Nearest 100,combined,Close,100,1,1
+mt_404615112,Unlimited,strength,Close,2826,1,1
+mt_404615112,Nearest 400,strength,Close,400,1,1
+mt_404615112,Nearest 100,strength,Close,100,1,1
+mt_838787668,Unlimited,combined,Close,5344,1,1
+mt_838787668,Nearest 400,combined,Close,400,1,1
+mt_838787668,Nearest 100,combined,Close,100,1,1
+mt_838787668,Unlimited,strength,Close,2803,1,1
+mt_838787668,Nearest 400,strength,Close,400,1,1
+mt_838787668,Nearest 100,strength,Close,100,1,1
+mt_626312542,Unlimited,combined,Close,3784,1,1
+mt_626312542,Nearest 400,combined,Close,400,1,1
+mt_626312542,Nearest 100,combined,Close,100,1,1
+mt_626312542,Unlimited,strength,Close,3832,1,1
+mt_626312542,Nearest 400,strength,Close,400,1,1
+mt_626312542,Nearest 100,strength,Close,100,1,1
+mt_252632025,Unlimited,combined,Close,3691,1,1
+mt_252632025,Nearest 400,combined,Close,400,1,1
+mt_252632025,Nearest 100,combined,Close,100,1,1
+mt_252632025,Unlimited,strength,Close,2845,1,1
+mt_252632025,Nearest 400,strength,Close,400,1,1
+mt_252632025,Nearest 100,strength,Close,100,1,1
+mt_585959354,Unlimited,combined,Close,3857,1,1
+mt_585959354,Nearest 400,combined,Close,400,1,1
+mt_585959354,Nearest 100,combined,Close,100,1,1
+mt_585959354,Unlimited,strength,Close,1700,1,1
+mt_585959354,Nearest 400,strength,Close,400,1,1
+mt_585959354,Nearest 100,strength,Close,100,1,1
+mt_010477177,Unlimited,combined,Close,3318,1,1
+mt_010477177,Nearest 400,combined,Close,400,1,1
+mt_010477177,Nearest 100,combined,Close,100,1,1
+mt_010477177,Unlimited,strength,Close,2034,1,1
+mt_010477177,Nearest 400,strength,Close,400,1,1
+mt_010477177,Nearest 100,strength,Close,100,1,1
+mt_626060566,Unlimited,combined,Close,1271,1,1
+mt_626060566,Nearest 400,combined,Close,400,1,1
+mt_626060566,Nearest 100,combined,Close,100,1,1
+mt_626060566,Unlimited,strength,Close,494,1,1
+mt_626060566,Nearest 400,strength,Close,400,1,1
+mt_626060566,Nearest 100,strength,Close,100,1,1
+mt_747676614,Unlimited,combined,Close,692,1,1
+mt_747676614,Nearest 400,combined,Close,400,1,1
+mt_747676614,Nearest 100,combined,Close,100,1,1
+mt_747676614,Unlimited,strength,Close,309,1,1
+mt_747676614,Nearest 400,strength,Close,309,1,1
+mt_747676614,Nearest 100,strength,Close,100,1,1
+mt_979730760,Unlimited,combined,Close,3478,1,1
+mt_979730760,Nearest 400,combined,Close,400,1,1
+mt_979730760,Nearest 100,combined,Close,100,1,1
+mt_979730760,Unlimited,strength,Close,1619,1,1
+mt_979730760,Nearest 400,strength,Close,400,1,1
+mt_979730760,Nearest 100,strength,Close,100,1,1
+mt_404794792,Unlimited,combined,Close,5317,1,1
+mt_404794792,Nearest 400,combined,Close,400,1,1
+mt_404794792,Nearest 100,combined,Close,100,1,1
+mt_404794792,Unlimited,strength,Close,4016,1,1
+mt_404794792,Nearest 400,strength,Close,400,1,1
+mt_404794792,Nearest 100,strength,Close,100,1,1
+mt_838543695,Unlimited,combined,Close,4898,1,1
+mt_838543695,Nearest 400,combined,Close,400,1,1
+mt_838543695,Nearest 100,combined,Close,100,1,1
+mt_838543695,Unlimited,strength,Close,3195,1,1
+mt_838543695,Nearest 400,strength,Close,400,1,1
+mt_838543695,Nearest 100,strength,Close,100,1,1
+mt_363888260,Unlimited,combined,Close,1687,1,1
+mt_363888260,Nearest 400,combined,Close,400,1,1
+mt_363888260,Nearest 100,combined,Close,100,1,1
+mt_363888260,Unlimited,strength,Close,981,1,1
+mt_363888260,Nearest 400,strength,Close,400,1,1
+mt_363888260,Nearest 100,strength,Close,100,1,1
+mt_838906705,Unlimited,combined,Close,2937,1,1
+mt_838906705,Nearest 400,combined,Close,400,1,1
+mt_838906705,Nearest 100,combined,Close,100,1,1
+mt_838906705,Unlimited,strength,Close,1102,1,1
+mt_838906705,Nearest 400,strength,Close,400,1,1
+mt_838906705,Nearest 100,strength,Close,100,1,1
+mt_028035851,Unlimited,combined,Close,3946,1,1
+mt_028035851,Nearest 400,combined,Close,400,1,1
+mt_028035851,Nearest 100,combined,Close,100,1,1
+mt_028035851,Unlimited,strength,Close,1943,1,1
+mt_028035851,Nearest 400,strength,Close,400,1,1
+mt_028035851,Nearest 100,strength,Close,100,1,1
+mt_252121158,Unlimited,combined,Close,3691,1,1
+mt_252121158,Nearest 400,combined,Close,400,1,1
+mt_252121158,Nearest 100,combined,Close,100,1,1
+mt_252121158,Unlimited,strength,Close,1857,1,1
+mt_252121158,Nearest 400,strength,Close,400,1,1
+mt_252121158,Nearest 100,strength,Close,100,1,1
+mt_363733304,Unlimited,combined,Close,4453,1,1
+mt_363733304,Nearest 400,combined,Close,400,1,1
+mt_363733304,Nearest 100,combined,Close,100,1,1
+mt_363733304,Unlimited,strength,Close,1745,1,1
+mt_363733304,Nearest 400,strength,Close,400,1,1
+mt_363733304,Nearest 100,strength,Close,100,1,1
+mt_838555677,Unlimited,combined,Close,3687,1,1
+mt_838555677,Nearest 400,combined,Close,400,1,1
+mt_838555677,Nearest 100,combined,Close,100,1,1
+mt_838555677,Unlimited,strength,Close,2594,1,1
+mt_838555677,Nearest 400,strength,Close,400,1,1
+mt_838555677,Nearest 100,strength,Close,100,1,1
+mt_404681285,Unlimited,combined,Close,3898,1,1
+mt_404681285,Nearest 400,combined,Close,400,1,1
+mt_404681285,Nearest 100,combined,Close,100,1,1
+mt_404681285,Unlimited,strength,Close,2257,1,1
+mt_404681285,Nearest 400,strength,Close,400,1,1
+mt_404681285,Nearest 100,strength,Close,100,1,1
+mt_404242265,Unlimited,combined,Close,5229,1,1
+mt_404242265,Nearest 400,combined,Close,400,1,1
+mt_404242265,Nearest 100,combined,Close,100,1,1
+mt_404242265,Unlimited,strength,Close,3188,1,1
+mt_404242265,Nearest 400,strength,Close,400,1,1
+mt_404242265,Nearest 100,strength,Close,100,1,1
+mt_191039761,Unlimited,combined,Close,4987,1,1
+mt_191039761,Nearest 400,combined,Close,400,1,1
+mt_191039761,Nearest 100,combined,Close,100,1,1
+mt_191039761,Unlimited,strength,Close,3273,1,1
+mt_191039761,Nearest 400,strength,Close,400,1,1
+mt_191039761,Nearest 100,strength,Close,100,1,1
+mt_404846840,Unlimited,combined,Close,940,1,1
+mt_404846840,Nearest 400,combined,Close,400,1,1
+mt_404846840,Nearest 100,combined,Close,100,1,1
+mt_404846840,Unlimited,strength,Close,454,1,1
+mt_404846840,Nearest 400,strength,Close,400,1,1
+mt_404846840,Nearest 100,strength,Close,100,1,1
+mt_838906776,Unlimited,combined,Close,2786,1,1
+mt_838906776,Nearest 400,combined,Close,400,1,1
+mt_838906776,Nearest 100,combined,Close,100,1,1
+mt_838906776,Unlimited,strength,Close,1312,1,1
+mt_838906776,Nearest 400,strength,Close,400,1,1
+mt_838906776,Nearest 100,strength,Close,100,1,1
+mt_363434830,Unlimited,combined,Close,5185,1,1
+mt_363434830,Nearest 400,combined,Close,400,1,1
+mt_363434830,Nearest 100,combined,Close,100,1,1
+mt_363434830,Unlimited,strength,Close,2921,1,1
+mt_363434830,Nearest 400,strength,Close,400,1,1
+mt_363434830,Nearest 100,strength,Close,100,1,1
+mt_747573570,Unlimited,combined,Close,4478,1,1
+mt_747573570,Nearest 400,combined,Close,400,1,1
+mt_747573570,Nearest 100,combined,Close,100,1,1
+mt_747573570,Unlimited,strength,Close,2961,1,1
+mt_747573570,Nearest 400,strength,Close,400,1,1
+mt_747573570,Nearest 100,strength,Close,100,1,1
+mt_626386332,Unlimited,combined,Close,4594,1,1
+mt_626386332,Nearest 400,combined,Close,400,1,1
+mt_626386332,Nearest 100,combined,Close,100,1,1
+mt_626386332,Unlimited,strength,Close,2964,1,1
+mt_626386332,Nearest 400,strength,Close,400,1,1
+mt_626386332,Nearest 100,strength,Close,100,1,1
+mt_747399497,Unlimited,combined,Close,3375,1,1
+mt_747399497,Nearest 400,combined,Close,400,1,1
+mt_747399497,Nearest 100,combined,Close,100,1,1
+mt_747399497,Unlimited,strength,Close,902,1,1
+mt_747399497,Nearest 400,strength,Close,400,1,1
+mt_747399497,Nearest 100,strength,Close,100,1,1
+mt_252695819,Unlimited,combined,Close,2930,1,1
+mt_252695819,Nearest 400,combined,Close,400,1,1
+mt_252695819,Nearest 100,combined,Close,100,1,1
+mt_252695819,Unlimited,strength,Close,1727,1,1
+mt_252695819,Nearest 400,strength,Close,400,1,1
+mt_252695819,Nearest 100,strength,Close,100,1,1
+mt_626312559,Unlimited,combined,Close,5703,1,1
+mt_626312559,Nearest 400,combined,Close,400,1,1
+mt_626312559,Nearest 100,combined,Close,100,1,1
+mt_626312559,Unlimited,strength,Close,4061,1,1
+mt_626312559,Nearest 400,strength,Close,400,1,1
+mt_626312559,Nearest 100,strength,Close,100,1,1
+mt_252022288,Unlimited,combined,Close,5984,1,1
+mt_252022288,Nearest 400,combined,Close,400,1,1
+mt_252022288,Nearest 100,combined,Close,100,1,1
+mt_252022288,Unlimited,strength,Close,4214,1,1
+mt_252022288,Nearest 400,strength,Close,400,1,1
+mt_252022288,Nearest 100,strength,Close,100,1,1
+mt_747350067,Unlimited,combined,Close,5275,1,1
+mt_747350067,Nearest 400,combined,Close,400,1,1
+mt_747350067,Nearest 100,combined,Close,100,1,1
+mt_747350067,Unlimited,strength,Close,4761,1,1
+mt_747350067,Nearest 400,strength,Close,400,1,1
+mt_747350067,Nearest 100,strength,Close,100,1,1
+mt_252066538,Unlimited,combined,Close,4562,1,1
+mt_252066538,Nearest 400,combined,Close,400,1,1
+mt_252066538,Nearest 100,combined,Close,100,1,1
+mt_252066538,Unlimited,strength,Close,2645,1,1
+mt_252066538,Nearest 400,strength,Close,400,1,1
+mt_252066538,Nearest 100,strength,Close,100,1,1
+mt_404242855,Unlimited,combined,Close,5150,1,1
+mt_404242855,Nearest 400,combined,Close,400,1,1
+mt_404242855,Nearest 100,combined,Close,100,1,1
+mt_404242855,Unlimited,strength,Close,3312,1,1
+mt_404242855,Nearest 400,strength,Close,400,1,1
+mt_404242855,Nearest 100,strength,Close,100,1,1
+mt_376755357,Unlimited,combined,Close,3562,1,1
+mt_376755357,Nearest 400,combined,Close,400,1,1
+mt_376755357,Nearest 100,combined,Close,100,1,1
+mt_376755357,Unlimited,strength,Close,2085,1,1
+mt_376755357,Nearest 400,strength,Close,400,1,1
+mt_376755357,Nearest 100,strength,Close,100,1,1
+mt_838522247,Unlimited,combined,Close,4916,1,1
+mt_838522247,Nearest 400,combined,Close,400,1,1
+mt_838522247,Nearest 100,combined,Close,100,1,1
+mt_838522247,Unlimited,strength,Close,3118,1,1
+mt_838522247,Nearest 400,strength,Close,400,1,1
+mt_838522247,Nearest 100,strength,Close,100,1,1
+mt_252665707,Unlimited,combined,Close,5755,1,1
+mt_252665707,Nearest 400,combined,Close,400,1,1
+mt_252665707,Nearest 100,combined,Close,100,1,1
+mt_252665707,Unlimited,strength,Close,3978,1,1
+mt_252665707,Nearest 400,strength,Close,400,1,1
+mt_252665707,Nearest 100,strength,Close,100,1,1
+mt_979824308,Unlimited,combined,Close,4019,1,1
+mt_979824308,Nearest 400,combined,Close,400,1,1
+mt_979824308,Nearest 100,combined,Close,100,1,1
+mt_979824308,Unlimited,strength,Close,2539,1,1
+mt_979824308,Nearest 400,strength,Close,400,1,1
+mt_979824308,Nearest 100,strength,Close,100,1,1
+mt_363802461,Unlimited,combined,Close,5539,1,1
+mt_363802461,Nearest 400,combined,Close,400,1,1
+mt_363802461,Nearest 100,combined,Close,100,1,1
+mt_363802461,Unlimited,strength,Close,3290,1,1
+mt_363802461,Nearest 400,strength,Close,400,1,1
+mt_363802461,Nearest 100,strength,Close,100,1,1
+mt_363881538,Unlimited,combined,Close,4932,1,1
+mt_363881538,Nearest 400,combined,Close,400,1,1
+mt_363881538,Nearest 100,combined,Close,100,1,1
+mt_363881538,Unlimited,strength,Close,2605,1,1
+mt_363881538,Nearest 400,strength,Close,400,1,1
+mt_363881538,Nearest 100,strength,Close,100,1,1
+mt_626451024,Unlimited,combined,Close,3781,1,1
+mt_626451024,Nearest 400,combined,Close,400,1,1
+mt_626451024,Nearest 100,combined,Close,100,1,1
+mt_626451024,Unlimited,strength,Close,1976,1,1
+mt_626451024,Nearest 400,strength,Close,400,1,1
+mt_626451024,Nearest 100,strength,Close,100,1,1
+mt_010302935,Unlimited,combined,Close,6840,1,1
+mt_010302935,Nearest 400,combined,Close,400,1,1
+mt_010302935,Nearest 100,combined,Close,100,1,1
+mt_010302935,Unlimited,strength,Close,3647,1,1
+mt_010302935,Nearest 400,strength,Close,400,1,1
+mt_010302935,Nearest 100,strength,Close,100,1,1
+mt_585959486,Unlimited,combined,Close,6302,1,1
+mt_585959486,Nearest 400,combined,Close,400,1,1
+mt_585959486,Nearest 100,combined,Close,100,1,1
+mt_585959486,Unlimited,strength,Close,3871,1,1
+mt_585959486,Nearest 400,strength,Close,400,1,1
+mt_585959486,Nearest 100,strength,Close,100,1,1
+mt_209226608,Unlimited,combined,Close,4229,1,1
+mt_209226608,Nearest 400,combined,Close,400,1,1
+mt_209226608,Nearest 100,combined,Close,100,1,1
+mt_209226608,Unlimited,strength,Close,1863,1,1
+mt_209226608,Nearest 400,strength,Close,400,1,1
+mt_209226608,Nearest 100,strength,Close,100,1,1
+mt_010470389,Unlimited,combined,Close,2914,1,1
+mt_010470389,Nearest 400,combined,Close,400,1,1
+mt_010470389,Nearest 100,combined,Close,100,1,1
+mt_010470389,Unlimited,strength,Close,949,1,1
+mt_010470389,Nearest 400,strength,Close,400,1,1
+mt_010470389,Nearest 100,strength,Close,100,1,1
+mt_404770885,Unlimited,combined,Close,6634,1,1
+mt_404770885,Nearest 400,combined,Close,400,1,1
+mt_404770885,Nearest 100,combined,Close,100,1,1
+mt_404770885,Unlimited,strength,Close,4800,1,1
+mt_404770885,Nearest 400,strength,Close,400,1,1
+mt_404770885,Nearest 100,strength,Close,100,1,1
+mt_979109272,Unlimited,combined,Close,4732,1,1
+mt_979109272,Nearest 400,combined,Close,400,1,1
+mt_979109272,Nearest 100,combined,Close,100,1,1
+mt_979109272,Unlimited,strength,Close,3366,1,1
+mt_979109272,Nearest 400,strength,Close,400,1,1
+mt_979109272,Nearest 100,strength,Close,100,1,1
+mt_252698169,Unlimited,combined,Close,5295,1,1
+mt_252698169,Nearest 400,combined,Close,400,1,1
+mt_252698169,Nearest 100,combined,Close,100,1,1
+mt_252698169,Unlimited,strength,Close,3268,1,1
+mt_252698169,Nearest 400,strength,Close,400,1,1
+mt_252698169,Nearest 100,strength,Close,100,1,1
+mt_747995203,Unlimited,combined,Close,5841,1,1
+mt_747995203,Nearest 400,combined,Close,400,1,1
+mt_747995203,Nearest 100,combined,Close,100,1,1
+mt_747995203,Unlimited,strength,Close,3332,1,1
+mt_747995203,Nearest 400,strength,Close,400,1,1
+mt_747995203,Nearest 100,strength,Close,100,1,1
+mt_585265419,Unlimited,combined,Close,7212,1,1
+mt_585265419,Nearest 400,combined,Close,400,1,1
+mt_585265419,Nearest 100,combined,Close,100,1,1
+mt_585265419,Unlimited,strength,Close,4934,1,1
+mt_585265419,Nearest 400,strength,Close,400,1,1
+mt_585265419,Nearest 100,strength,Close,100,1,1
+mt_252667918,Unlimited,combined,Close,5035,1,1
+mt_252667918,Nearest 400,combined,Close,400,1,1
+mt_252667918,Nearest 100,combined,Close,100,1,1
+mt_252667918,Unlimited,strength,Close,2941,1,1
+mt_252667918,Nearest 400,strength,Close,400,1,1
+mt_252667918,Nearest 100,strength,Close,100,1,1
+mt_747573075,Unlimited,combined,Close,6977,1,1
+mt_747573075,Nearest 400,combined,Close,400,1,1
+mt_747573075,Nearest 100,combined,Close,100,1,1
+mt_747573075,Unlimited,strength,Close,4490,1,1
+mt_747573075,Nearest 400,strength,Close,400,1,1
+mt_747573075,Nearest 100,strength,Close,100,1,1
+mt_363855062,Unlimited,combined,Close,4596,1,1
+mt_363855062,Nearest 400,combined,Close,400,1,1
+mt_363855062,Nearest 100,combined,Close,100,1,1
+mt_363855062,Unlimited,strength,Close,2283,1,1
+mt_363855062,Nearest 400,strength,Close,400,1,1
+mt_363855062,Nearest 100,strength,Close,100,1,1
+mt_252632768,Unlimited,combined,Close,5559,1,1
+mt_252632768,Nearest 400,combined,Close,400,1,1
+mt_252632768,Nearest 100,combined,Close,100,1,1
+mt_252632768,Unlimited,strength,Close,3227,1,1
+mt_252632768,Nearest 400,strength,Close,400,1,1
+mt_252632768,Nearest 100,strength,Close,100,1,1
+mt_252666673,Unlimited,combined,Close,3177,1,1
+mt_252666673,Nearest 400,combined,Close,400,1,1
+mt_252666673,Nearest 100,combined,Close,100,1,1
+mt_252666673,Unlimited,strength,Close,1703,1,1
+mt_252666673,Nearest 400,strength,Close,400,1,1
+mt_252666673,Nearest 100,strength,Close,100,1,1
+mt_252067808,Unlimited,combined,Close,3223,1,1
+mt_252067808,Nearest 400,combined,Close,400,1,1
+mt_252067808,Nearest 100,combined,Close,100,1,1
+mt_252067808,Unlimited,strength,Close,1537,1,1
+mt_252067808,Nearest 400,strength,Close,400,1,1
+mt_252067808,Nearest 100,strength,Close,100,1,1
+mt_626315090,Unlimited,combined,Close,5292,1,1
+mt_626315090,Nearest 400,combined,Close,400,1,1
+mt_626315090,Nearest 100,combined,Close,100,1,1
+mt_626315090,Unlimited,strength,Close,2749,1,1
+mt_626315090,Nearest 400,strength,Close,400,1,1
+mt_626315090,Nearest 100,strength,Close,100,1,1
+mt_979812483,Unlimited,combined,Close,7427,1,1
+mt_979812483,Nearest 400,combined,Close,400,1,1
+mt_979812483,Nearest 100,combined,Close,100,1,1
+mt_979812483,Unlimited,strength,Close,4682,1,1
+mt_979812483,Nearest 400,strength,Close,400,1,1
+mt_979812483,Nearest 100,strength,Close,100,1,1
+mt_585451977,Unlimited,combined,Close,6252,1,1
+mt_585451977,Nearest 400,combined,Close,400,1,1
+mt_585451977,Nearest 100,combined,Close,100,1,1
+mt_585451977,Unlimited,strength,Close,3561,1,1
+mt_585451977,Nearest 400,strength,Close,400,1,1
+mt_585451977,Nearest 100,strength,Close,100,1,1
+mt_838372925,Unlimited,combined,Close,6539,1,1
+mt_838372925,Nearest 400,combined,Close,400,1,1
+mt_838372925,Nearest 100,combined,Close,100,1,1
+mt_838372925,Unlimited,strength,Close,4179,1,1
+mt_838372925,Nearest 400,strength,Close,400,1,1
+mt_838372925,Nearest 100,strength,Close,100,1,1
+mt_191615831,Unlimited,combined,Close,5951,1,1
+mt_191615831,Nearest 400,combined,Close,400,1,1
+mt_191615831,Nearest 100,combined,Close,100,1,1
+mt_191615831,Unlimited,strength,Close,4477,1,1
+mt_191615831,Nearest 400,strength,Close,400,1,1
+mt_191615831,Nearest 100,strength,Close,100,1,1
+mt_642098643,Unlimited,combined,Close,6544,1,1
+mt_642098643,Nearest 400,combined,Close,400,1,1
+mt_642098643,Nearest 100,combined,Close,100,1,1
+mt_642098643,Unlimited,strength,Close,5059,1,1
+mt_642098643,Nearest 400,strength,Close,400,1,1
+mt_642098643,Nearest 100,strength,Close,100,1,1
+mt_363137401,Unlimited,combined,Close,5934,1,1
+mt_363137401,Nearest 400,combined,Close,400,1,1
+mt_363137401,Nearest 100,combined,Close,100,1,1
+mt_363137401,Unlimited,strength,Close,3462,1,1
+mt_363137401,Nearest 400,strength,Close,400,1,1
+mt_363137401,Nearest 100,strength,Close,100,1,1
+mt_987320916,Unlimited,combined,Close,4123,1,1
+mt_987320916,Nearest 400,combined,Close,400,1,1
+mt_987320916,Nearest 100,combined,Close,100,1,1
+mt_987320916,Unlimited,strength,Close,3436,1,1
+mt_987320916,Nearest 400,strength,Close,400,1,1
+mt_987320916,Nearest 100,strength,Close,100,1,1
+mt_838555644,Unlimited,combined,Close,7266,1,1
+mt_838555644,Nearest 400,combined,Close,400,1,1
+mt_838555644,Nearest 100,combined,Close,100,1,1
+mt_838555644,Unlimited,strength,Close,4538,1,1
+mt_838555644,Nearest 400,strength,Close,400,1,1
+mt_838555644,Nearest 100,strength,Close,100,1,1
+mt_252079622,Unlimited,combined,Close,1884,1,1
+mt_252079622,Nearest 400,combined,Close,400,1,1
+mt_252079622,Nearest 100,combined,Close,100,1,1
+mt_252079622,Unlimited,strength,Close,1000,1,1
+mt_252079622,Nearest 400,strength,Close,400,1,1
+mt_252079622,Nearest 100,strength,Close,100,1,1
+mt_010489555,Unlimited,combined,Close,3770,1,1
+mt_010489555,Nearest 400,combined,Close,400,1,1
+mt_010489555,Nearest 100,combined,Close,100,1,1
+mt_010489555,Unlimited,strength,Close,1879,1,1
+mt_010489555,Nearest 400,strength,Close,400,1,1
+mt_010489555,Nearest 100,strength,Close,100,1,1
+mt_404777809,Unlimited,combined,Close,1071,1,1
+mt_404777809,Nearest 400,combined,Close,400,1,1
+mt_404777809,Nearest 100,combined,Close,100,1,1
+mt_404777809,Unlimited,strength,Close,846,1,1
+mt_404777809,Nearest 400,strength,Close,400,1,1
+mt_404777809,Nearest 100,strength,Close,100,1,1
+mt_979111147,Unlimited,combined,Close,6498,1,1
+mt_979111147,Nearest 400,combined,Close,400,1,1
+mt_979111147,Nearest 100,combined,Close,100,1,1
+mt_979111147,Unlimited,strength,Close,4759,1,1
+mt_979111147,Nearest 400,strength,Close,400,1,1
+mt_979111147,Nearest 100,strength,Close,100,1,1
+mt_466982674,Unlimited,combined,Close,2380,1,1
+mt_466982674,Nearest 400,combined,Close,400,1,1
+mt_466982674,Nearest 100,combined,Close,100,1,1
+mt_466982674,Unlimited,strength,Close,1588,1,1
+mt_466982674,Nearest 400,strength,Close,400,1,1
+mt_466982674,Nearest 100,strength,Close,100,1,1
+mt_191818689,Unlimited,combined,Close,5184,1,1
+mt_191818689,Nearest 400,combined,Close,400,1,1
+mt_191818689,Nearest 100,combined,Close,100,1,1
+mt_191818689,Unlimited,strength,Close,2718,1,1
+mt_191818689,Nearest 400,strength,Close,400,1,1
+mt_191818689,Nearest 100,strength,Close,100,1,1
+mt_022735257,Unlimited,combined,Close,6409,1,1
+mt_022735257,Nearest 400,combined,Close,400,1,1
+mt_022735257,Nearest 100,combined,Close,100,1,1
+mt_022735257,Unlimited,strength,Close,4276,1,1
+mt_022735257,Nearest 400,strength,Close,400,1,1
+mt_022735257,Nearest 100,strength,Close,100,1,1
+mt_404777402,Unlimited,combined,Close,1676,1,1
+mt_404777402,Nearest 400,combined,Close,400,1,1
+mt_404777402,Nearest 100,combined,Close,100,1,1
+mt_404777402,Unlimited,strength,Close,856,1,1
+mt_404777402,Nearest 400,strength,Close,400,1,1
+mt_404777402,Nearest 100,strength,Close,100,1,1
+mt_747917034,Unlimited,combined,Close,6756,1,1
+mt_747917034,Nearest 400,combined,Close,400,1,1
+mt_747917034,Nearest 100,combined,Close,100,1,1
+mt_747917034,Unlimited,strength,Close,5103,1,1
+mt_747917034,Nearest 400,strength,Close,400,1,1
+mt_747917034,Nearest 100,strength,Close,100,1,1
+mt_252079611,Unlimited,combined,Close,6370,1,1
+mt_252079611,Nearest 400,combined,Close,400,1,1
+mt_252079611,Nearest 100,combined,Close,100,1,1
+mt_252079611,Unlimited,strength,Close,4393,1,1
+mt_252079611,Nearest 400,strength,Close,400,1,1
+mt_252079611,Nearest 100,strength,Close,100,1,1
+mt_747573691,Unlimited,combined,Close,4166,1,1
+mt_747573691,Nearest 400,combined,Close,400,1,1
+mt_747573691,Nearest 100,combined,Close,100,1,1
+mt_747573691,Unlimited,strength,Close,2915,1,1
+mt_747573691,Nearest 400,strength,Close,400,1,1
+mt_747573691,Nearest 100,strength,Close,100,1,1
+mt_838550248,Unlimited,combined,Close,5624,1,1
+mt_838550248,Nearest 400,combined,Close,400,1,1
+mt_838550248,Nearest 100,combined,Close,100,1,1
+mt_838550248,Unlimited,strength,Close,3737,1,1
+mt_838550248,Nearest 400,strength,Close,400,1,1
+mt_838550248,Nearest 100,strength,Close,100,1,1
+mt_644890402,Unlimited,combined,Close,5900,1,1
+mt_644890402,Nearest 400,combined,Close,400,1,1
+mt_644890402,Nearest 100,combined,Close,100,1,1
+mt_644890402,Unlimited,strength,Close,3358,1,1
+mt_644890402,Nearest 400,strength,Close,400,1,1
+mt_644890402,Nearest 100,strength,Close,100,1,1
+mt_363788656,Unlimited,combined,Close,7657,1,1
+mt_363788656,Nearest 400,combined,Close,400,1,1
+mt_363788656,Nearest 100,combined,Close,100,1,1
+mt_363788656,Unlimited,strength,Close,4944,1,1
+mt_363788656,Nearest 400,strength,Close,400,1,1
+mt_363788656,Nearest 100,strength,Close,100,1,1
+mt_747406147,Unlimited,combined,Close,2958,1,1
+mt_747406147,Nearest 400,combined,Close,400,1,1
+mt_747406147,Nearest 100,combined,Close,100,1,1
+mt_747406147,Unlimited,strength,Close,1497,1,1
+mt_747406147,Nearest 400,strength,Close,400,1,1
+mt_747406147,Nearest 100,strength,Close,100,1,1
+mt_404685896,Unlimited,combined,Close,5345,1,1
+mt_404685896,Nearest 400,combined,Close,400,1,1
+mt_404685896,Nearest 100,combined,Close,100,1,1
+mt_404685896,Unlimited,strength,Close,3070,1,1
+mt_404685896,Nearest 400,strength,Close,400,1,1
+mt_404685896,Nearest 100,strength,Close,100,1,1
+mt_466982619,Unlimited,combined,Close,3533,1,1
+mt_466982619,Nearest 400,combined,Close,400,1,1
+mt_466982619,Nearest 100,combined,Close,100,1,1
+mt_466982619,Unlimited,strength,Close,1902,1,1
+mt_466982619,Nearest 400,strength,Close,400,1,1
+mt_466982619,Nearest 100,strength,Close,100,1,1
+mt_252213795,Unlimited,combined,Close,4674,1,1
+mt_252213795,Nearest 400,combined,Close,400,1,1
+mt_252213795,Nearest 100,combined,Close,100,1,1
+mt_252213795,Unlimited,strength,Close,3296,1,1
+mt_252213795,Nearest 400,strength,Close,400,1,1
+mt_252213795,Nearest 100,strength,Close,100,1,1
+mt_979163797,Unlimited,combined,Close,4444,1,1
+mt_979163797,Nearest 400,combined,Close,400,1,1
+mt_979163797,Nearest 100,combined,Close,100,1,1
+mt_979163797,Unlimited,strength,Close,3078,1,1
+mt_979163797,Nearest 400,strength,Close,400,1,1
+mt_979163797,Nearest 100,strength,Close,100,1,1
+mt_363806640,Unlimited,combined,Close,3861,1,1
+mt_363806640,Nearest 400,combined,Close,400,1,1
+mt_363806640,Nearest 100,combined,Close,100,1,1
+mt_363806640,Unlimited,strength,Close,3260,1,1
+mt_363806640,Nearest 400,strength,Close,400,1,1
+mt_363806640,Nearest 100,strength,Close,100,1,1
+mt_626491351,Unlimited,combined,Close,3739,1,1
+mt_626491351,Nearest 400,combined,Close,400,1,1
+mt_626491351,Nearest 100,combined,Close,100,1,1
+mt_626491351,Unlimited,strength,Close,2914,1,1
+mt_626491351,Nearest 400,strength,Close,400,1,1
+mt_626491351,Nearest 100,strength,Close,100,1,1
+mt_377685036,Unlimited,combined,Close,6391,1,1
+mt_377685036,Nearest 400,combined,Close,400,1,1
+mt_377685036,Nearest 100,combined,Close,100,1,1
+mt_377685036,Unlimited,strength,Close,4446,1,1
+mt_377685036,Nearest 400,strength,Close,400,1,1
+mt_377685036,Nearest 100,strength,Close,100,1,1
+mt_585224877,Unlimited,combined,Close,6891,1,1
+mt_585224877,Nearest 400,combined,Close,400,1,1
+mt_585224877,Nearest 100,combined,Close,100,1,1
+mt_585224877,Unlimited,strength,Close,3880,1,1
+mt_585224877,Nearest 400,strength,Close,400,1,1
+mt_585224877,Nearest 100,strength,Close,100,1,1
+mt_363624583,Unlimited,combined,Close,5357,1,1
+mt_363624583,Nearest 400,combined,Close,400,1,1
+mt_363624583,Nearest 100,combined,Close,100,1,1
+mt_363624583,Unlimited,strength,Close,3297,1,1
+mt_363624583,Nearest 400,strength,Close,400,1,1
+mt_363624583,Nearest 100,strength,Close,100,1,1
+mt_899727987,Unlimited,combined,Close,1257,1,1
+mt_899727987,Nearest 400,combined,Close,400,1,1
+mt_899727987,Nearest 100,combined,Close,100,1,1
+mt_899727987,Unlimited,strength,Moderate,887,1,1
+mt_899727987,Nearest 400,strength,Moderate,400,1,1
+mt_899727987,Nearest 100,strength,Moderate,100,1,1
+mt_644080294,Unlimited,combined,Close,963,1,1
+mt_644080294,Nearest 400,combined,Close,400,1,1
+mt_644080294,Nearest 100,combined,Close,100,1,1
+mt_644080294,Unlimited,strength,Close,207,1,1
+mt_644080294,Nearest 400,strength,Close,207,1,1
+mt_644080294,Nearest 100,strength,Close,100,1,1
+mt_733047365,Unlimited,combined,Close,1566,1,1
+mt_733047365,Nearest 400,combined,Close,400,1,1
+mt_733047365,Nearest 100,combined,Close,100,1,1
+mt_733047365,Unlimited,strength,Close,149,1,1
+mt_733047365,Nearest 400,strength,Close,149,1,1
+mt_733047365,Nearest 100,strength,Close,100,1,1
+mt_155144199,Unlimited,combined,Close,4177,1,1
+mt_155144199,Nearest 400,combined,Close,400,1,1
+mt_155144199,Nearest 100,combined,Close,100,1,1
+mt_155144199,Unlimited,strength,Close,1117,1,1
+mt_155144199,Nearest 400,strength,Close,400,1,1
+mt_155144199,Nearest 100,strength,Close,100,1,1
+mt_377405071,Unlimited,combined,Close,600,1,1
+mt_377405071,Nearest 400,combined,Close,400,1,1
+mt_377405071,Nearest 100,combined,Close,100,1,1
+mt_377405071,Unlimited,strength,Moderate,487,1,1
+mt_377405071,Nearest 400,strength,Moderate,400,1,1
+mt_377405071,Nearest 100,strength,Moderate,100,1,1
+mt_899632959,Unlimited,combined,Moderate,2481,1,1
+mt_899632959,Nearest 400,combined,Moderate,400,1,1
+mt_899632959,Nearest 100,combined,Moderate,100,1,1
+mt_899632959,Unlimited,strength,Broad,117,1,1
+mt_899632959,Nearest 400,strength,Broad,117,1,1
+mt_899632959,Nearest 100,strength,Broad,100,1,1
+mt_511969898,Unlimited,combined,Close,2272,1,1
+mt_511969898,Nearest 400,combined,Close,400,1,1
+mt_511969898,Nearest 100,combined,Close,100,1,1
+mt_511969898,Unlimited,strength,Close,449,1,1
+mt_511969898,Nearest 400,strength,Close,400,1,1
+mt_511969898,Nearest 100,strength,Close,100,1,1
+mt_022531425,Unlimited,combined,Close,4709,1,1
+mt_022531425,Nearest 400,combined,Close,400,1,1
+mt_022531425,Nearest 100,combined,Close,100,1,1
+mt_022531425,Unlimited,strength,Close,1440,1,1
+mt_022531425,Nearest 400,strength,Close,400,1,1
+mt_022531425,Nearest 100,strength,Close,100,1,1
+mt_466109610,Unlimited,combined,Close,3664,1,1
+mt_466109610,Nearest 400,combined,Close,400,1,1
+mt_466109610,Nearest 100,combined,Close,100,1,1
+mt_466109610,Unlimited,strength,Close,1089,1,1
+mt_466109610,Nearest 400,strength,Close,400,1,1
+mt_466109610,Nearest 100,strength,Close,100,1,1
+mt_200251095,Unlimited,combined,Moderate,553,1,1
+mt_200251095,Nearest 400,combined,Moderate,400,1,1
+mt_200251095,Nearest 100,combined,Moderate,100,1,1
+mt_200251095,Unlimited,strength,Broad,49,1,0
+mt_200251095,Nearest 400,strength,Broad,49,1,0
+mt_200251095,Nearest 100,strength,Broad,49,1,0
+mt_733561633,Unlimited,combined,Moderate,4702,1,1
+mt_733561633,Nearest 400,combined,Moderate,400,1,1
+mt_733561633,Nearest 100,combined,Moderate,100,1,1
+mt_733561633,Unlimited,strength,Broad,112,1,1
+mt_733561633,Nearest 400,strength,Broad,112,1,1
+mt_733561633,Nearest 100,strength,Broad,100,1,1
+mt_200131529,Unlimited,combined,Close,425,1,1
+mt_200131529,Nearest 400,combined,Close,400,1,1
+mt_200131529,Nearest 100,combined,Close,100,1,1
+mt_200131529,Unlimited,strength,Moderate,394,1,1
+mt_200131529,Nearest 400,strength,Moderate,394,1,1
+mt_200131529,Nearest 100,strength,Moderate,100,1,1
+mt_988303797,Unlimited,combined,Close,6020,1,1
+mt_988303797,Nearest 400,combined,Close,400,1,1
+mt_988303797,Nearest 100,combined,Close,100,1,1
+mt_988303797,Unlimited,strength,Close,2131,1,1
+mt_988303797,Nearest 400,strength,Close,400,1,1
+mt_988303797,Nearest 100,strength,Close,100,1,1
+mt_644094122,Unlimited,combined,Close,6689,1,1
+mt_644094122,Nearest 400,combined,Close,400,1,1
+mt_644094122,Nearest 100,combined,Close,100,1,1
+mt_644094122,Unlimited,strength,Close,2174,1,1
+mt_644094122,Nearest 400,strength,Close,400,1,1
+mt_644094122,Nearest 100,strength,Close,100,1,1
+mt_200170902,Unlimited,combined,Close,6029,1,1
+mt_200170902,Nearest 400,combined,Close,400,1,1
+mt_200170902,Nearest 100,combined,Close,100,1,1
+mt_200170902,Unlimited,strength,Close,2298,1,1
+mt_200170902,Nearest 400,strength,Close,400,1,1
+mt_200170902,Nearest 100,strength,Close,100,1,1
+mt_644018526,Unlimited,combined,Close,2146,1,1
+mt_644018526,Nearest 400,combined,Close,400,1,1
+mt_644018526,Nearest 100,combined,Close,100,1,1
+mt_644018526,Unlimited,strength,Close,577,1,1
+mt_644018526,Nearest 400,strength,Close,400,1,1
+mt_644018526,Nearest 100,strength,Close,100,1,1
+mt_155848543,Unlimited,combined,Close,826,1,1
+mt_155848543,Nearest 400,combined,Close,400,1,1
+mt_155848543,Nearest 100,combined,Close,100,1,1
+mt_155848543,Unlimited,strength,Close,295,1,1
+mt_155848543,Nearest 400,strength,Close,295,1,1
+mt_155848543,Nearest 100,strength,Close,100,1,1
+mt_988900949,Unlimited,combined,Close,7399,1,1
+mt_988900949,Nearest 400,combined,Close,400,1,1
+mt_988900949,Nearest 100,combined,Close,100,1,1
+mt_988900949,Unlimited,strength,Close,4412,1,1
+mt_988900949,Nearest 400,strength,Close,400,1,1
+mt_988900949,Nearest 100,strength,Close,100,1,1
+mt_466499420,Unlimited,combined,Close,5852,1,1
+mt_466499420,Nearest 400,combined,Close,400,1,1
+mt_466499420,Nearest 100,combined,Close,100,1,1
+mt_466499420,Unlimited,strength,Close,2612,1,1
+mt_466499420,Nearest 400,strength,Close,400,1,1
+mt_466499420,Nearest 100,strength,Close,100,1,1
+mt_022917202,Unlimited,combined,Close,4282,1,1
+mt_022917202,Nearest 400,combined,Close,400,1,1
+mt_022917202,Nearest 100,combined,Close,100,1,1
+mt_022917202,Unlimited,strength,Close,2153,1,1
+mt_022917202,Nearest 400,strength,Close,400,1,1
+mt_022917202,Nearest 100,strength,Close,100,1,1
+mt_466292691,Unlimited,combined,Close,2248,1,1
+mt_466292691,Nearest 400,combined,Close,400,1,1
+mt_466292691,Nearest 100,combined,Close,100,1,1
+mt_466292691,Unlimited,strength,Close,916,1,1
+mt_466292691,Nearest 400,strength,Close,400,1,1
+mt_466292691,Nearest 100,strength,Close,100,1,1
+mt_899727532,Unlimited,combined,Close,2553,1,1
+mt_899727532,Nearest 400,combined,Close,400,1,1
+mt_899727532,Nearest 100,combined,Close,100,1,1
+mt_899727532,Unlimited,strength,Close,626,1,1
+mt_899727532,Nearest 400,strength,Close,400,1,1
+mt_899727532,Nearest 100,strength,Close,100,1,1
+mt_511496936,Unlimited,combined,Close,5216,1,1
+mt_511496936,Nearest 400,combined,Close,400,1,1
+mt_511496936,Nearest 100,combined,Close,100,1,1
+mt_511496936,Unlimited,strength,Close,2783,1,1
+mt_511496936,Nearest 400,strength,Close,400,1,1
+mt_511496936,Nearest 100,strength,Close,100,1,1
+mt_988360482,Unlimited,combined,Close,5845,1,1
+mt_988360482,Nearest 400,combined,Close,400,1,1
+mt_988360482,Nearest 100,combined,Close,100,1,1
+mt_988360482,Unlimited,strength,Close,2334,1,1
+mt_988360482,Nearest 400,strength,Close,400,1,1
+mt_988360482,Nearest 100,strength,Close,100,1,1
+mt_200175799,Unlimited,combined,Close,5136,1,1
+mt_200175799,Nearest 400,combined,Close,400,1,1
+mt_200175799,Nearest 100,combined,Close,100,1,1
+mt_200175799,Unlimited,strength,Close,2532,1,1
+mt_200175799,Nearest 400,strength,Close,400,1,1
+mt_200175799,Nearest 100,strength,Close,100,1,1
+mt_644092951,Unlimited,combined,Close,7284,1,1
+mt_644092951,Nearest 400,combined,Close,400,1,1
+mt_644092951,Nearest 100,combined,Close,100,1,1
+mt_644092951,Unlimited,strength,Close,4444,1,1
+mt_644092951,Nearest 400,strength,Close,400,1,1
+mt_644092951,Nearest 100,strength,Close,100,1,1
+mt_988230330,Unlimited,combined,Close,2758,1,1
+mt_988230330,Nearest 400,combined,Close,400,1,1
+mt_988230330,Nearest 100,combined,Close,100,1,1
+mt_988230330,Unlimited,strength,Close,565,1,1
+mt_988230330,Nearest 400,strength,Close,400,1,1
+mt_988230330,Nearest 100,strength,Close,100,1,1
+mt_377426522,Unlimited,combined,Close,396,1,1
+mt_377426522,Nearest 400,combined,Close,396,1,1
+mt_377426522,Nearest 100,combined,Close,100,1,1
+mt_377426522,Unlimited,strength,Moderate,456,1,1
+mt_377426522,Nearest 400,strength,Moderate,400,1,1
+mt_377426522,Nearest 100,strength,Moderate,100,1,1
+mt_022032248,Unlimited,combined,Close,6974,1,1
+mt_022032248,Nearest 400,combined,Close,400,1,1
+mt_022032248,Nearest 100,combined,Close,100,1,1
+mt_022032248,Unlimited,strength,Close,3780,1,1
+mt_022032248,Nearest 400,strength,Close,400,1,1
+mt_022032248,Nearest 100,strength,Close,100,1,1
+mt_155869110,Unlimited,combined,Close,6950,1,1
+mt_155869110,Nearest 400,combined,Close,400,1,1
+mt_155869110,Nearest 100,combined,Close,100,1,1
+mt_155869110,Unlimited,strength,Close,4223,1,1
+mt_155869110,Nearest 400,strength,Close,400,1,1
+mt_155869110,Nearest 100,strength,Close,100,1,1
+mt_466255907,Unlimited,combined,Close,4677,1,1
+mt_466255907,Nearest 400,combined,Close,400,1,1
+mt_466255907,Nearest 100,combined,Close,100,1,1
+mt_466255907,Unlimited,strength,Close,2257,1,1
+mt_466255907,Nearest 400,strength,Close,400,1,1
+mt_466255907,Nearest 100,strength,Close,100,1,1
+mt_899744237,Unlimited,combined,Close,6065,1,1
+mt_899744237,Nearest 400,combined,Close,400,1,1
+mt_899744237,Nearest 100,combined,Close,100,1,1
+mt_899744237,Unlimited,strength,Close,3397,1,1
+mt_899744237,Nearest 400,strength,Close,400,1,1
+mt_899744237,Nearest 100,strength,Close,100,1,1
+mt_466104772,Unlimited,combined,Close,1471,1,1
+mt_466104772,Nearest 400,combined,Close,400,1,1
+mt_466104772,Nearest 100,combined,Close,100,1,1
+mt_466104772,Unlimited,strength,Close,855,1,1
+mt_466104772,Nearest 400,strength,Close,400,1,1
+mt_466104772,Nearest 100,strength,Close,100,1,1
+mt_156043981,Unlimited,combined,Close,7256,1,1
+mt_156043981,Nearest 400,combined,Close,400,1,1
+mt_156043981,Nearest 100,combined,Close,100,1,1
+mt_156043981,Unlimited,strength,Close,4854,1,1
+mt_156043981,Nearest 400,strength,Close,400,1,1
+mt_156043981,Nearest 100,strength,Close,100,1,1
+mt_022588724,Unlimited,combined,Close,4398,1,1
+mt_022588724,Nearest 400,combined,Close,400,1,1
+mt_022588724,Nearest 100,combined,Close,100,1,1
+mt_022588724,Unlimited,strength,Close,2167,1,1
+mt_022588724,Nearest 400,strength,Close,400,1,1
+mt_022588724,Nearest 100,strength,Close,100,1,1
+mt_466286955,Unlimited,combined,Close,7256,1,1
+mt_466286955,Nearest 400,combined,Close,400,1,1
+mt_466286955,Nearest 100,combined,Close,100,1,1
+mt_466286955,Unlimited,strength,Close,5400,1,1
+mt_466286955,Nearest 400,strength,Close,400,1,1
+mt_466286955,Nearest 100,strength,Close,100,1,1
+mt_899709245,Unlimited,combined,Close,5695,1,1
+mt_899709245,Nearest 400,combined,Close,400,1,1
+mt_899709245,Nearest 100,combined,Close,100,1,1
+mt_899709245,Unlimited,strength,Close,2818,1,1
+mt_899709245,Nearest 400,strength,Close,400,1,1
+mt_899709245,Nearest 100,strength,Close,100,1,1
+mt_200231607,Unlimited,combined,Close,5529,1,1
+mt_200231607,Nearest 400,combined,Close,400,1,1
+mt_200231607,Nearest 100,combined,Close,100,1,1
+mt_200231607,Unlimited,strength,Close,4599,1,1
+mt_200231607,Nearest 400,strength,Close,400,1,1
+mt_200231607,Nearest 100,strength,Close,100,1,1
+mt_733622191,Unlimited,combined,Close,5987,1,1
+mt_733622191,Nearest 400,combined,Close,400,1,1
+mt_733622191,Nearest 100,combined,Close,100,1,1
+mt_733622191,Unlimited,strength,Close,4391,1,1
+mt_733622191,Nearest 400,strength,Close,400,1,1
+mt_733622191,Nearest 100,strength,Close,100,1,1
+mt_155684133,Unlimited,combined,Close,2887,1,1
+mt_155684133,Nearest 400,combined,Close,400,1,1
+mt_155684133,Nearest 100,combined,Close,100,1,1
+mt_155684133,Unlimited,strength,Close,909,1,1
+mt_155684133,Nearest 400,strength,Close,400,1,1
+mt_155684133,Nearest 100,strength,Close,100,1,1
+mt_899632594,Unlimited,combined,Close,4132,1,1
+mt_899632594,Nearest 400,combined,Close,400,1,1
+mt_899632594,Nearest 100,combined,Close,100,1,1
+mt_899632594,Unlimited,strength,Close,3459,1,1
+mt_899632594,Nearest 400,strength,Close,400,1,1
+mt_899632594,Nearest 100,strength,Close,100,1,1
+mt_377354886,Unlimited,combined,Close,3293,1,1
+mt_377354886,Nearest 400,combined,Close,400,1,1
+mt_377354886,Nearest 100,combined,Close,100,1,1
+mt_377354886,Unlimited,strength,Close,928,1,1
+mt_377354886,Nearest 400,strength,Close,400,1,1
+mt_377354886,Nearest 100,strength,Close,100,1,1
+mt_644680392,Unlimited,combined,Close,2219,1,1
+mt_644680392,Nearest 400,combined,Close,400,1,1
+mt_644680392,Nearest 100,combined,Close,100,1,1
+mt_644680392,Unlimited,strength,Close,1462,1,1
+mt_644680392,Nearest 400,strength,Close,400,1,1
+mt_644680392,Nearest 100,strength,Close,100,1,1
+mt_155165561,Unlimited,combined,Close,7007,1,1
+mt_155165561,Nearest 400,combined,Close,400,1,1
+mt_155165561,Nearest 100,combined,Close,100,1,1
+mt_155165561,Unlimited,strength,Close,4393,1,1
+mt_155165561,Nearest 400,strength,Close,400,1,1
+mt_155165561,Nearest 100,strength,Close,100,1,1
+mt_733753356,Unlimited,combined,Close,4885,1,1
+mt_733753356,Nearest 400,combined,Close,400,1,1
+mt_733753356,Nearest 100,combined,Close,100,1,1
+mt_733753356,Unlimited,strength,Close,2389,1,1
+mt_733753356,Nearest 400,strength,Close,400,1,1
+mt_733753356,Nearest 100,strength,Close,100,1,1
+mt_022532742,Unlimited,combined,Close,5914,1,1
+mt_022532742,Nearest 400,combined,Close,400,1,1
+mt_022532742,Nearest 100,combined,Close,100,1,1
+mt_022532742,Unlimited,strength,Close,3946,1,1
+mt_022532742,Nearest 400,strength,Close,400,1,1
+mt_022532742,Nearest 100,strength,Close,100,1,1
+mt_466210701,Unlimited,combined,Close,4609,1,1
+mt_466210701,Nearest 400,combined,Close,400,1,1
+mt_466210701,Nearest 100,combined,Close,100,1,1
+mt_466210701,Unlimited,strength,Close,4388,1,1
+mt_466210701,Nearest 400,strength,Close,400,1,1
+mt_466210701,Nearest 100,strength,Close,100,1,1
+mt_377400525,Unlimited,combined,Close,8045,1,1
+mt_377400525,Nearest 400,combined,Close,400,1,1
+mt_377400525,Nearest 100,combined,Close,100,1,1
+mt_377400525,Unlimited,strength,Close,5093,1,1
+mt_377400525,Nearest 400,strength,Close,400,1,1
+mt_377400525,Nearest 100,strength,Close,100,1,1
+mt_644680354,Unlimited,combined,Close,6163,1,1
+mt_644680354,Nearest 400,combined,Close,400,1,1
+mt_644680354,Nearest 100,combined,Close,100,1,1
+mt_644680354,Unlimited,strength,Close,3040,1,1
+mt_644680354,Nearest 400,strength,Close,400,1,1
+mt_644680354,Nearest 100,strength,Close,100,1,1
+mt_155148078,Unlimited,combined,Close,4780,1,1
+mt_155148078,Nearest 400,combined,Close,400,1,1
+mt_155148078,Nearest 100,combined,Close,100,1,1
+mt_155148078,Unlimited,strength,Close,4323,1,1
+mt_155148078,Nearest 400,strength,Close,400,1,1
+mt_155148078,Nearest 100,strength,Close,100,1,1
+mt_511589161,Unlimited,combined,Close,1705,1,1
+mt_511589161,Nearest 400,combined,Close,400,1,1
+mt_511589161,Nearest 100,combined,Close,100,1,1
+mt_511589161,Unlimited,strength,Close,648,1,1
+mt_511589161,Nearest 400,strength,Close,400,1,1
+mt_511589161,Nearest 100,strength,Close,100,1,1
+mt_988928837,Unlimited,combined,Close,3596,1,1
+mt_988928837,Nearest 400,combined,Close,400,1,1
+mt_988928837,Nearest 100,combined,Close,100,1,1
+mt_988928837,Unlimited,strength,Close,1648,1,1
+mt_988928837,Nearest 400,strength,Close,400,1,1
+mt_988928837,Nearest 100,strength,Close,100,1,1
