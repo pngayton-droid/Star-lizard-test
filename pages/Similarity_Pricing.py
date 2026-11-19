@@ -126,8 +126,8 @@ def features():
             hg,ag=float(r.home_goals),float(r.away_goals)
             for team,gf,ga in [(r.home_team,hg,ag),(r.away_team,ag,hg)]:
                 v=standings[key][team];v[0]+=1;v[1]+=3 if gf>ga else (1 if gf==ga else 0);v[2]+=gf-ga
-            venue[(r.competition_id,r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else hg))
-            venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
+            venue[(r.competition_id,r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else np.nan))
+            venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else np.nan))
             if pd.notna(r.corners_home) and pd.notna(r.yellows_home):discipline[(r.competition_id,r.home_team,"home")].append((r.corners_home,r.yellows_home))
             if pd.notna(r.corners_away) and pd.notna(r.yellows_away):discipline[(r.competition_id,r.away_team,"away")].append((r.corners_away,r.yellows_away))
     return pd.DataFrame(out)
@@ -204,7 +204,7 @@ def upcoming_target(df,match):
         col="home_team" if side=="home" else "away_team"
         values=current[current[col]==team].sort_values("match_date")[field].dropna().tail(5)
         return float(values.mean()) if len(values)>=3 else np.nan
-    return {"date":day,"league":league,"home":h,"away":a,"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a),"h_corners_form":recent_stat(h,"home","corners_home"),"a_corners_form":recent_stat(a,"away","corners_away"),"h_yellows_form":recent_stat(h,"home","yellows_home"),"a_yellows_form":recent_stat(a,"away","yellows_away")}
+    return {"date":day,"league":league,"home":h,"away":a,"h_xg":recent_stat(h,"home","home_xg"),"a_xg":recent_stat(a,"away","away_xg"),"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a),"h_corners_form":recent_stat(h,"home","corners_home"),"a_corners_form":recent_stat(a,"away","corners_away"),"h_yellows_form":recent_stat(h,"home","yellows_home"),"a_yellows_form":recent_stat(a,"away","yellows_away")}
 
 @st.cache_data(ttl=3600,show_spinner=False)
 def historical_opening_prices():
@@ -258,6 +258,9 @@ def analogues(df,target,mode,cutoff,max_distance,feature_set="combined"):
         pool["rank_gap"]=(pool.a_rank-pool.h_rank)/pool.league.map(sizes)
         fields["rank_gap"]=0.20
     if feature_set=="combined":
+        # Real pre-match xG form only; missing values are not substituted with goals.
+        if all(pd.notna(target.get(k,np.nan)) for k in ("h_xg","a_xg")):
+            fields.update({"h_xg":0.8,"a_xg":0.8})
         fields.update({"h_corners_form":2.5,"a_corners_form":2.5,"h_yellows_form":1.5,"a_yellows_form":1.5})
     odds_enabled=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
     if odds_enabled and feature_set=="combined":
@@ -483,6 +486,7 @@ for column,team,rank,ppg,gd in ((left,target["home"],target.get("h_rank"),target
         st.caption(f"Position: {int(rank) if pd.notna(rank) else 'N/A'}")
         st.caption(f"PPG: {ppg:.2f} · GD/game: {gd:.2f}")
 st.caption("Historical standings reconstructed from saved results before kick-off. Incomplete league coverage can make positions approximate.")
+st.caption(f"Recent venue xG: home {target.get('h_xg',float('nan')):.2f} · away {target.get('a_xg',float('nan')):.2f} (where available)")
 # Show all bands side by side: a small close sample may still be informative.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
 samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in TIERS}
@@ -490,7 +494,7 @@ match_odds_samples={label:analogues(df,target,mode,target["date"],limit,feature_
 st.subheader("Historical comparison quality")
 st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for _,label in TIERS))
 st.caption("All bands are cumulative. Close matches are included within moderate and broad groups. Distances are exploratory, not calibrated.")
-st.caption("Match odds use league strength (PPG, goal difference and available league position). Goals, corners and cards retain recent-form similarity. Match-odds and other-market samples can differ.")
+st.caption("Match odds use league strength (PPG, goal difference and available league position). Goals, corners and cards use recent form and real xG when available. Missing xG is never replaced with goals. Samples can differ.")
 default_band=next((label for _,label in TIERS if len(samples[label])>=30),next((label for _,label in TIERS if len(samples[label])>0),"Close"))
 selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=["Close","Moderate","Broad"].index(default_band))
 matches=samples[selected]
