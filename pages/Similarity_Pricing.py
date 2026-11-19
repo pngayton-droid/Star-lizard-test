@@ -365,8 +365,9 @@ else:
         for _,label in TIERS:
             sample=samples[label]
             if len(sample)==0:continue
-            for market,rate in market_results(sample,mode).items():
-                rows.append({"Market":market,"Band":label,"Games":len(sample),"Hit rate":f"{rate:.1%}","Fair odds":f"{1/rate:.2f}" if rate else "—"})
+            for market,(wins,count) in market_results(sample,mode).items():
+                rate=wins/count if count else 0
+                rows.append({"Market":market,"Band":label,"Games":count,"Hit rate":f"{rate:.1%}" if count else "—","Fair odds":f"{1/rate:.2f}" if wins else "—"})
         st.dataframe(pd.DataFrame(rows),hide_index=True,use_container_width=True)
     with st.expander("Inspect qualifying historical fixtures"):
         st.dataframe(matches[["date","home","away","ht_h","ht_a","hg","ag","distance"]],hide_index=True,use_container_width=True)
