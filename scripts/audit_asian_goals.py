@@ -159,3 +159,43 @@ bf.groupby(["period","line","side","extreme_up"]).agg(
 bf[bf.extreme_up].sort_values("price_ratio_to_open",ascending=False).to_csv("research_results/asian_goals_betfair_extreme_quotes.csv",index=False)
 print("BETFAIR EXTREME",len(bf[bf.extreme_up]),"MATCHES",bf.loc[bf.extreme_up,"match_id"].nunique(),flush=True)
 print(bf.groupby(["side","extreme_up"]).size().to_string(),flush=True)
+
+# Conservative, non-destructive Betfair quote checks. These flags apply to
+# research outputs only; original bookmaker payloads remain untouched.
+quote_pairs=audit.copy()
+quote_pairs["suspect_opening"]=((quote_pairs.bookmaker=="Betfair Exchange")&
+ quote_pairs.opening_price.notna()&
+ ((quote_pairs.price_ratio_to_open>2)|(quote_pairs.price_ratio_to_open<.5)))
+quote_pairs["opening_usable"]=quote_pairs.opening_price.notna()&~quote_pairs.suspect_opening
+quote_pairs[quote_pairs.suspect_opening].to_csv("research_results/asian_goals_flagged_betfair_openings.csv",index=False)
+# Independently compare last-seen Betfair prices with other bookmakers
+# on precisely matching fixture, total line and side, regardless of model selection.
+last=df[df.phase=="last_seen"].copy()
+peer=last[last.bookmaker!="Betfair Exchange"].groupby(
+ ["match_id","line","side"]).agg(
+ peer_count=("bookmaker","nunique"),peer_median=("price","median"),
+ peer_min=("price","min"),peer_max=("price","max")
+).reset_index()
+bf_last=last[last.bookmaker=="Betfair Exchange"].merge(
+ peer,on=["match_id","line","side"],how="left")
+bf_last["relative_to_peer_median"]=bf_last.price/bf_last.peer_median
+bf_last["above_peer_max_pct"]=(bf_last.price/bf_last.peer_max-1)*100
+bf_last["peer_price_outlier"]=((bf_last.peer_count>=1)&
+ ((bf_last.relative_to_peer_median>1.25)|(bf_last.relative_to_peer_median<.8)))
+bf_last.to_csv("research_results/asian_goals_betfair_peer_quotes.csv",index=False)
+bf_last.groupby(["period","side"]).agg(
+ quotes=("match_id","size"),peer_matched=("peer_median","count"),
+ peer_outliers=("peer_price_outlier","sum"),
+ median_relative_price=("relative_to_peer_median","median"),
+ median_above_peer_max_pct=("above_peer_max_pct","median")
+).reset_index().to_csv("research_results/asian_goals_betfair_peer_summary.csv",index=False)
+# Bet365-anchored, exactly matched under selections. Compare returns with and
+# without anomalous Betfair-vs-peer quotes, preserving all raw observations.
+selected_bf=bf_last.merge(anchor[["match_id","line","period"]],on=["match_id","line","period"],how="inner")
+selected_bf=selected_bf[(selected_bf.side=="under")&(selected_bf.price.between(1.5,3.0))]
+selected_bf["price_usable_for_research"]=~selected_bf.peer_price_outlier & selected_bf.peer_median.notna()
+selected_bf.to_csv("research_results/asian_goals_betfair_selected_quote_checks.csv",index=False)
+selected_bf.groupby(["period","price_usable_for_research"]).apply(summarize,include_groups=False).reset_index().to_csv(
+ "research_results/asian_goals_betfair_selected_quote_quality_roi.csv",index=False)
+print("BETFAIR PEER SUMMARY",flush=True)
+print(pd.read_csv("research_results/asian_goals_betfair_peer_summary.csv").to_string(index=False),flush=True)
