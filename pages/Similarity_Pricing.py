@@ -53,7 +53,7 @@ def features():
             hs=standings[key][h];ass=standings[key][a]
             def form(v,index):
                 return float(np.mean([x[index] for x in v])) if len(v)>=3 else np.nan
-            def ppg(s):return 3*s[1]/s[0] if s[0] else np.nan
+            def ppg(s):return s[1]/s[0] if s[0] else np.nan
             def gdpg(s):return s[2]/s[0] if s[0] else np.nan
             def rank(team):
                 if standings[key][team][0]<3:return np.nan
@@ -131,8 +131,19 @@ def upcoming_target(df,match):
         ga="away_goals" if side=="home" else "home_goals"
         return float(recent[gf].mean()),float(recent[ga].mean())
     hp,hgd=strength(h);ap,agd=strength(a)
+    table={}
+    for x in current.itertuples(index=False):
+        for team,gf,ga in ((x.home_team,x.home_goals,x.away_goals),(x.away_team,x.away_goals,x.home_goals)):
+            record=table.setdefault(team,[0,0,0,0])
+            record[0]+=1
+            record[1]+=3 if gf>ga else (1 if gf==ga else 0)
+            record[2]+=gf-ga
+            record[3]+=gf
+    ordered=sorted(table,key=lambda t:(table[t][1],table[t][2],table[t][3]),reverse=True)
+    def position(team):
+        return ordered.index(team)+1 if team in ordered and table[team][0]>=3 else np.nan
     hf,hc=venue(h,"home");af,ac=venue(a,"away")
-    return {"date":day,"league":league,"home":h,"away":a,"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac}
+    return {"date":day,"league":league,"home":h,"away":a,"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a)}
 
 @st.cache_data(ttl=3600,show_spinner=False)
 def historical_opening_prices():
@@ -171,10 +182,16 @@ def analogues(df,target,mode,cutoff,max_distance):
     if mode=="Half-time":
         pool=pool[pool.ht_h.notna()&pool.ht_a.notna()]
         pool=pool[(pool.ht_h==target["ht_h"])&(pool.ht_a==target["ht_a"])]
-    fields={"h_ppg":0.65,"a_ppg":0.65,"h_gdpg":0.5,"a_gdpg":0.5,
+    fields={"h_ppg":0.55,"a_ppg":0.55,"h_gdpg":0.45,"a_gdpg":0.45,
             "h_form":0.8,"a_form":0.8,"h_concede":0.8,"a_concede":0.8}
     if mode=="Half-time":
         fields.update({"ht_xg_h":0.6,"ht_xg_a":0.6})
+    if pd.notna(target.get("h_rank",np.nan)) and pd.notna(target.get("a_rank",np.nan)):
+        sizes=df.groupby("league")["home"].nunique().combine(df.groupby("league")["away"].nunique(),max).clip(lower=2)
+        size=float(sizes.get(target["league"],20))
+        target=dict(target,rank_gap=(target["a_rank"]-target["h_rank"])/size)
+        pool["rank_gap"]=(pool.a_rank-pool.h_rank)/pool.league.map(sizes)
+        fields["rank_gap"]=0.20
     odds_enabled=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
     if odds_enabled:
         pool=pool.dropna(subset=["market_home","market_draw","market_away"])
@@ -275,6 +292,14 @@ if odds_mode:
     st.caption("Odds-aware comparisons: historical bookmaker OPENING 1X2 prices plus pre-match form and league strength.")
 else:
     st.warning("Form-and-league-strength comparisons only. No matching bookmaker opening prices supplied for this fixture; do not treat these as odds-aware prices.")
+st.markdown("#### League strength before kick-off")
+left,right=st.columns(2)
+for column,team,rank,ppg,gd in ((left,target["home"],target.get("h_rank"),target.get("h_ppg"),target.get("h_gdpg")),(right,target["away"],target.get("a_rank"),target.get("a_ppg"),target.get("a_gdpg"))):
+    with column:
+        st.write(f"**{team}**")
+        st.caption(f"Position: {int(rank) if pd.notna(rank) else 'N/A'}")
+        st.caption(f"PPG: {ppg:.2f} · GD/game: {gd:.2f}")
+st.caption("Historical standings reconstructed from saved results before kick-off. Incomplete league coverage can make positions approximate.")
 # Show all bands side by side: a small close sample may still be informative.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
 samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in TIERS}
