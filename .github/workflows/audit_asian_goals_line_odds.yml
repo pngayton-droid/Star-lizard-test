@@ -1,0 +1,24 @@
+name: Asian goals full history line and odds breakdown
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/audit_asian_goals_line_odds.py'
+      - '.github/workflows/audit_asian_goals_line_odds.yml'
+permissions:
+  contents: write
+jobs:
+  breakdown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas
+      - run: python scripts/audit_asian_goals_line_odds.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/asian_goals_line_odds_breakdown.csv
+          git diff --cached --quiet || (git commit -m "Save Asian goals line and odds breakdown" && git push)
