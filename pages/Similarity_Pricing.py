@@ -306,10 +306,64 @@ def score_card(matches,mode):
           "Approx. 95% interval":f"{max(0,p-1.96*math.sqrt(p*(1-p)/count)):.1%}–{min(1,p+1.96*math.sqrt(p*(1-p)/count)):.1%}" if count else "—"})
     return pd.DataFrame(rows)
 
+@st.cache_data(ttl=3600,show_spinner=False)
+def backtest_similarity(data, n=100):
+    """Strict walk-forward evaluation: historical candidates precede each test kickoff."""
+    eligible=data[(data.date>=pd.Timestamp("2025-07-01")) & data.hg.notna() & data.ag.notna() &
+                  data.h_ppg.notna() & data.a_ppg.notna()].sort_values("date")
+    # Evenly spaced chronological test cases, rather than cherry-picked fixtures.
+    if eligible.empty:return pd.DataFrame()
+    selected=eligible.iloc[np.unique(np.linspace(0,len(eligible)-1,min(n,len(eligible)),dtype=int))]
+    outcomes={
+        "Home win":lambda r:r.hg>r.ag,
+        "Draw":lambda r:r.hg==r.ag,
+        "Away win":lambda r:r.hg<r.ag,
+        "Over 2.5 goals":lambda r:r.hg+r.ag>=3,
+        "BTTS Yes":lambda r:r.hg>0 and r.ag>0,
+        "Over 9.5 corners":lambda r:r.corners_home+r.corners_away>9.5,
+        "Over 4.5 yellow cards":lambda r:r.yellows_home+r.yellows_away>4.5,
+    }
+    rows=[]
+    for r in selected.itertuples(index=False):
+        target=r._asdict()
+        for limit,band in ((1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")):
+            sample=analogues(data,target,"Pre-match",r.date,limit)
+            if len(sample)<30:continue
+            stats=market_results(sample,"Pre-match")
+            for market,fn in outcomes.items():
+                if market not in stats:continue
+                if market=="Over 9.5 corners" and (pd.isna(r.corners_home) or pd.isna(r.corners_away)):continue
+                if market=="Over 4.5 yellow cards" and (pd.isna(r.yellows_home) or pd.isna(r.yellows_away)):continue
+                wins,count=stats[market]
+                if count<30:continue
+                p=wins/count
+                actual=int(fn(r))
+                rows.append({"Band":band,"Market":market,"Probability":p,"Actual":actual,
+                             "Squared error":(p-actual)**2,"Absolute error":abs(p-actual)})
+    if not rows:return pd.DataFrame()
+    return pd.DataFrame(rows).groupby(["Band","Market"],as_index=False).agg(
+        Tests=("Actual","size"),Brier=("Squared error","mean"),
+        Mean_abs_error=("Absolute error","mean"),
+        Forecast_rate=("Probability","mean"),Actual_rate=("Actual","mean"))
+
 with st.spinner("Preparing historical features without future-data leakage…"):
     df=attach_opening_prices(features())
 if df.empty:
     st.error("No historical data available.");st.stop()
+with st.expander("🧪 Walk-forward accuracy test (historical matches)"):
+    st.caption("100 evenly spaced completed matches from July 2025 onward. Every prediction uses only earlier matches. Minimum 30 analogues per band; no bookmaker odds required. Lower Brier score is better.")
+    if st.button("Run Match Matrix accuracy test",key="run_matrix_backtest"):
+        with st.spinner("Replaying historical predictions across all three bands…"):
+            report=backtest_similarity(df,100)
+        if report.empty:
+            st.warning("No predictions passed the minimum historical sample requirement.")
+        else:
+            display=report.copy()
+            for field in ("Brier","Mean_abs_error","Forecast_rate","Actual_rate"):
+                display[field]=display[field].round(3)
+            st.dataframe(display,use_container_width=True,hide_index=True)
+            st.caption("This measures probability accuracy, not betting ROI or bookmaker price agreement. Bands with fewer qualifying fixtures have fewer tests.")
+
 st.caption(f"{len(df):,} saved fixtures · {df.date.min().date()} to {df.date.max().date()} · {df.league.nunique()} leagues")
 mode=st.radio("Analysis",["Pre-match","Half-time"],horizontal=True)
 source=st.radio("Fixtures",["Today's fixtures","Historical fixtures"],horizontal=True)
