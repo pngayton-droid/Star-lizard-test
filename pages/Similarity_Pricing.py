@@ -422,9 +422,10 @@ def compare_form_strength(data,n=300):
 
 with st.expander("🧪 Last-five form vs league strength — three-model test"):
     st.caption("Same fixtures, chronological historical matches only. Five home/away matches carry across seasons. No bookmaker odds used as model inputs. Lower Brier is better.")
+    form_test_count=st.selectbox("Fixtures to test",[300,1000,2000],index=2,key="form_test_count")
     if st.button("Run three-model form test",key="run_form_strength"):
         with st.spinner("Testing all three versions on the same historical fixtures…"):
-            form_test=compare_form_strength(df,300)
+            form_test=compare_form_strength(df,form_test_count)
         if form_test.empty:
             st.warning("Not enough eligible historical fixtures.")
         else:
