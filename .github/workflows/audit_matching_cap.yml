@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.github/workflows/audit_matching_cap.yml'
+      - 'scripts/audit_matching_cap.py'
 permissions:
   contents: write
 jobs:
