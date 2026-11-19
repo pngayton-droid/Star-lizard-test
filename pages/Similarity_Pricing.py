@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 from supabase import create_client
 
-st.set_page_config(page_title="United | Starlizard Pricing",page_icon="🔴",layout="wide")
+st.set_page_config(page_title="Match Matrix | Historical Pricing",page_icon="🔴",layout="wide")
 st.markdown("""
 <style>
 :root { --united-red: #da291c; --united-gold: #fbe122; }
@@ -39,7 +39,7 @@ div[data-testid="stRadio"] label:has(input:checked) { color: #da291c; font-weigh
 </style>
 <div class="united-header">
  <img class="united-crest" src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United club crest" loading="lazy" />
- <div class="heading">PRO STARLIZARD</div>
+ <div class="heading">MATCH MATRIX</div>
  <div class="sub">Historical pricing lab · Goals · Corners · Cards</div>
 </div>
 """, unsafe_allow_html=True)
