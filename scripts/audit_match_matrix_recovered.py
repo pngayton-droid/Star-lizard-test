@@ -71,7 +71,7 @@ for i,r in enumerate(selected.itertuples(index=False)):
   variants[variant]=np.array([(matches.hg>matches.ag).mean(),(matches.hg==matches.ag).mean(),(matches.hg<matches.ag).mean()])
  if len(variants)!=3:continue
  for variant,p in variants.items():
-  rows.append({"match_id":r.match_id,"date":str(r.date.date()),"model":variant,"actual":int(np.argmax(actual)),"home":float(p[0]),"draw":float(p[1]),"away":float(p[2]),"brier":float(np.mean((p-actual)**2)),"book_home":r.market_home,"book_draw":r.market_draw,"book_away":r.market_away})
+  rows.append({"match_id":r.match_id,"date":str(r.date.date()),"model":variant,"actual":int(np.argmax(actual)),"home":float(p[0]),"draw":float(p[1]),"away":float(p[2]),"brier":float(np.mean((p-actual)**2)),"book_home":r.market_home,"book_draw":r.market_draw,"book_away":r.market_away,"league":r.league,"ppg_gap":float(r.h_ppg-r.a_ppg),"gd_gap":float(r.h_gdpg-r.a_gdpg) if pd.notna(r.h_gdpg) and pd.notna(r.a_gdpg) else np.nan,"rank_gap":float(r.a_rank-r.h_rank) if pd.notna(r.a_rank) and pd.notna(r.h_rank) else np.nan})
  if (i+1)%250==0:print("PROGRESS",i+1,"of",len(selected),flush=True)
 result=pd.DataFrame(rows)
 result.to_csv("consolidated_match_matrix_test.csv",index=False)
@@ -84,4 +84,23 @@ for model in ("strength","combined","form"):
  for name,col,actual in (("Home","home",0),("Away","away",2)):
   v=subset.copy();v["binary_brier"]=(v[col]-(v.actual==actual).astype(float))**2
   print("OUTCOME",model,name,"n",len(v),"brier",round(v.binary_brier.mean(),6),flush=True)
+# Predeclared bins; avoid optimizing thresholds on the evaluated sample.
+strength=result[result.model=="strength"].copy()
+strength["aligned"]=np.select([
+ (strength.ppg_gap>0)&(strength.gd_gap>0),
+ (strength.ppg_gap<0)&(strength.gd_gap<0),
+ (strength.ppg_gap*strength.gd_gap<0)
+],["Home superior","Away superior","Conflicting signals"],default="Tied/unknown")
+strength["gd_band"]=pd.cut(strength.gd_gap.abs(),bins=[-0.001,0.25,0.5,1.0,float("inf")],labels=["0–0.25","0.25–0.50","0.50–1.00","1.00+"])
+strength["rank_agrees"]=np.where(strength.rank_gap.isna(),"Unknown",np.where(((strength.rank_gap>0)&(strength.ppg_gap>0)&(strength.gd_gap>0))|((strength.rank_gap<0)&(strength.ppg_gap<0)&(strength.gd_gap<0)),"Yes","No"))
+strength["pick"]=np.where(strength.aligned=="Home superior",0,np.where(strength.aligned=="Away superior",2,-1))
+strength["correct_pick"]=(strength.pick==strength.actual).astype(int)
+strength["model_prob_pick"]=np.where(strength.pick==0,strength.home,np.where(strength.pick==2,strength.away,np.nan))
+strength["book_prob_pick"]=np.where(strength.pick==0,strength.book_home,np.where(strength.pick==2,strength.book_away,np.nan))
+strength["book_roi"]=np.where(strength.book_prob_pick>0,(strength.correct_pick/strength.book_prob_pick)-1,np.nan)
+strength.to_csv("match_matrix_strength_segments.csv",index=False)
+for keys in (["aligned"],["aligned","gd_band"],["aligned","rank_agrees"]):
+ for group,sub in strength.groupby(keys,observed=True,dropna=False):
+  with_book=sub[sub.book_prob_pick.notna()]
+  print("SEGMENT",str(group),"n",len(sub),"home_win",round((sub.actual==0).mean(),4),"draw",round((sub.actual==1).mean(),4),"away_win",round((sub.actual==2).mean(),4),"pick_hit",round(sub.loc[sub.pick>=0,"correct_pick"].mean(),4) if (sub.pick>=0).any() else None,"matrix_brier",round(sub.brier.mean(),6),"book_n",len(with_book),"book_roi_illustrative",round(with_book.book_roi.mean(),4) if len(with_book) else None,flush=True)
 print("DONE",flush=True)
