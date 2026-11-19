@@ -78,3 +78,20 @@ best.to_csv("research_results/asian_goals_best_bets.csv",index=False)
 best.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).reset_index().to_csv("research_results/asian_goals_best_summary.csv",index=False)
 print("MATCHES",df.match_id.nunique(),"QUOTES",len(df),"BEST",len(best),flush=True)
 print(best.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).to_string(),flush=True)
+
+# Realistic quoted-price test: avoid very long odds and choose at most one selection per fixture/bookmaker/phase.
+realistic=df[(df.price>=1.50)&(df.price<=3.00)&(df.line>=1.5)&(df.line<=4.5)].copy()
+realistic["signal_5pct"]=realistic.predicted_roi>=.05
+realistic["baseline_signal_5pct"]=realistic.baseline_roi>=.05
+realistic.groupby(["period","bookmaker","phase","side","signal_5pct"]).apply(summarize,include_groups=False).reset_index().to_csv("research_results/asian_goals_realistic_by_side.csv",index=False)
+realistic.groupby(["period","bookmaker","phase","side","line"]).apply(summarize,include_groups=False).reset_index().to_csv("research_results/asian_goals_realistic_by_line.csv",index=False)
+realistic["brier_gain"]=realistic.baseline_brier-realistic.model_brier
+realistic.groupby(["period","bookmaker","phase"]).agg(quotes=("match_id","size"),matches=("match_id","nunique"),model_brier=("model_brier","mean"),baseline_brier=("baseline_brier","mean"),brier_gain=("brier_gain","mean")).reset_index().to_csv("research_results/asian_goals_realistic_accuracy.csv",index=False)
+for model,field in (("Matrix","predicted_roi"),("League baseline","baseline_roi")):
+ best_realistic=realistic.sort_values([field,"line"],ascending=[False,True]).drop_duplicates(["match_id","bookmaker","phase"])
+ best_realistic=best_realistic[best_realistic[field]>=.05].copy()
+ best_realistic["selection_model"]=model
+ best_realistic.to_csv("research_results/asian_goals_realistic_"+("matrix" if model=="Matrix" else "baseline")+"_bets.csv",index=False)
+ if not best_realistic.empty:
+  best_realistic.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).reset_index().to_csv("research_results/asian_goals_realistic_"+("matrix" if model=="Matrix" else "baseline")+"_summary.csv",index=False)
+ print("REALISTIC",model,"bets",len(best_realistic),flush=True)
