@@ -1,0 +1,31 @@
+name: Strong away bookmaker-by-bookmaker audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit_strong_away_bookmakers.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Compare real opening odds by bookmaker and commission
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/audit_strong_away_bookmakers.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strong-away-bookmaker-analysis
+          path: |
+            strong_away_bookmaker_breakdown.csv
+            strong_away_bookmaker_detail.csv
+          if-no-files-found: ignore
