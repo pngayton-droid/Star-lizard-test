@@ -37,8 +37,8 @@ def fair(sample,line):
 print("LOADING",flush=True)
 data=features()
 eligible=data[(data.date>=pd.Timestamp("2025-07-01"))&data.hg.notna()&data.ag.notna()&data.h_ppg.notna()&data.a_ppg.notna()].sort_values(["date","match_id"])
-selected=eligible.iloc[np.unique(np.linspace(0,len(eligible)-1,min(500,len(eligible)),dtype=int))]
-lines=[-1.5,-1.25,-1.,-.75,-.5,-.25,0.,.25,.5,.75,1.,1.25,1.5]
+selected=eligible.iloc[np.unique(np.linspace(0,len(eligible)-1,min(1000,len(eligible)),dtype=int))]
+lines=[round(x/4,2) for x in range(-12,13)]
 rows=[]
 for i,r in enumerate(selected.itertuples(index=False)):
  target=r._asdict()
@@ -72,46 +72,48 @@ print("TESTED",df.match_id.nunique(),flush=True)
 print(summary.to_string(index=False),flush=True)
 print(period.to_string(index=False),flush=True)
 
+
 print("LOADING ASIAN BOOKMAKER QUOTES",flush=True)
 odds_records=fetch("historical_match_odds","match_id,odds_payload")
 odds_by_match={}
 for rec in odds_records:
- bookmakers=((rec.get("odds_payload") or {}).get("data") or {}).get("bookmakers") or []
- offers=[]
- for bookmaker in bookmakers:
-  market=(bookmaker.get("markets") or {}).get("asian_handicap") or {}
-  offers.append((str(bookmaker.get("bookmaker") or bookmaker.get("bookmaker_name") or bookmaker.get("name") or "unknown"),market))
+ offers={}
+ for bookmaker in (((rec.get("odds_payload") or {}).get("data") or {}).get("bookmakers") or []):
+  name=str(bookmaker.get("bookmaker") or "unknown")
+  offers[name]=(bookmaker.get("markets") or {}).get("asian_handicap") or {}
  odds_by_match[rec["match_id"]]=offers
-def get_quote(offers,side,line,phase):
- for name,market in offers:
-  # Preserve first quoted bookmaker as supplied by API; never mix sides from different books.
-  choices=market.get(side) or {}
-  for k,entry in choices.items():
-   try:
-    if abs(float(k)-line)<0.00001:
-     price=float(entry.get(phase))
-     if 1.01<price<100:return price,name
-   except (TypeError,ValueError,AttributeError):pass
- return None,None
+def get_quote(market,side,line,phase):
+ for k,entry in (market.get(side) or {}).items():
+  try:
+   if abs(float(k)-line)<0.00001:
+    price=float(entry.get(phase))
+    if 1.01<price<100:return price
+  except (TypeError,ValueError,AttributeError):pass
+ return None
 price_rows=[]
 for record in df[df.model=="Matrix"].itertuples(index=False):
- offers=odds_by_match.get(record.match_id,[])
- if not offers:continue
- for side,handicap,aw,al,pw,pl in (("home",record.line,record.real_win,record.real_loss,record.win_units,record.loss_units),
+ for book,market in odds_by_match.get(record.match_id,{}).items():
+  for side,handicap,aw,al,pw,pl in (("home",record.line,record.real_win,record.real_loss,record.win_units,record.loss_units),
                                     ("away",-record.line,record.real_loss,record.real_win,record.loss_units,record.win_units)):
-  for phase in ("opening","last_seen"):
-   price,book=get_quote(offers,side,handicap,phase)
-   if price is None:continue
-   ev=(price-1)*pw-pl
-   profit=(price-1)*aw-al
-   price_rows.append(dict(match_id=record.match_id,period=record.period,line=record.line,side=side,phase=phase,bookmaker=book,price=price,model_fair=(1+pl/pw if pw else np.nan),predicted_roi=ev,realized_profit=profit,signal_5pct=int(ev>=.05),signal_10pct=int(ev>=.10)))
+   for phase in ("opening","last_seen"):
+    price=get_quote(market,side,handicap,phase)
+    if price is None:continue
+    ev=(price-1)*pw-pl
+    profit=(price-1)*aw-al
+    price_rows.append(dict(match_id=record.match_id,period=record.period,line=handicap,side=side,phase=phase,bookmaker=book,price=price,model_fair=(1+pl/pw if pw else np.nan),predicted_roi=ev,realized_profit=profit,signal_5pct=int(ev>=.05),signal_10pct=int(ev>=.10)))
 priced=pd.DataFrame(price_rows)
-if not priced.empty:
- priced.to_csv("research_results/asian_handicap_bookmaker_detail.csv",index=False)
- def summary_fn(frame):
-  return pd.Series({"quotes":len(frame),"matches":frame.match_id.nunique(),"average_predicted_roi":frame.predicted_roi.mean(),"actual_roi_all":frame.realized_profit.mean(),"bets_5pct":int(frame.signal_5pct.sum()),"roi_5pct":frame.loc[frame.signal_5pct==1,"realized_profit"].mean(),"bets_10pct":int(frame.signal_10pct.sum()),"roi_10pct":frame.loc[frame.signal_10pct==1,"realized_profit"].mean()})
- priced.groupby(["phase","side"],dropna=False).apply(summary_fn,include_groups=False).reset_index().to_csv("research_results/asian_handicap_bookmaker_summary.csv",index=False)
- priced.groupby(["period","phase"],dropna=False).apply(summary_fn,include_groups=False).reset_index().to_csv("research_results/asian_handicap_bookmaker_by_period.csv",index=False)
- print("PRICED",len(priced),"UNIQUE MATCHES",priced.match_id.nunique(),flush=True)
- print(priced.groupby(["phase","side"]).apply(summary_fn,include_groups=False).to_string(),flush=True)
-else:print("NO MATCHED ASIAN PRICES",flush=True)
+if priced.empty:raise RuntimeError("No matched Asian prices")
+priced.to_csv("research_results/asian_handicap_bookmaker_detail.csv",index=False)
+def summary_fn(frame):
+ return pd.Series({"quotes":len(frame),"matches":frame.match_id.nunique(),"average_predicted_roi":frame.predicted_roi.mean(),"actual_roi_all":frame.realized_profit.mean(),"bets_5pct":int(frame.signal_5pct.sum()),"roi_5pct":frame.loc[frame.signal_5pct==1,"realized_profit"].mean(),"bets_10pct":int(frame.signal_10pct.sum()),"roi_10pct":frame.loc[frame.signal_10pct==1,"realized_profit"].mean()})
+priced.groupby(["phase","side","bookmaker","line"],dropna=False).apply(summary_fn,include_groups=False).reset_index().to_csv("research_results/asian_handicap_bookmaker_by_line.csv",index=False)
+priced.groupby(["phase","side","bookmaker"],dropna=False).apply(summary_fn,include_groups=False).reset_index().to_csv("research_results/asian_handicap_bookmaker_summary.csv",index=False)
+priced.groupby(["period","phase","side","bookmaker"],dropna=False).apply(summary_fn,include_groups=False).reset_index().to_csv("research_results/asian_handicap_bookmaker_by_period.csv",index=False)
+# One selection per fixture, bookmaker and quote phase, chosen only by predicted EV.
+best=priced.sort_values(["predicted_roi","line"],ascending=[False,True]).drop_duplicates(["match_id","bookmaker","phase"])
+best=best[best.predicted_roi>=.05]
+best.to_csv("research_results/asian_handicap_bookmaker_best_bets.csv",index=False)
+if len(best):
+ best.groupby(["period","phase","bookmaker"],dropna=False).apply(summary_fn,include_groups=False).reset_index().to_csv("research_results/asian_handicap_bookmaker_best_summary.csv",index=False)
+print("PRICED",len(priced),"UNIQUE MATCHES",priced.match_id.nunique(),"BEST",len(best),flush=True)
+print(priced.groupby(["phase","side","bookmaker"]).apply(summary_fn,include_groups=False).to_string(),flush=True)
