@@ -31,7 +31,7 @@ div[data-testid="stRadio"] label:has(input:checked) { color: #da291c; font-weigh
   background: linear-gradient(110deg,#8b1114,#da291c 72%,#a41918);
   color: #fff; border-radius: 10px;
 }
-.united-crest { float:right; width:clamp(64px,12vw,94px); height:94px; object-fit:contain; margin:0 0 4px 14px; }
+.united-crest { float:right; width:clamp(110px,22vw,160px); height:160px; object-fit:contain; margin:0 0 4px 14px; }
 .united-header::after { content:""; display:block; clear:both; }
 .united-header .kicker { color: #fbe122; font-size: .8rem; font-weight: 800; letter-spacing: .14em; }
 .united-header .heading { color: white; font-size: clamp(1.4rem,4vw,2.1rem); font-weight: 850; line-height: 1.2; }
@@ -39,7 +39,6 @@ div[data-testid="stRadio"] label:has(input:checked) { color: #da291c; font-weigh
 </style>
 <div class="united-header">
  <img class="united-crest" src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United club crest" loading="lazy" />
- <div class="kicker">🔴 MANCHESTER UNITED EDITION</div>
  <div class="heading">PRO STARLIZARD</div>
  <div class="sub">Historical pricing lab · Goals · Corners · Cards</div>
 </div>
