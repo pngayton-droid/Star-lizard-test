@@ -1,0 +1,30 @@
+name: Full chronological Asian goal totals audit
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/audit_asian_goals_full.py'
+      - '.github/workflows/audit_asian_goals_full.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Full chronological goals audit
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/audit_asian_goals_full.py
+      - name: Save research outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/asian_goals_full_chrono_*.csv
+          git diff --cached --quiet || (git commit -m "Save full chronological Asian goals audit" && git push)
