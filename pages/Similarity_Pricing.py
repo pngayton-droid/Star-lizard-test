@@ -74,7 +74,7 @@ def features():
             venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
     return pd.DataFrame(out)
 
-def analogues(df,target,mode,cutoff,k):
+def analogues(df,target,mode,cutoff,max_distance):
     pool=df[(df.date<cutoff)&df.hg.notna()&df.ag.notna()&df.h_ppg.notna()&df.a_ppg.notna()].copy()
     if mode=="Half-time":
         pool=pool[pool.ht_h.notna()&pool.ht_a.notna()]
@@ -93,11 +93,11 @@ def analogues(df,target,mode,cutoff,k):
         # Missing fields are penalized, not treated as a zero statistic.
         score+=delta.fillna(2.5).clip(upper=5).to_numpy()**2
         available+=1
-    if not available:return pool.iloc[:0]
+    if available<4:return pool.iloc[:0]
     # Same competition preferred but never a mandatory filter.
     score+=np.where(pool.league==target["league"],0,0.5)
     pool["distance"]=np.sqrt(score/available)
-    return pool.nsmallest(min(k,len(pool)),"distance")
+    # Quality gate: do not force a fixed number of weak analogues.\n    return pool.loc[pool["distance"]<=max_distance].sort_values("distance")
 
 def market_results(df,mode):
     h=df.hg.to_numpy();a=df.ag.to_numpy()
@@ -138,14 +138,17 @@ if mode=="Half-time":
     if pd.isna(target["ht_h"]) or pd.isna(target["ht_a"]):
         st.warning("Half-time score unavailable for this fixture.");st.stop()
     st.write(f"Half-time score: **{int(target['ht_h'])}–{int(target['ht_a'])}**")
-k=st.slider("Number of closest comparable matches",50,500,200,50)
-matches=analogues(df,target,mode,target["date"],k)
-st.metric("Comparable historical matches",len(matches))
-if len(matches)<50:
-    st.warning("Fewer than 50 historical matches: no reliable fair-odds estimate.")
+# Fixed, disclosed similarity-quality threshold; not tuned to outcomes.
+MAX_DISTANCE=1.0
+MIN_SAMPLE=75
+matches=analogues(df,target,mode,target["date"],MAX_DISTANCE)
+st.metric("Qualifying historical matches",len(matches))
+st.caption(f"Only matches with similarity distance ≤ {MAX_DISTANCE:.2f} are included. No forced 500-match quota. Threshold is provisional, not backtested.")
+if len(matches)<MIN_SAMPLE:
+    st.warning(f"Insufficient comparable evidence ({len(matches)} matches; minimum {MIN_SAMPLE}). Fair odds withheld rather than filling the sample with weaker comparisons.")
 else:
     st.dataframe(score_card(matches,mode),hide_index=True,use_container_width=True)
     st.caption("Descriptive historical prices, not proven profitable or calibrated forecasts. Confidence intervals ignore match dependence and selection uncertainty.")
-with st.expander("Inspect comparable fixtures"):
+with st.expander("Inspect qualifying historical fixtures"):
     st.dataframe(matches[["date","home","away","ht_h","ht_a","hg","ag","distance"]],hide_index=True,use_container_width=True)
 st.info("This is a historical point-in-time research page. Current upcoming-fixture predictions and live halftime odds are not yet connected. No bookmaker ROI is claimed.")
