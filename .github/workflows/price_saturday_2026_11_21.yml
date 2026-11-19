@@ -1,0 +1,30 @@
+name: Price Saturday Premier League using Match Matrix
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/price_saturday_2026_11_21.yml'
+      - 'scripts/price_saturday_2026_11_21.py'
+permissions:
+  contents: write
+jobs:
+  price:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Calculate fair odds from saved historical data
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/price_saturday_2026_11_21.py
+      - name: Save fair prices
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/saturday_2026_11_21_matrix_prices.csv
+          git diff --cached --quiet || (git commit -m "Save Saturday Premier League model fair odds" && git push)
