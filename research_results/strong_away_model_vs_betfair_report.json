@@ -1,0 +1,120 @@
+{
+  "qualifying_matches": 105,
+  "summary": [
+    {
+      "group": "All Betfair-qualified matches",
+      "matches": 105,
+      "wins": 53,
+      "win_rate": 0.50476,
+      "avg_model_probability": 0.38584,
+      "avg_model_edge": -0.10489,
+      "roi_after_simulated_2pct": 0.0391,
+      "mean_opening_odds": 2.3806
+    },
+    {
+      "group": "Edge band below -5%",
+      "matches": 75,
+      "wins": 43,
+      "win_rate": 0.57333,
+      "avg_model_probability": 0.38597,
+      "avg_model_edge": -0.25325,
+      "roi_after_simulated_2pct": 0.0764,
+      "mean_opening_odds": 1.988
+    },
+    {
+      "group": "Edge band -5% to 0%",
+      "matches": 8,
+      "wins": 3,
+      "win_rate": 0.375,
+      "avg_model_probability": 0.36749,
+      "avg_model_edge": -0.02278,
+      "roi_after_simulated_2pct": -0.02475,
+      "mean_opening_odds": 2.7225
+    },
+    {
+      "group": "Edge band 0% to +5%",
+      "matches": 3,
+      "wins": 2,
+      "win_rate": 0.66667,
+      "avg_model_probability": 0.37904,
+      "avg_model_edge": 0.00978,
+      "roi_after_simulated_2pct": 0.74467,
+      "mean_opening_odds": 2.7067
+    },
+    {
+      "group": "Edge band above +5%",
+      "matches": 19,
+      "wins": 5,
+      "win_rate": 0.26316,
+      "avg_model_probability": 0.39409,
+      "avg_model_edge": 0.42803,
+      "roi_after_simulated_2pct": -0.19268,
+      "mean_opening_odds": 3.7347
+    },
+    {
+      "group": "Bet when model edge >= 0",
+      "matches": 22,
+      "wins": 7,
+      "win_rate": 0.31818,
+      "avg_model_probability": 0.39204,
+      "avg_model_edge": 0.371,
+      "roi_after_simulated_2pct": -0.06486,
+      "mean_opening_odds": 3.5945
+    },
+    {
+      "group": "Bet when model edge >= 0.05",
+      "matches": 19,
+      "wins": 5,
+      "win_rate": 0.26316,
+      "avg_model_probability": 0.39409,
+      "avg_model_edge": 0.42803,
+      "roi_after_simulated_2pct": -0.19268,
+      "mean_opening_odds": 3.7347
+    },
+    {
+      "group": "Bet when model edge >= 0.1",
+      "matches": 15,
+      "wins": 3,
+      "win_rate": 0.2,
+      "avg_model_probability": 0.39643,
+      "avg_model_edge": 0.523,
+      "roi_after_simulated_2pct": -0.32895,
+      "mean_opening_odds": 3.976
+    },
+    {
+      "group": "Month 2026-09",
+      "matches": 19,
+      "wins": 11,
+      "win_rate": 0.57895,
+      "avg_model_probability": 0.38481,
+      "avg_model_edge": 0.01903,
+      "roi_after_simulated_2pct": 0.34902,
+      "mean_opening_odds": 2.7047
+    },
+    {
+      "group": "Month 2026-10",
+      "matches": 42,
+      "wins": 21,
+      "win_rate": 0.5,
+      "avg_model_probability": 0.38835,
+      "avg_model_edge": -0.08277,
+      "roi_after_simulated_2pct": 0.01847,
+      "mean_opening_odds": 2.426
+    },
+    {
+      "group": "Month 2026-11",
+      "matches": 44,
+      "wins": 21,
+      "win_rate": 0.47727,
+      "avg_model_probability": 0.38388,
+      "avg_model_edge": -0.17952,
+      "roi_after_simulated_2pct": -0.07505,
+      "mean_opening_odds": 2.1973
+    }
+  ],
+  "notes": [
+    "Chronological analogues; historical features available before match",
+    "Model is previously inspected; not an untouched independent holdout",
+    "2% hypothetical exchange commission on winnings; liquidity unverified"
+  ]
+}
