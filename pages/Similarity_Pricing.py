@@ -133,7 +133,7 @@ def features():
     return pd.DataFrame(out)
 
 @st.cache_data(ttl=900,show_spinner=False)
-def daily_fixtures(day):
+def daily_fixtures(day, supported_leagues):
     key,_,_=settings()
     if not key:
         return [],"TheStatsAPI key is not configured."
@@ -142,6 +142,8 @@ def daily_fixtures(day):
     with requests.Session() as session:
         session.headers.update({"Authorization":f"Bearer {key}"})
         for league,comp in LEAGUES.items():
+            if str(comp) not in supported_leagues:
+                continue
             try:
                 response=session.get(BASE+"/football/matches",params={"competition_id":comp,"date_from":day,"date_to":day,"per_page":100,"page":1},timeout=15)
                 response.raise_for_status()
@@ -314,7 +316,9 @@ source=st.radio("Fixtures",["Today's fixtures","Historical fixtures"],horizontal
 if source=="Today's fixtures":
     selected_day=st.date_input("Fixture date",value=date.today())
     with st.spinner("Checking scheduled kick-offs across selected leagues…"):
-        schedule,error=daily_fixtures(selected_day.isoformat())
+        # Only show competitions with substantial completed-match history in our own database.
+        supported_leagues=set(df.loc[df.hg.notna() & df.ag.notna()].groupby("league").size().loc[lambda counts:counts>=100].index.astype(str))
+        schedule,error=daily_fixtures(selected_day.isoformat(),tuple(sorted(supported_leagues)))
     if error:st.warning(f"Some leagues could not be loaded: {error}")
     if not schedule:
         st.info("No scheduled fixtures returned for this date. Historical fixtures remain available.")
