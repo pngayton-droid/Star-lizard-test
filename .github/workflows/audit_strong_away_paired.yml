@@ -1,0 +1,29 @@
+name: Betfair versus Bet365 same-match audit
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit_strong_away_paired.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Compare same-match Betfair and Bet365 real opening prices
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/audit_strong_away_paired.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: betfair-bet365-paired-results
+          path: strong_away_paired_exchange_vs_bet365.csv
+          if-no-files-found: ignore
