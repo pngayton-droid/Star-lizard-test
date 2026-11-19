@@ -620,16 +620,14 @@ else:
         return {"N":len(arr),"Win units":w,"Loss units":l,"Push units":p,
                 "Fair":(1+l/w) if w else np.nan}
 
-    st.subheader("Asian markets · historical fair odds")
-    st.caption("Asian goal and corner totals use the same qualifying historical fixtures as the Matrix. Whole lines push; quarter lines split the stake. These are calculated fair odds, not bookmaker prices. Match handicaps are disabled following unsuccessful ROI testing.")
-    asian_market=st.selectbox("Asian market",["Total goals","Total corners"],key="asian_market")
+    st.subheader("Asian corners · historical fair odds")
+    st.caption("Asian goal totals and match handicaps are disabled after unsuccessful historical ROI testing. Corner totals remain exploratory. Whole lines push; quarter lines split the stake. These are calculated fair odds, not bookmaker prices.")
     asian_sample=matches
-    if True:
-        choices=[1.5,1.75,2.0,2.25,2.5,2.75,3.0,3.25,3.5,3.75,4.0] if asian_market=="Total goals" else [7.5,7.75,8.0,8.25,8.5,8.75,9.0,9.25,9.5,9.75,10.0,10.25,10.5,10.75,11.0,11.25,11.5,11.75,12.0]
-        asian_line=st.selectbox("Total line",choices,index=(4 if asian_market=="Total goals" else 12),key="asian_total")
-        asian_values=(asian_sample.hg+asian_sample.ag) if asian_market=="Total goals" else (asian_sample.corners_home+asian_sample.corners_away)
-        side_names=("Over","Under")
-        quotes=[asian_quote(asian_values,asian_line,"Over"),asian_quote(asian_values,asian_line,"Under")]
+    choices=[7.5,7.75,8.0,8.25,8.5,8.75,9.0,9.25,9.5,9.75,10.0,10.25,10.5,10.75,11.0,11.25,11.5,11.75,12.0]
+    asian_line=st.selectbox("Corner total line",choices,index=12,key="asian_total")
+    asian_values=asian_sample.corners_home+asian_sample.corners_away
+    side_names=("Over","Under")
+    quotes=[asian_quote(asian_values,asian_line,"Over"),asian_quote(asian_values,asian_line,"Under")]
     display=[]
     for side,q in zip(side_names,quotes):
         if q:
