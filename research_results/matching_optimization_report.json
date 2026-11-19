@@ -1,0 +1,775 @@
+{
+  "fixtures_tested": 600,
+  "paired_cases": 4191,
+  "period_summary": [
+    {
+      "period": "2025",
+      "market": "Away win",
+      "model": "Nearest 100",
+      "tests": 208,
+      "brier": 0.185817,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2025",
+      "market": "Away win",
+      "model": "Nearest 250",
+      "tests": 208,
+      "brier": 0.189112,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2025",
+      "market": "Away win",
+      "model": "Nearest 400",
+      "tests": 208,
+      "brier": 0.189079,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2025",
+      "market": "Away win",
+      "model": "Unlimited",
+      "tests": 208,
+      "brier": 0.187776,
+      "median_analogues": 1804.5
+    },
+    {
+      "period": "2025",
+      "market": "BTTS Yes",
+      "model": "Nearest 100",
+      "tests": 209,
+      "brier": 0.251411,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2025",
+      "market": "BTTS Yes",
+      "model": "Nearest 250",
+      "tests": 209,
+      "brier": 0.249366,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2025",
+      "market": "BTTS Yes",
+      "model": "Nearest 400",
+      "tests": 209,
+      "brier": 0.250561,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2025",
+      "market": "BTTS Yes",
+      "model": "Unlimited",
+      "tests": 209,
+      "brier": 0.247146,
+      "median_analogues": 3271.0
+    },
+    {
+      "period": "2025",
+      "market": "Draw",
+      "model": "Nearest 100",
+      "tests": 208,
+      "brier": 0.191439,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2025",
+      "market": "Draw",
+      "model": "Nearest 250",
+      "tests": 208,
+      "brier": 0.191549,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2025",
+      "market": "Draw",
+      "model": "Nearest 400",
+      "tests": 208,
+      "brier": 0.191458,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2025",
+      "market": "Draw",
+      "model": "Unlimited",
+      "tests": 208,
+      "brier": 0.193176,
+      "median_analogues": 1804.5
+    },
+    {
+      "period": "2025",
+      "market": "Home win",
+      "model": "Nearest 100",
+      "tests": 208,
+      "brier": 0.228909,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2025",
+      "market": "Home win",
+      "model": "Nearest 250",
+      "tests": 208,
+      "brier": 0.229806,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2025",
+      "market": "Home win",
+      "model": "Nearest 400",
+      "tests": 208,
+      "brier": 0.230941,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2025",
+      "market": "Home win",
+      "model": "Unlimited",
+      "tests": 208,
+      "brier": 0.231689,
+      "median_analogues": 1804.5
+    },
+    {
+      "period": "2025",
+      "market": "Over 2.5 goals",
+      "model": "Nearest 100",
+      "tests": 209,
+      "brier": 0.249781,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 2.5 goals",
+      "model": "Nearest 250",
+      "tests": 209,
+      "brier": 0.251069,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 2.5 goals",
+      "model": "Nearest 400",
+      "tests": 209,
+      "brier": 0.250803,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 2.5 goals",
+      "model": "Unlimited",
+      "tests": 209,
+      "brier": 0.250671,
+      "median_analogues": 3271.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 100",
+      "tests": 206,
+      "brier": 0.228375,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 250",
+      "tests": 206,
+      "brier": 0.230435,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 400",
+      "tests": 206,
+      "brier": 0.231476,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 4.5 yellow cards",
+      "model": "Unlimited",
+      "tests": 206,
+      "brier": 0.234225,
+      "median_analogues": 3259.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 9.5 corners",
+      "model": "Nearest 100",
+      "tests": 206,
+      "brier": 0.258569,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 9.5 corners",
+      "model": "Nearest 250",
+      "tests": 206,
+      "brier": 0.254384,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 9.5 corners",
+      "model": "Nearest 400",
+      "tests": 206,
+      "brier": 0.253667,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2025",
+      "market": "Over 9.5 corners",
+      "model": "Unlimited",
+      "tests": 206,
+      "brier": 0.249455,
+      "median_analogues": 3258.5
+    },
+    {
+      "period": "2026",
+      "market": "Away win",
+      "model": "Nearest 100",
+      "tests": 391,
+      "brier": 0.197044,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2026",
+      "market": "Away win",
+      "model": "Nearest 250",
+      "tests": 391,
+      "brier": 0.196864,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2026",
+      "market": "Away win",
+      "model": "Nearest 400",
+      "tests": 391,
+      "brier": 0.19798,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2026",
+      "market": "Away win",
+      "model": "Unlimited",
+      "tests": 391,
+      "brier": 0.199631,
+      "median_analogues": 2861.0
+    },
+    {
+      "period": "2026",
+      "market": "BTTS Yes",
+      "model": "Nearest 100",
+      "tests": 391,
+      "brier": 0.244661,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2026",
+      "market": "BTTS Yes",
+      "model": "Nearest 250",
+      "tests": 391,
+      "brier": 0.24439,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2026",
+      "market": "BTTS Yes",
+      "model": "Nearest 400",
+      "tests": 391,
+      "brier": 0.244684,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2026",
+      "market": "BTTS Yes",
+      "model": "Unlimited",
+      "tests": 391,
+      "brier": 0.244581,
+      "median_analogues": 4780.0
+    },
+    {
+      "period": "2026",
+      "market": "Draw",
+      "model": "Nearest 100",
+      "tests": 391,
+      "brier": 0.178063,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2026",
+      "market": "Draw",
+      "model": "Nearest 250",
+      "tests": 391,
+      "brier": 0.176368,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2026",
+      "market": "Draw",
+      "model": "Nearest 400",
+      "tests": 391,
+      "brier": 0.176026,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2026",
+      "market": "Draw",
+      "model": "Unlimited",
+      "tests": 391,
+      "brier": 0.175173,
+      "median_analogues": 2861.0
+    },
+    {
+      "period": "2026",
+      "market": "Home win",
+      "model": "Nearest 100",
+      "tests": 391,
+      "brier": 0.22237,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2026",
+      "market": "Home win",
+      "model": "Nearest 250",
+      "tests": 391,
+      "brier": 0.222234,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2026",
+      "market": "Home win",
+      "model": "Nearest 400",
+      "tests": 391,
+      "brier": 0.221097,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2026",
+      "market": "Home win",
+      "model": "Unlimited",
+      "tests": 391,
+      "brier": 0.221509,
+      "median_analogues": 2861.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 2.5 goals",
+      "model": "Nearest 100",
+      "tests": 391,
+      "brier": 0.244969,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 2.5 goals",
+      "model": "Nearest 250",
+      "tests": 391,
+      "brier": 0.241887,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 2.5 goals",
+      "model": "Nearest 400",
+      "tests": 391,
+      "brier": 0.241878,
+      "median_analogues": 400.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 2.5 goals",
+      "model": "Unlimited",
+      "tests": 391,
+      "brier": 0.242063,
+      "median_analogues": 4780.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 100",
+      "tests": 391,
+      "brier": 0.225994,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 250",
+      "tests": 391,
+      "brier": 0.225613,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 400",
+      "tests": 391,
+      "brier": 0.225996,
+      "median_analogues": 399.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 4.5 yellow cards",
+      "model": "Unlimited",
+      "tests": 391,
+      "brier": 0.228245,
+      "median_analogues": 4771.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 9.5 corners",
+      "model": "Nearest 100",
+      "tests": 391,
+      "brier": 0.247192,
+      "median_analogues": 100.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 9.5 corners",
+      "model": "Nearest 250",
+      "tests": 391,
+      "brier": 0.249314,
+      "median_analogues": 250.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 9.5 corners",
+      "model": "Nearest 400",
+      "tests": 391,
+      "brier": 0.250672,
+      "median_analogues": 399.0
+    },
+    {
+      "period": "2026",
+      "market": "Over 9.5 corners",
+      "model": "Unlimited",
+      "tests": 391,
+      "brier": 0.250093,
+      "median_analogues": 4771.0
+    }
+  ],
+  "method": "Chronological recent historical fixtures; cap 100/250/400/unlimited, close/moderate/broad fallback, 30 minimum; 1X2 strength-only; other markets combined; exploratory not untouched holdout",
+  "summary": [
+    {
+      "market": "Away win",
+      "model": "Nearest 100",
+      "tests": 599,
+      "brier": 0.193146,
+      "mean_predicted": 0.322451,
+      "actual_rate": 0.320534,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Away win",
+      "model": "Nearest 250",
+      "tests": 599,
+      "brier": 0.194172,
+      "mean_predicted": 0.322677,
+      "actual_rate": 0.320534,
+      "median_analogues": 250.0
+    },
+    {
+      "market": "Away win",
+      "model": "Nearest 400",
+      "tests": 599,
+      "brier": 0.194889,
+      "mean_predicted": 0.322553,
+      "actual_rate": 0.320534,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Away win",
+      "model": "Unlimited",
+      "tests": 599,
+      "brier": 0.195515,
+      "mean_predicted": 0.32086,
+      "actual_rate": 0.320534,
+      "median_analogues": 2453.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Nearest 100",
+      "tests": 600,
+      "brier": 0.247013,
+      "mean_predicted": 0.539217,
+      "actual_rate": 0.568333,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Nearest 250",
+      "tests": 600,
+      "brier": 0.246123,
+      "mean_predicted": 0.539484,
+      "actual_rate": 0.568333,
+      "median_analogues": 250.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Nearest 400",
+      "tests": 600,
+      "brier": 0.246731,
+      "mean_predicted": 0.539051,
+      "actual_rate": 0.568333,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Unlimited",
+      "tests": 600,
+      "brier": 0.245474,
+      "mean_predicted": 0.542245,
+      "actual_rate": 0.568333,
+      "median_analogues": 4183.5
+    },
+    {
+      "market": "Draw",
+      "model": "Nearest 100",
+      "tests": 599,
+      "brier": 0.182708,
+      "mean_predicted": 0.252747,
+      "actual_rate": 0.237062,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Draw",
+      "model": "Nearest 250",
+      "tests": 599,
+      "brier": 0.18164,
+      "mean_predicted": 0.253029,
+      "actual_rate": 0.237062,
+      "median_analogues": 250.0
+    },
+    {
+      "market": "Draw",
+      "model": "Nearest 400",
+      "tests": 599,
+      "brier": 0.181385,
+      "mean_predicted": 0.253473,
+      "actual_rate": 0.237062,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Draw",
+      "model": "Unlimited",
+      "tests": 599,
+      "brier": 0.181425,
+      "mean_predicted": 0.253784,
+      "actual_rate": 0.237062,
+      "median_analogues": 2453.0
+    },
+    {
+      "market": "Home win",
+      "model": "Nearest 100",
+      "tests": 599,
+      "brier": 0.224641,
+      "mean_predicted": 0.424802,
+      "actual_rate": 0.442404,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Home win",
+      "model": "Nearest 250",
+      "tests": 599,
+      "brier": 0.224864,
+      "mean_predicted": 0.424294,
+      "actual_rate": 0.442404,
+      "median_analogues": 250.0
+    },
+    {
+      "market": "Home win",
+      "model": "Nearest 400",
+      "tests": 599,
+      "brier": 0.224516,
+      "mean_predicted": 0.423975,
+      "actual_rate": 0.442404,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Home win",
+      "model": "Unlimited",
+      "tests": 599,
+      "brier": 0.225044,
+      "mean_predicted": 0.425356,
+      "actual_rate": 0.442404,
+      "median_analogues": 2453.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Nearest 100",
+      "tests": 600,
+      "brier": 0.246645,
+      "mean_predicted": 0.528983,
+      "actual_rate": 0.561667,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Nearest 250",
+      "tests": 600,
+      "brier": 0.245086,
+      "mean_predicted": 0.523334,
+      "actual_rate": 0.561667,
+      "median_analogues": 250.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Nearest 400",
+      "tests": 600,
+      "brier": 0.244987,
+      "mean_predicted": 0.521215,
+      "actual_rate": 0.561667,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Unlimited",
+      "tests": 600,
+      "brier": 0.245061,
+      "mean_predicted": 0.522005,
+      "actual_rate": 0.561667,
+      "median_analogues": 4183.5
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 100",
+      "tests": 597,
+      "brier": 0.226816,
+      "mean_predicted": 0.374881,
+      "actual_rate": 0.361809,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 250",
+      "tests": 597,
+      "brier": 0.227277,
+      "mean_predicted": 0.377662,
+      "actual_rate": 0.361809,
+      "median_analogues": 250.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Nearest 400",
+      "tests": 597,
+      "brier": 0.227887,
+      "mean_predicted": 0.379334,
+      "actual_rate": 0.361809,
+      "median_analogues": 400.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Unlimited",
+      "tests": 597,
+      "brier": 0.230308,
+      "mean_predicted": 0.389771,
+      "actual_rate": 0.361809,
+      "median_analogues": 4173.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Nearest 100",
+      "tests": 597,
+      "brier": 0.251118,
+      "mean_predicted": 0.508363,
+      "actual_rate": 0.514238,
+      "median_analogues": 100.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Nearest 250",
+      "tests": 597,
+      "brier": 0.251064,
+      "mean_predicted": 0.507875,
+      "actual_rate": 0.514238,
+      "median_analogues": 250.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Nearest 400",
+      "tests": 597,
+      "brier": 0.251706,
+      "mean_predicted": 0.506791,
+      "actual_rate": 0.514238,
+      "median_analogues": 399.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Unlimited",
+      "tests": 597,
+      "brier": 0.249872,
+      "mean_predicted": 0.504803,
+      "actual_rate": 0.514238,
+      "median_analogues": 4173.0
+    }
+  ],
+  "coverage": [
+    {
+      "model": "Nearest 100",
+      "feature_set": "combined",
+      "fixtures": 600,
+      "usable_30": 600,
+      "usable_100": 600,
+      "median_analogues": 100.0
+    },
+    {
+      "model": "Nearest 100",
+      "feature_set": "strength",
+      "fixtures": 600,
+      "usable_30": 599,
+      "usable_100": 594,
+      "median_analogues": 100.0
+    },
+    {
+      "model": "Nearest 250",
+      "feature_set": "combined",
+      "fixtures": 600,
+      "usable_30": 600,
+      "usable_100": 600,
+      "median_analogues": 250.0
+    },
+    {
+      "model": "Nearest 250",
+      "feature_set": "strength",
+      "fixtures": 600,
+      "usable_30": 599,
+      "usable_100": 594,
+      "median_analogues": 250.0
+    },
+    {
+      "model": "Nearest 400",
+      "feature_set": "combined",
+      "fixtures": 600,
+      "usable_30": 600,
+      "usable_100": 600,
+      "median_analogues": 400.0
+    },
+    {
+      "model": "Nearest 400",
+      "feature_set": "strength",
+      "fixtures": 600,
+      "usable_30": 599,
+      "usable_100": 594,
+      "median_analogues": 400.0
+    },
+    {
+      "model": "Unlimited",
+      "feature_set": "combined",
+      "fixtures": 600,
+      "usable_30": 600,
+      "usable_100": 600,
+      "median_analogues": 4183.5
+    },
+    {
+      "model": "Unlimited",
+      "feature_set": "strength",
+      "fixtures": 600,
+      "usable_30": 599,
+      "usable_100": 594,
+      "median_analogues": 2452.0
+    }
+  ]
+}
