@@ -620,39 +620,5 @@ else:
         return {"N":len(arr),"Win units":w,"Loss units":l,"Push units":p,
                 "Fair":(1+l/w) if w else np.nan}
 
-    st.subheader("Asian corners · historical fair odds")
-    st.caption("Asian goal totals and match handicaps are disabled after unsuccessful historical ROI testing. Corner totals remain exploratory. Whole lines push; quarter lines split the stake. These are calculated fair odds, not bookmaker prices.")
-    asian_sample=matches
-    choices=[7.5,7.75,8.0,8.25,8.5,8.75,9.0,9.25,9.5,9.75,10.0,10.25,10.5,10.75,11.0,11.25,11.5,11.75,12.0]
-    asian_line=st.selectbox("Corner total line",choices,index=12,key="asian_total")
-    asian_values=asian_sample.corners_home+asian_sample.corners_away
-    side_names=("Over","Under")
-    quotes=[asian_quote(asian_values,asian_line,"Over"),asian_quote(asian_values,asian_line,"Under")]
-    display=[]
-    for side,q in zip(side_names,quotes):
-        if q:
-            display.append({"Selection":side,"Fair odds":f"{q['Fair']:.3f}" if pd.notna(q["Fair"]) else "—",
-                "Matches":q["N"],"Full/half win":f"{q['Win units']:.1%}",
-                "Full/half loss":f"{q['Loss units']:.1%}","Push portion":f"{q['Push units']:.1%}"})
-    if display:st.dataframe(pd.DataFrame(display),hide_index=True,use_container_width=True)
-    if quotes[0] and quotes[1] and min(q["N"] for q in quotes)<30:
-        st.warning("Fewer than 30 historical matches for this line; exploratory only.")
-    st.caption("Enter actual two-sided bookmaker odds to compare margins and theoretical returns. Leave blank to view fair odds only.")
-    qcols=st.columns(2)
-    with qcols[0]:asian_price_1=st.text_input(f"{side_names[0]} bookmaker odds",key="asian_price_1",placeholder="e.g. 1.95")
-    with qcols[1]:asian_price_2=st.text_input(f"{side_names[1]} bookmaker odds",key="asian_price_2",placeholder="e.g. 1.95")
-    try:
-        entered=[float(x) if x.strip() else None for x in (asian_price_1,asian_price_2)]
-        if any(x is not None and x<=1 for x in entered):raise ValueError
-        for side,price,q in zip(side_names,entered,quotes):
-            if price is not None and q:
-                ev=(price-1)*q["Win units"]-q["Loss units"]
-                st.write(f"**{side}: {ev:+.1%}** theoretical return at {price:.2f} (before commission)")
-        if all(x is not None for x in entered):
-            overround=sum(1/x for x in entered)-1
-            st.caption(f"Raw two-way inverse-odds overround: {overround:.1%}. For Asian lines with pushes, this is only a quote-spread indicator, not a push-adjusted effective margin.")
-    except ValueError:
-        st.warning("Enter decimal odds greater than 1, or leave blank.")
-    st.caption("Asian cards excluded: bookmaker red-card and second-yellow settlement rules differ from the Matrix's saved yellow-card totals.")
 st.warning("Strength check: the model has not demonstrated an advantage over bookmaker opening odds. Large disagreement with market favourites is a reason to investigate, not an automatic value bet.")
 st.info("Fixture list comes from TheStatsAPI; comparisons use saved historical data. Live half-time pricing and bookmaker ROI are not connected. No betting edge is claimed.")
