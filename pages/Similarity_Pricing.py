@@ -10,6 +10,7 @@ import streamlit as st
 from supabase import create_client
 
 st.set_page_config(page_title="Starlizard | Similar Matches",page_icon="⚽",layout="wide")
+st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
 st.title("⚽ Historical similarity pricing")
 st.caption("Historical match analogues using only information known before kick-off or at half-time. No TheStatsAPI requests.")
 
