@@ -134,6 +134,38 @@ def upcoming_target(df,match):
     hf,hc=venue(h,"home");af,ac=venue(a,"away")
     return {"date":day,"league":league,"home":h,"away":a,"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac}
 
+@st.cache_data(ttl=3600,show_spinner=False)
+def historical_opening_prices():
+    """Only true opening 1X2 quotes; no last-seen fallback."""
+    output=[]
+    for start in range(0,100000,1000):
+        batch=(client().table("historical_match_odds").select("match_id,odds_payload").order("match_id").range(start,start+999).execute().data or [])
+        for item in batch:
+            payload=item.get("odds_payload") or {}
+            books=(payload.get("data") or {}).get("bookmakers") or []
+            candidates=[]
+            for book in books:
+                markets=(book.get("markets") or {}).get("match_odds") or {}
+                try:
+                    odds=[float((markets.get(side) or {}).get("opening")) for side in ("home","draw","away")]
+                except (TypeError,ValueError):
+                    continue
+                if min(odds)<=1.0:continue
+                margin=sum(1.0/x for x in odds)
+                if not 0.95<=margin<=1.30:continue
+                candidates.append([1/x/margin for x in odds])
+            if candidates:
+                # Median across available bookmakers, normalized again.
+                probs=np.median(np.asarray(candidates),axis=0)
+                probs=probs/probs.sum()
+                output.append({"match_id":item["match_id"],"market_home":float(probs[0]),"market_draw":float(probs[1]),"market_away":float(probs[2])})
+        if len(batch)<1000:break
+    return pd.DataFrame(output,columns=["match_id","market_home","market_draw","market_away"])
+
+def attach_opening_prices(df):
+    prices=historical_opening_prices()
+    return df.merge(prices,on="match_id",how="left",validate="one_to_one")
+
 def analogues(df,target,mode,cutoff,max_distance):
     pool=df[(df.date<cutoff)&df.hg.notna()&df.ag.notna()&df.h_ppg.notna()&df.a_ppg.notna()].copy()
     if mode=="Half-time":
@@ -143,7 +175,11 @@ def analogues(df,target,mode,cutoff,max_distance):
             "h_form":0.8,"a_form":0.8,"h_concede":0.8,"a_concede":0.8}
     if mode=="Half-time":
         fields.update({"ht_xg_h":0.6,"ht_xg_a":0.6})
-    if len(pool)==0:return pool
+    odds_enabled=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
+    if odds_enabled:
+        pool=pool.dropna(subset=["market_home","market_draw","market_away"])
+        fields.update({"market_home":0.12,"market_draw":0.08,"market_away":0.12})
+    if len(pool)==0:return pool.assign(distance=pd.Series(dtype=float))
     score=np.zeros(len(pool))
     available=0
     for field,scale in fields.items():
@@ -153,7 +189,7 @@ def analogues(df,target,mode,cutoff,max_distance):
         # Missing fields are penalized, not treated as a zero statistic.
         score+=delta.fillna(2.5).clip(upper=5).to_numpy()**2
         available+=1
-    if available<4:return pool.iloc[:0]
+    if available<4:return pool.iloc[:0].assign(distance=pd.Series(dtype=float))
     # Same competition preferred but never a mandatory filter.
     score+=np.where(pool.league==target["league"],0,0.5)
     pool["distance"]=np.sqrt(score/available)
@@ -183,7 +219,7 @@ def score_card(matches,mode):
        "Approx. 95% interval":f"{max(0,p-1.96*math.sqrt(p*(1-p)/n)):.1%}–{min(1,p+1.96*math.sqrt(p*(1-p)/n)):.1%}"} for name,p in result.items()])
 
 with st.spinner("Preparing historical features without future-data leakage…"):
-    df=features()
+    df=attach_opening_prices(features())
 if df.empty:
     st.error("No historical data available.");st.stop()
 st.caption(f"{len(df):,} saved fixtures · {df.date.min().date()} to {df.date.max().date()} · {df.league.nunique()} leagues")
@@ -201,6 +237,22 @@ if source=="Today's fixtures":
     options=[f"{m['date'].tz_convert('Europe/London').strftime('%H:%M')} · {m['home']} v {m['away']} · {m['league_name']}" for m in schedule]
     index=st.selectbox("Select a match",range(len(schedule)),format_func=lambda i:options[i])
     target=upcoming_target(df,schedule[index])
+    with st.expander("Optional bookmaker opening odds (1X2)"):
+        st.caption("Enter all three opening prices to compare against historical opening prices. Leave blank for form-based matching.")
+        oh=st.text_input("Home opening odds",key="oh",placeholder="e.g. 1.35")
+        od=st.text_input("Draw opening odds",key="od",placeholder="e.g. 5.20")
+        oa=st.text_input("Away opening odds",key="oa",placeholder="e.g. 9.00")
+    if any(x.strip() for x in (oh,od,oa)):
+        try:
+            odds=[float(x) for x in (oh,od,oa)]
+            if min(odds)<=1:raise ValueError("Prices must exceed 1")
+            total=sum(1/x for x in odds)
+            if not 0.95<=total<=1.30:raise ValueError("Unusual 1X2 book margin")
+            target.update(dict(zip(("market_home","market_draw","market_away"),(1/x/total for x in odds))))
+        except ValueError:
+            st.warning("Enter three valid decimal opening prices or leave all three blank.")
+            st.stop()
+
     if mode=="Half-time":
         st.warning("Live half-time scores and xG are not connected to this fixture list yet. Use pre-match analysis.")
         st.stop()
@@ -218,13 +270,19 @@ else:
         if pd.isna(target["ht_h"]) or pd.isna(target["ht_a"]):
             st.warning("Half-time score unavailable for this fixture.");st.stop()
         st.write(f"Half-time score: **{int(target['ht_h'])}–{int(target['ht_a'])}**")
+odds_mode=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
+if odds_mode:
+    st.caption("Odds-aware comparisons: historical bookmaker OPENING 1X2 prices plus pre-match form and league strength.")
+else:
+    st.warning("Form-and-league-strength comparisons only. No matching bookmaker opening prices supplied for this fixture; do not treat these as odds-aware prices.")
 # Show all bands side by side: a small close sample may still be informative.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
 samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in TIERS}
 st.subheader("Historical comparison quality")
 st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for _,label in TIERS))
-st.caption("All bands are cumulative. Close matches are included within moderate and broad groups.")
-selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=0)
+st.caption("All bands are cumulative. Close matches are included within moderate and broad groups. Distances are exploratory, not calibrated.")
+default_band=next((label for _,label in TIERS if len(samples[label])>=30),next((label for _,label in TIERS if len(samples[label])>0),"Close"))
+selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=["Close","Moderate","Broad"].index(default_band))
 matches=samples[selected]
 st.write(f"**{len(matches):,} qualifying matches** in the {selected.lower()} band")
 if len(matches)<30:
