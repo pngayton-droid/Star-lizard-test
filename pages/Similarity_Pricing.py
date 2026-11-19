@@ -515,24 +515,23 @@ for column,team,rank,ppg,gd in ((left,target["home"],target.get("h_rank"),target
         st.caption(f"PPG: {ppg:.2f} · GD/game: {gd:.2f}")
 st.caption("Historical standings reconstructed from saved results before kick-off. Incomplete league coverage can make positions approximate.")
 st.caption(f"Recent venue xG: home {target.get('h_xg',float('nan')):.2f} · away {target.get('a_xg',float('nan')):.2f} (where available)")
-# Show all bands side by side: a small close sample may still be informative.
+# Standard pricing uses the nearest 250 genuinely comparable fixtures.
+# Distance filtering is applied first; never pad with less-similar fixtures.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
-# Select nearest matches independently for each band. Apply the sample cap AFTER
-# filtering by distance so a broad band can genuinely include more fixtures.
-# Match odds use a smaller cap, consistent with the recent historical audit.
 BAND_CAPS={"Close":100,"Moderate":250,"Broad":400}
 all_combined=analogues(df,target,mode,target["date"],2.0)
 all_strength=analogues(df,target,mode,target["date"],2.0,feature_set="strength")
 samples={label:all_combined.loc[all_combined.distance<=limit].head(BAND_CAPS[label]) for limit,label in TIERS}
 match_odds_samples={label:all_strength.loc[all_strength.distance<=limit].head(BAND_CAPS[label]) for limit,label in TIERS}
+samples["Standard"]=all_combined.head(250)
+match_odds_samples["Standard"]=all_strength.head(250)
 st.subheader("Historical comparison quality")
-st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for _,label in TIERS))
-st.caption("Close uses up to 100 nearest matches; Moderate up to 250; Broad up to 400. Each must also meet its distance threshold. Wider bands can include more matches, but may still coincide when historical coverage is sparse.")
+st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for label in ("Standard","Close","Moderate","Broad")))
+st.caption("Standard (default) uses up to 250 nearest matches within the broad similarity threshold, for every market. Close, Moderate and Broad remain available for comparison; no extra matches are forced in.")
 st.caption("Match odds use league strength (PPG, goal difference and available league position). Goals, corners and cards use recent form and real xG when available. Missing xG is never replaced with goals. Samples can differ.")
-default_band=next((label for _,label in TIERS if len(samples[label])>=100),next((label for _,label in reversed(TIERS) if len(samples[label])>=30),next((label for _,label in reversed(TIERS) if len(samples[label])>0),"Close")))
-selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=["Close","Moderate","Broad"].index(default_band))
+selected=st.radio("Comparison setting",["Standard","Close","Moderate","Broad"],horizontal=True,index=0)
 matches=samples[selected]
-st.write(f"**{len(matches):,} qualifying matches** in the {selected.lower()} band")
+st.write(f"**{len(matches):,} qualifying matches** in the {selected.lower()} setting")
 if len(matches)<30:
     st.warning("Fewer than 30 historical comparisons: exploratory only; do not treat these as reliable fair odds.")
 elif len(matches)<100:
