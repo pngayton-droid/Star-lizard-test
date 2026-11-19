@@ -95,3 +95,16 @@ for model,field in (("Matrix","predicted_roi"),("League baseline","baseline_roi"
  if not best_realistic.empty:
   best_realistic.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).reset_index().to_csv("research_results/asian_goals_realistic_"+("matrix" if model=="Matrix" else "baseline")+"_summary.csv",index=False)
  print("REALISTIC",model,"bets",len(best_realistic),flush=True)
+
+# Prespecified unders-only rule: price 1.50-3.00, lines 1.5-4.5,
+# minimum +5% expected ROI, one maximum-EV under per match/bookmaker/phase.
+unders=realistic[realistic.side=="under"].copy()
+for name,score in (("matrix","predicted_roi"),("baseline","baseline_roi")):
+ chosen=(unders.sort_values([score,"line"],ascending=[False,True])
+         .drop_duplicates(["match_id","bookmaker","phase"]))
+ chosen=chosen[chosen[score]>=.05].copy()
+ chosen.to_csv(f"research_results/asian_goals_unders_{name}_bets.csv",index=False)
+ if not chosen.empty:
+  chosen.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).reset_index().to_csv(f"research_results/asian_goals_unders_{name}_summary.csv",index=False)
+  chosen.groupby(["period","bookmaker","phase","line"]).apply(summarize,include_groups=False).reset_index().to_csv(f"research_results/asian_goals_unders_{name}_by_line.csv",index=False)
+  print("UNDERS",name,chosen.groupby(["period","bookmaker","phase"]).apply(summarize,include_groups=False).to_string(),flush=True)
