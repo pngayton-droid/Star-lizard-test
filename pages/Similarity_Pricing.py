@@ -71,16 +71,21 @@ def match_corners_cards():
     for start in range(0,100000,1000):
         batch=(client().table("historical_match_events").select("match_id,stats_data").order("match_id").range(start,start+999).execute().data or [])
         for item in batch:
-            overview=((item.get("stats_data") or {}).get("overview") or {})
+            stats=item.get("stats_data") or {}
+            overview=stats.get("overview") or {}
             rec={"match_id":item["match_id"]}
             for key,prefix in (("corner_kicks","corners"),("yellow_cards","yellows")):
                 sides=((overview.get(key) or {}).get("all") or {})
                 for side in ("home","away"):
                     try:rec[f"{prefix}_{side}"]=float(sides[side])
                     except (ValueError,TypeError,KeyError):rec[f"{prefix}_{side}"]=np.nan
+            shots=(((stats.get("shots") or {}).get("shots_on_target") or {}).get("all") or {})
+            for side in ("home","away"):
+                try:rec[f"sot_{side}"]=float(shots[side])
+                except (ValueError,TypeError,KeyError):rec[f"sot_{side}"]=np.nan
             rows.append(rec)
         if len(batch)<1000:break
-    return pd.DataFrame(rows,columns=["match_id","corners_home","corners_away","yellows_home","yellows_away"])
+    return pd.DataFrame(rows,columns=["match_id","corners_home","corners_away","yellows_home","yellows_away","sot_home","sot_away"])
 
 def opponent_adjusted_xg(xg, opponent_ppg):
     """Conservative opponent-strength correction using only pre-match PPG."""
@@ -100,6 +105,7 @@ def features():
     # Historical features computed BEFORE updating with each fixture.
     venue=defaultdict(lambda:deque(maxlen=5))
     discipline=defaultdict(lambda:deque(maxlen=5))
+    shots_form=defaultdict(lambda:deque(maxlen=5))
     standings=defaultdict(lambda:defaultdict(lambda:[0,0,0]))
     out=[]
     for date,group in raw.groupby("match_date",sort=True):
@@ -111,6 +117,7 @@ def features():
             hv=list(venue[(league,h,"home")]);av=list(venue[(league,a,"away")])
             hs=standings[key][h];ass=standings[key][a]
             hdisc=list(discipline[(league,h,"home")]);adisc=list(discipline[(league,a,"away")])
+            hshots=list(shots_form[(league,h,"home")]);ashots=list(shots_form[(league,a,"away")])
             def form(v,index):
                 values=[x[index] for x in v if pd.notna(x[index])]
                 return float(np.mean(values)) if len(values)>=3 else np.nan
@@ -122,7 +129,7 @@ def features():
                 return ordered.index(team)+1
             out.append(dict(match_id=r.match_id,date=date,league=league,home=h,away=a,
                 h_form=form(hv,0),a_form=form(av,0),h_concede=form(hv,1),a_concede=form(av,1),
-                h_xg=form(hv,2),a_xg=form(av,2),h_adj_xg=form(hv,3),a_adj_xg=form(av,3),h_corners_form=form(hdisc,0),a_corners_form=form(adisc,0),h_corners_against=form(hdisc,2),a_corners_against=form(adisc,2),h_match_corners=form(hdisc,4),a_match_corners=form(adisc,4),h_yellows_form=form(hdisc,1),a_yellows_form=form(adisc,1),h_opponent_yellows=form(hdisc,3),a_opponent_yellows=form(adisc,3),h_match_yellows=form(hdisc,5),a_match_yellows=form(adisc,5),h_ppg=ppg(hs),a_ppg=ppg(ass),
+                h_xg=form(hv,2),a_xg=form(av,2),h_adj_xg=form(hv,3),a_adj_xg=form(av,3),h_corners_form=form(hdisc,0),a_corners_form=form(adisc,0),h_corners_against=form(hdisc,2),a_corners_against=form(adisc,2),h_match_corners=form(hdisc,4),a_match_corners=form(adisc,4),h_yellows_form=form(hdisc,1),a_yellows_form=form(adisc,1),h_opponent_yellows=form(hdisc,3),a_opponent_yellows=form(adisc,3),h_match_yellows=form(hdisc,5),a_match_yellows=form(adisc,5),h_sot=form(hshots,0),a_sot=form(ashots,0),h_sot_allowed=form(hshots,1),a_sot_allowed=form(ashots,1),h_ppg=ppg(hs),a_ppg=ppg(ass),
                 h_gdpg=gdpg(hs),a_gdpg=gdpg(ass),h_rank=rank(h),a_rank=rank(a),
                 ht_h=r.home_ht_goals,ht_a=r.away_ht_goals,ht_xg_h=r.home_ht_xg,ht_xg_a=r.away_ht_xg,
                 hg=r.home_goals,ag=r.away_goals,corners_home=r.corners_home,corners_away=r.corners_away,yellows_home=r.yellows_home,yellows_away=r.yellows_away))
@@ -136,6 +143,9 @@ def features():
                 v=standings[key][team];v[0]+=1;v[1]+=3 if gf>ga else (1 if gf==ga else 0);v[2]+=gf-ga
             venue[(r.competition_id,r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else np.nan,opponent_adjusted_xg(r.home_xg,a_pre_ppg)))
             venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else np.nan,opponent_adjusted_xg(r.away_xg,h_pre_ppg)))
+            if pd.notna(r.sot_home) and pd.notna(r.sot_away):
+                shots_form[(r.competition_id,r.home_team,"home")].append((r.sot_home,r.sot_away))
+                shots_form[(r.competition_id,r.away_team,"away")].append((r.sot_away,r.sot_home))
             if pd.notna(r.corners_home) and pd.notna(r.corners_away):
                 discipline[(r.competition_id,r.home_team,"home")].append((r.corners_home,r.yellows_home,r.corners_away,r.yellows_away,r.corners_home+r.corners_away,r.yellows_home+r.yellows_away))
                 discipline[(r.competition_id,r.away_team,"away")].append((r.corners_away,r.yellows_away,r.corners_home,r.yellows_home,r.corners_home+r.corners_away,r.yellows_home+r.yellows_away))
@@ -230,7 +240,7 @@ def upcoming_target(df,match):
             value=opponent_adjusted_xg(match_row.home_xg if side=="home" else match_row.away_xg,opp_ppg)
             if pd.notna(value):values.append(value)
         return float(np.mean(values)) if len(values)>=3 else np.nan
-    return {"date":day,"league":league,"home":h,"away":a,"h_xg":recent_stat(h,"home","home_xg"),"a_xg":recent_stat(a,"away","away_xg"),"h_adj_xg":adjusted_recent(h,"home"),"a_adj_xg":adjusted_recent(a,"away"),"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a),"h_corners_form":recent_stat(h,"home","corners_home"),"a_corners_form":recent_stat(a,"away","corners_away"),"h_corners_against":recent_stat(h,"home","corners_away"),"a_corners_against":recent_stat(a,"away","corners_home"),"h_match_corners":recent_total(h,"home","corners_home","corners_away"),"a_match_corners":recent_total(a,"away","corners_home","corners_away"),"h_yellows_form":recent_stat(h,"home","yellows_home"),"a_yellows_form":recent_stat(a,"away","yellows_away"),"h_opponent_yellows":recent_stat(h,"home","yellows_away"),"a_opponent_yellows":recent_stat(a,"away","yellows_home"),"h_match_yellows":recent_total(h,"home","yellows_home","yellows_away"),"a_match_yellows":recent_total(a,"away","yellows_home","yellows_away")}
+    return {"date":day,"league":league,"home":h,"away":a,"h_sot":recent_stat(h,"home","sot_home"),"a_sot":recent_stat(a,"away","sot_away"),"h_sot_allowed":recent_stat(h,"home","sot_away"),"a_sot_allowed":recent_stat(a,"away","sot_home"),"h_xg":recent_stat(h,"home","home_xg"),"a_xg":recent_stat(a,"away","away_xg"),"h_adj_xg":adjusted_recent(h,"home"),"a_adj_xg":adjusted_recent(a,"away"),"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a),"h_corners_form":recent_stat(h,"home","corners_home"),"a_corners_form":recent_stat(a,"away","corners_away"),"h_corners_against":recent_stat(h,"home","corners_away"),"a_corners_against":recent_stat(a,"away","corners_home"),"h_match_corners":recent_total(h,"home","corners_home","corners_away"),"a_match_corners":recent_total(a,"away","corners_home","corners_away"),"h_yellows_form":recent_stat(h,"home","yellows_home"),"a_yellows_form":recent_stat(a,"away","yellows_away"),"h_opponent_yellows":recent_stat(h,"home","yellows_away"),"a_opponent_yellows":recent_stat(a,"away","yellows_home"),"h_match_yellows":recent_total(h,"home","yellows_home","yellows_away"),"a_match_yellows":recent_total(a,"away","yellows_home","yellows_away")}
 
 @st.cache_data(ttl=3600,show_spinner=False)
 def historical_opening_prices():
@@ -275,6 +285,9 @@ def analogues(df,target,mode,cutoff,max_distance,feature_set="combined"):
         fields={k:v for k,v in fields.items() if k in ("h_ppg","a_ppg","h_gdpg","a_gdpg")}
     elif feature_set=="form":
         fields={k:v for k,v in fields.items() if k in ("h_form","a_form","h_concede","a_concede")}
+    if feature_set=="strength":
+        # Validated in paired historical 250-neighbour audit; 2.0 shots/90 scaling.
+        fields.update({"h_sot":2.0,"a_sot":2.0,"h_sot_allowed":2.0,"a_sot_allowed":2.0})
     if mode=="Half-time":
         fields.update({"ht_xg_h":0.6,"ht_xg_a":0.6})
     if feature_set!="form" and pd.notna(target.get("h_rank",np.nan)) and pd.notna(target.get("a_rank",np.nan)):
@@ -528,7 +541,7 @@ match_odds_samples["Standard"]=all_strength.head(250)
 st.subheader("Historical comparison quality")
 st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for label in ("Standard","Close","Moderate","Broad")))
 st.caption("Standard (default) uses up to 250 nearest matches within the broad similarity threshold, for every market. Close, Moderate and Broad remain available for comparison; no extra matches are forced in.")
-st.caption("Match odds use league strength (PPG, goal difference and available league position). Goals, corners and cards use recent form and real xG when available. Missing xG is never replaced with goals. Samples can differ.")
+st.caption("Match odds use league strength (PPG, goal difference and available league position) plus last-five venue shots on target for and against. Goals, corners and cards use recent form and real xG when available. Missing xG is never replaced with goals. Samples can differ.")
 selected=st.radio("Comparison setting",["Standard","Close","Moderate","Broad"],horizontal=True,index=0)
 matches=samples[selected]
 st.write(f"**{len(matches):,} qualifying matches** in the {selected.lower()} setting")
@@ -556,7 +569,7 @@ else:
     for item in prices.to_dict("records"):
         with st.container(border=True):
             st.markdown(f"**{item['Market']}**")
-            if item["Market"] in match_odds_markets:st.caption("League-strength matching · recent form excluded")
+            if item["Market"] in match_odds_markets:st.caption("League-strength matching + last-five venue shots on target")
             a,b,d=st.columns(3)
             a.metric("Fair odds",item["Historical fair odds"])
             b.metric("Hit rate",item["Hit rate"])
