@@ -309,7 +309,7 @@ def analogues(df,target,mode,cutoff,max_distance,feature_set="combined"):
     score+=np.where(pool.league==target["league"],0,0.5)
     pool["distance"]=np.sqrt(score/available)
     # Quality gate: do not force a fixed number of weak analogues.
-    return pool.loc[pool["distance"]<=max_distance].sort_values("distance").head(400)
+    return pool.loc[pool["distance"]<=max_distance].sort_values("distance")
 
 def market_results(df,mode):
     h=df.hg.to_numpy();a=df.ag.to_numpy()
@@ -517,11 +517,17 @@ st.caption("Historical standings reconstructed from saved results before kick-of
 st.caption(f"Recent venue xG: home {target.get('h_xg',float('nan')):.2f} · away {target.get('a_xg',float('nan')):.2f} (where available)")
 # Show all bands side by side: a small close sample may still be informative.
 TIERS=[(1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")]
-samples={label:analogues(df,target,mode,target["date"],limit) for limit,label in TIERS}
-match_odds_samples={label:analogues(df,target,mode,target["date"],limit,feature_set="strength") for limit,label in TIERS}
+# Select nearest matches independently for each band. Apply the sample cap AFTER
+# filtering by distance so a broad band can genuinely include more fixtures.
+# Match odds use a smaller cap, consistent with the recent historical audit.
+BAND_CAPS={"Close":100,"Moderate":250,"Broad":400}
+all_combined=analogues(df,target,mode,target["date"],2.0)
+all_strength=analogues(df,target,mode,target["date"],2.0,feature_set="strength")
+samples={label:all_combined.loc[all_combined.distance<=limit].head(BAND_CAPS[label]) for limit,label in TIERS}
+match_odds_samples={label:all_strength.loc[all_strength.distance<=limit].head(BAND_CAPS[label]) for limit,label in TIERS}
 st.subheader("Historical comparison quality")
 st.caption(" · ".join(f"{label}: {len(samples[label]):,}" for _,label in TIERS))
-st.caption("Bands use the 400 nearest eligible historical matches at most, avoiding dilution by thousands of weaker comparisons. Close matches also qualify for broader bands; distances are exploratory, not calibrated.")
+st.caption("Close uses up to 100 nearest matches; Moderate up to 250; Broad up to 400. Each must also meet its distance threshold. Wider bands can include more matches, but may still coincide when historical coverage is sparse.")
 st.caption("Match odds use league strength (PPG, goal difference and available league position). Goals, corners and cards use recent form and real xG when available. Missing xG is never replaced with goals. Samples can differ.")
 default_band=next((label for _,label in TIERS if len(samples[label])>=100),next((label for _,label in reversed(TIERS) if len(samples[label])>=30),next((label for _,label in reversed(TIERS) if len(samples[label])>0),"Close")))
 selected=st.radio("Comparison band",["Close","Moderate","Broad"],horizontal=True,index=["Close","Moderate","Broad"].index(default_band))
