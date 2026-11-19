@@ -82,6 +82,13 @@ def match_corners_cards():
         if len(batch)<1000:break
     return pd.DataFrame(rows,columns=["match_id","corners_home","corners_away","yellows_home","yellows_away"])
 
+def opponent_adjusted_xg(xg, opponent_ppg):
+    """Conservative opponent-strength correction using only pre-match PPG."""
+    if pd.isna(xg):return np.nan
+    if pd.isna(opponent_ppg):return float(xg)
+    factor=1.0+float(np.clip((opponent_ppg-1.35)*0.12,-0.18,0.18))
+    return float(xg)*factor
+
 def season(date):
     return date.year if date.month>=7 else date.year-1
 
@@ -114,22 +121,23 @@ def features():
                 return ordered.index(team)+1
             out.append(dict(match_id=r.match_id,date=date,league=league,home=h,away=a,
                 h_form=form(hv,0),a_form=form(av,0),h_concede=form(hv,1),a_concede=form(av,1),
-                h_xg=form(hv,2),a_xg=form(av,2),h_corners_form=form(hdisc,0),a_corners_form=form(adisc,0),h_yellows_form=form(hdisc,1),a_yellows_form=form(adisc,1),h_ppg=ppg(hs),a_ppg=ppg(ass),
+                h_xg=form(hv,2),a_xg=form(av,2),h_adj_xg=form(hv,3),a_adj_xg=form(av,3),h_corners_form=form(hdisc,0),a_corners_form=form(adisc,0),h_corners_against=form(hdisc,2),a_corners_against=form(adisc,2),h_match_corners=form(hdisc,4),a_match_corners=form(adisc,4),h_yellows_form=form(hdisc,1),a_yellows_form=form(adisc,1),h_opponent_yellows=form(hdisc,3),a_opponent_yellows=form(adisc,3),h_match_yellows=form(hdisc,5),a_match_yellows=form(adisc,5),h_ppg=ppg(hs),a_ppg=ppg(ass),
                 h_gdpg=gdpg(hs),a_gdpg=gdpg(ass),h_rank=rank(h),a_rank=rank(a),
                 ht_h=r.home_ht_goals,ht_a=r.away_ht_goals,ht_xg_h=r.home_ht_xg,ht_xg_a=r.away_ht_xg,
                 hg=r.home_goals,ag=r.away_goals,corners_home=r.corners_home,corners_away=r.corners_away,yellows_home=r.yellows_home,yellows_away=r.yellows_away))
-            pending.append(r)
+            pending.append((r,ppg(hs),ppg(ass)))
         # No same-day result can enter another same-day pre-match feature.
-        for r in pending:
+        for r,h_pre_ppg,a_pre_ppg in pending:
             if pd.isna(r.home_goals) or pd.isna(r.away_goals):continue
             key=(r.competition_id,season(date))
             hg,ag=float(r.home_goals),float(r.away_goals)
             for team,gf,ga in [(r.home_team,hg,ag),(r.away_team,ag,hg)]:
                 v=standings[key][team];v[0]+=1;v[1]+=3 if gf>ga else (1 if gf==ga else 0);v[2]+=gf-ga
-            venue[(r.competition_id,r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else np.nan))
-            venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else np.nan))
-            if pd.notna(r.corners_home) and pd.notna(r.yellows_home):discipline[(r.competition_id,r.home_team,"home")].append((r.corners_home,r.yellows_home))
-            if pd.notna(r.corners_away) and pd.notna(r.yellows_away):discipline[(r.competition_id,r.away_team,"away")].append((r.corners_away,r.yellows_away))
+            venue[(r.competition_id,r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else np.nan,opponent_adjusted_xg(r.home_xg,a_pre_ppg)))
+            venue[(r.competition_id,r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else np.nan,opponent_adjusted_xg(r.away_xg,h_pre_ppg)))
+            if pd.notna(r.corners_home) and pd.notna(r.corners_away):
+                discipline[(r.competition_id,r.home_team,"home")].append((r.corners_home,r.yellows_home,r.corners_away,r.yellows_away,r.corners_home+r.corners_away,r.yellows_home+r.yellows_away))
+                discipline[(r.competition_id,r.away_team,"away")].append((r.corners_away,r.yellows_away,r.corners_home,r.yellows_home,r.corners_home+r.corners_away,r.yellows_home+r.yellows_away))
     return pd.DataFrame(out)
 
 @st.cache_data(ttl=3600,show_spinner=False)
@@ -204,7 +212,24 @@ def upcoming_target(df,match):
         col="home_team" if side=="home" else "away_team"
         values=current[current[col]==team].sort_values("match_date")[field].dropna().tail(5)
         return float(values.mean()) if len(values)>=3 else np.nan
-    return {"date":day,"league":league,"home":h,"away":a,"h_xg":recent_stat(h,"home","home_xg"),"a_xg":recent_stat(a,"away","away_xg"),"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a),"h_corners_form":recent_stat(h,"home","corners_home"),"a_corners_form":recent_stat(a,"away","corners_away"),"h_yellows_form":recent_stat(h,"home","yellows_home"),"a_yellows_form":recent_stat(a,"away","yellows_away")}
+    def recent_total(team,side,left,right):
+        col="home_team" if side=="home" else "away_team"
+        recent=current[current[col]==team].sort_values("match_date").tail(5)
+        totals=recent[left]+recent[right]
+        return float(totals.mean()) if totals.notna().sum()>=3 else np.nan
+    past_features=df.set_index("match_id")
+    def adjusted_recent(team,side):
+        col="home_team" if side=="home" else "away_team"
+        recent=current[current[col]==team].sort_values("match_date").tail(5)
+        values=[]
+        for match_row in recent.itertuples(index=False):
+            if match_row.match_id not in past_features.index:continue
+            prev=past_features.loc[match_row.match_id]
+            opp_ppg=prev["a_ppg"] if side=="home" else prev["h_ppg"]
+            value=opponent_adjusted_xg(match_row.home_xg if side=="home" else match_row.away_xg,opp_ppg)
+            if pd.notna(value):values.append(value)
+        return float(np.mean(values)) if len(values)>=3 else np.nan
+    return {"date":day,"league":league,"home":h,"away":a,"h_xg":recent_stat(h,"home","home_xg"),"a_xg":recent_stat(a,"away","away_xg"),"h_adj_xg":adjusted_recent(h,"home"),"a_adj_xg":adjusted_recent(a,"away"),"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a),"h_corners_form":recent_stat(h,"home","corners_home"),"a_corners_form":recent_stat(a,"away","corners_away"),"h_corners_against":recent_stat(h,"home","corners_away"),"a_corners_against":recent_stat(a,"away","corners_home"),"h_match_corners":recent_total(h,"home","corners_home","corners_away"),"a_match_corners":recent_total(a,"away","corners_home","corners_away"),"h_yellows_form":recent_stat(h,"home","yellows_home"),"a_yellows_form":recent_stat(a,"away","yellows_away"),"h_opponent_yellows":recent_stat(h,"home","yellows_away"),"a_opponent_yellows":recent_stat(a,"away","yellows_home"),"h_match_yellows":recent_total(h,"home","yellows_home","yellows_away"),"a_match_yellows":recent_total(a,"away","yellows_home","yellows_away")}
 
 @st.cache_data(ttl=3600,show_spinner=False)
 def historical_opening_prices():
@@ -261,7 +286,9 @@ def analogues(df,target,mode,cutoff,max_distance,feature_set="combined"):
         # Real pre-match xG form only; missing values are not substituted with goals.
         if all(pd.notna(target.get(k,np.nan)) for k in ("h_xg","a_xg")):
             fields.update({"h_xg":0.8,"a_xg":0.8})
-        fields.update({"h_corners_form":2.5,"a_corners_form":2.5,"h_yellows_form":1.5,"a_yellows_form":1.5})
+        if all(pd.notna(target.get(k,np.nan)) for k in ("h_adj_xg","a_adj_xg")):
+            fields.update({"h_adj_xg":0.8,"a_adj_xg":0.8})
+        fields.update({"h_corners_form":2.5,"a_corners_form":2.5,"h_corners_against":2.5,"a_corners_against":2.5,"h_match_corners":4.0,"a_match_corners":4.0,"h_yellows_form":1.5,"a_yellows_form":1.5,"h_opponent_yellows":1.5,"a_opponent_yellows":1.5,"h_match_yellows":2.5,"a_match_yellows":2.5})
     odds_enabled=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
     if odds_enabled and feature_set=="combined":
         pool=pool.dropna(subset=["market_home","market_draw","market_away"])
