@@ -508,6 +508,10 @@ else:
         prices=pd.concat([prices[~prices.Market.isin(match_odds_markets)],strength_prices[strength_prices.Market.isin(match_odds_markets)]],ignore_index=True)
     else:
         prices=prices[~prices.Market.isin(match_odds_markets)]
+    # Display the main 1X2 prices first, regardless of market_results ordering.
+    primary_order={"Home win":0,"Draw":1,"Away win":2,"Home wins from HT":0,"Draw from HT":1,"Away wins from HT":2}
+    prices=prices.assign(_display_order=prices["Market"].map(primary_order).fillna(10))
+    prices=prices.sort_values("_display_order",kind="stable").drop(columns="_display_order")
     for item in prices.to_dict("records"):
         with st.container(border=True):
             st.markdown(f"**{item['Market']}**")
