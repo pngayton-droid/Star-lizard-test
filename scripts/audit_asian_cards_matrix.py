@@ -1,4 +1,4 @@
-"""Chronological Match Matrix card totals against saved Bet365 prices.\nZero-red-card fixtures only: dismissal settlement cannot be verified from aggregates.\n"""
+"""Chronological Match Matrix card totals against saved Bet365 prices.\nAll fixtures included; red cards provisionally count as two additional cards.\nNot exact Bet365 settlement: second-yellow dismissals and recipient eligibility unknown.\n"""
 import os,ast
 import numpy as np,pandas as pd
 from supabase import create_client
@@ -29,8 +29,8 @@ for rec in fetch("historical_match_events","match_id,stats_data"):
    red_counts[rec["match_id"]]=int(red["home"])+int(red["away"])
  except (ValueError,TypeError):pass
 data["red_total"]=data.match_id.map(red_counts)
-data_zero_red=data[data.red_total.eq(0)].copy()
-print("ZERO_RED_MATCHES",len(data_zero_red),"ALL_MATCHES",len(data),flush=True)
+data_zero_red=data[data.red_total.notna()].copy()
+print("MATCHES_WITH_RED_DATA",len(data_zero_red),"ALL_MATCHES",len(data),flush=True)
 quotes={}
 for rec in fetch("historical_match_odds","match_id,odds_payload"):
  for b in (((rec.get("odds_payload") or {}).get("data") or {}).get("bookmakers") or []):
@@ -45,8 +45,8 @@ for i,r in enumerate(eligible.itertuples(index=False)):
  sample=analogues(data_zero_red,target,"Pre-match",r.date,2.0,feature_set="combined").head(250)
  sample=sample[sample.yellows_home.notna()&sample.yellows_away.notna()]
  if len(sample)<50:continue
- total=float(r.yellows_home+r.yellows_away)
- historical=(sample.yellows_home+sample.yellows_away).to_numpy()
+ total=float(r.yellows_home+r.yellows_away+2*r.red_total)
+ historical=(sample.yellows_home+sample.yellows_away+2*sample.red_total).to_numpy()
  candidates=[]
  for key,prices in quotes[r.match_id].items():
   try:line=float(key)
@@ -68,7 +68,7 @@ for i,r in enumerate(eligible.itertuples(index=False)):
 df=pd.DataFrame(rows)
 os.makedirs("research_results",exist_ok=True)
 if df.empty:raise RuntimeError("No selected bets")
-df.to_csv("research_results/asian_cards_matrix_bets.csv",index=False)
+df.to_csv("research_results/asian_cards_matrix_red_proxy_bets.csv",index=False)
 df["odds_band"]=pd.cut(df.price,[1.5,1.75,2,2.25,2.5,2.75,3.00001],right=False).astype(str)
 def agg(cols):
  return df.groupby(cols,observed=True).agg(bets=("profit","size"),roi=("profit","mean"),predicted_roi=("predicted_roi","mean"),units=("profit","sum")).reset_index()
@@ -77,6 +77,6 @@ for name,cols in [("year",["year"]),("side",["side"]),("line",["line","side"]),(
  if name=="year":out=[a]
  else:out.append(a)
 result=pd.concat(out,ignore_index=True)
-result.to_csv("research_results/asian_cards_matrix_summary.csv",index=False)
-print("TOTAL (ZERO-RED SUBSET)",len(df),"ROI",df.profit.mean(),flush=True)
+result.to_csv("research_results/asian_cards_matrix_red_proxy_summary.csv",index=False)
+print("TOTAL (ALL MATCHES, RED-TWO-POINT PROXY)",len(df),"ROI",df.profit.mean(),flush=True)
 print(result.to_string(index=False),flush=True)
