@@ -27,7 +27,7 @@ for row in rows:print("BOOKMAKER",row,flush=True)
 pd.DataFrame(rows).to_csv("strong_away_bookmaker_breakdown.csv",index=False)
 q.to_csv("strong_away_bookmaker_detail.csv",index=False)
 # Additional check: calendar month stability, to spot a few clustered wins masquerading as a repeatable edge.
-for (month,),g in q.groupby([q.date.dt.to_period("M").astype(str)]):
+for month,g in q.groupby(q.date.dt.to_period("M").astype(str)):
  g=g.sort_values(["match_id","away_odds"]).drop_duplicates("match_id")
  print("MONTH",month,"matches",len(g),"wins",int(g.away_win.sum()),"best_available_roi",round(g.profit.mean(),4),flush=True)
 print("DONE_BOOKMAKER_AUDIT",flush=True)
