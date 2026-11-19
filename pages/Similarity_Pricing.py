@@ -358,6 +358,35 @@ def backtest_similarity(data, n=1000):
     summary["Improvement"]=summary.Baseline_Brier-summary.Similarity_Brier
     return summary,detail
 
+@st.cache_data(ttl=3600,show_spinner=False)
+def bookmaker_head_to_head(data):
+    """Same-match bookmaker vs form-only similarity, chronological historical analogues."""
+    eligible=data[data.hg.notna() & data.ag.notna()].dropna(subset=["market_home","market_draw","market_away"]).sort_values(["date","match_id"])
+    rows=[]
+    for r in eligible.itertuples(index=False):
+        target=r._asdict()
+        bookmaker=np.array([r.market_home,r.market_draw,r.market_away],dtype=float)
+        actual=np.array([r.hg>r.ag,r.hg==r.ag,r.hg<r.ag],dtype=float)
+        # Compare form-only model against bookmaker; don't feed bookmaker probabilities to model.
+        for field in ("market_home","market_draw","market_away"):
+            target[field]=np.nan
+        sample=analogues(data,target,"Pre-match",r.date,2.0)
+        for cutoff,band in ((1.0,"Close"),(1.5,"Moderate"),(2.0,"Broad")):
+            subset=sample[sample.distance<=cutoff]
+            if len(subset)<30:continue
+            probs=np.array([(subset.hg>subset.ag).mean(),(subset.hg==subset.ag).mean(),(subset.hg<subset.ag).mean()])
+            rows.append({"Match ID":r.match_id,"Date":str(r.date.date()),"Band":band,"Analogues":len(subset),
+                         "Matrix Brier":float(np.mean((probs-actual)**2)),
+                         "Bookmaker Brier":float(np.mean((bookmaker-actual)**2)),
+                         "Matrix home":probs[0],"Matrix draw":probs[1],"Matrix away":probs[2],
+                         "Book home":bookmaker[0],"Book draw":bookmaker[1],"Book away":bookmaker[2],
+                         "Actual result":["Home","Draw","Away"][int(np.argmax(actual))]})
+    if not rows:return pd.DataFrame(),pd.DataFrame()
+    detail=pd.DataFrame(rows)
+    summary=detail.groupby("Band",as_index=False).agg(Matches=("Match ID","nunique"),Matrix_Brier=("Matrix Brier","mean"),Bookmaker_Brier=("Bookmaker Brier","mean"))
+    summary["Improvement"]=summary.Bookmaker_Brier-summary.Matrix_Brier
+    return summary,detail
+
 with st.spinner("Preparing historical features without future-data leakage…"):
     df=attach_opening_prices(features())
 if df.empty:
@@ -376,6 +405,19 @@ with st.expander("🧪 Large historical accuracy test — similarity vs league a
             st.caption(f"{detail.Fixture.nunique():,} distinct fixtures evaluated. Positive Improvement means the Match Matrix beat the league baseline. Each band/market can have a different number of qualifying fixtures.")
             st.download_button("Download test predictions",detail.to_csv(index=False).encode("utf-8"),file_name="match_matrix_large_backtest.csv",mime="text/csv")
             st.caption("Caution: comparison uses historical league averages rather than bookmaker closing prices; it does not establish betting profitability.")
+
+with st.expander("⚖️ Match Matrix vs real bookmaker opening odds"):
+    st.caption("Strict same-fixture comparison using saved opening odds, no closing odds or last-seen substitutes. The Matrix is evaluated without seeing the bookmaker quote. Minimum 30 historical analogues per band.")
+    if st.button("Run bookmaker head-to-head",key="run_bookmaker_comparison"):
+        with st.spinner("Testing every fixture with verified opening odds against earlier historical matches…"):
+            comparison,match_detail=bookmaker_head_to_head(df)
+        if comparison.empty:
+            st.warning("No bookmaker-priced fixtures passed the historical comparison requirements.")
+        else:
+            st.dataframe(comparison.round(4),use_container_width=True,hide_index=True)
+            st.caption("Positive improvement means Matrix is more accurate than bookmaker probabilities. Each band may cover a different set of fixtures.")
+            st.download_button("Download same-match bookmaker comparison",match_detail.to_csv(index=False).encode("utf-8"),file_name="match_matrix_vs_bookmakers.csv",mime="text/csv")
+            st.caption("Opening odds are normalized to remove bookmaker margin. Accuracy is not proof of betting value or positive ROI.")
 
 st.caption(f"{len(df):,} saved fixtures · {df.date.min().date()} to {df.date.max().date()} · {df.league.nunique()} leagues")
 mode=st.radio("Analysis",["Pre-match","Half-time"],horizontal=True)
