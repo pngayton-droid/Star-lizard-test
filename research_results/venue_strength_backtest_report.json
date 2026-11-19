@@ -1,0 +1,196 @@
+{
+  "fixtures_tested": 240,
+  "paired_fixture_market_cases": 1664,
+  "summary": [
+    {
+      "market": "Away win",
+      "model": "League baseline",
+      "tests": 238,
+      "brier": 0.217009,
+      "mean_predicted": 0.310995,
+      "actual_rate": 0.319328,
+      "median_analogues": 1608.5
+    },
+    {
+      "market": "Away win",
+      "model": "Previous Matrix",
+      "tests": 238,
+      "brier": 0.203731,
+      "mean_predicted": 0.308757,
+      "actual_rate": 0.319328,
+      "median_analogues": 8858.0
+    },
+    {
+      "market": "Away win",
+      "model": "Updated Matrix",
+      "tests": 238,
+      "brier": 0.208472,
+      "mean_predicted": 0.30708,
+      "actual_rate": 0.319328,
+      "median_analogues": 10920.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "League baseline",
+      "tests": 238,
+      "brier": 0.248807,
+      "mean_predicted": 0.533248,
+      "actual_rate": 0.542017,
+      "median_analogues": 1608.5
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Previous Matrix",
+      "tests": 238,
+      "brier": 0.248375,
+      "mean_predicted": 0.535992,
+      "actual_rate": 0.542017,
+      "median_analogues": 8858.0
+    },
+    {
+      "market": "BTTS Yes",
+      "model": "Updated Matrix",
+      "tests": 238,
+      "brier": 0.248243,
+      "mean_predicted": 0.535954,
+      "actual_rate": 0.542017,
+      "median_analogues": 10920.0
+    },
+    {
+      "market": "Draw",
+      "model": "League baseline",
+      "tests": 238,
+      "brier": 0.170755,
+      "mean_predicted": 0.253839,
+      "actual_rate": 0.214286,
+      "median_analogues": 1608.5
+    },
+    {
+      "market": "Draw",
+      "model": "Previous Matrix",
+      "tests": 238,
+      "brier": 0.169426,
+      "mean_predicted": 0.256596,
+      "actual_rate": 0.214286,
+      "median_analogues": 8858.0
+    },
+    {
+      "market": "Draw",
+      "model": "Updated Matrix",
+      "tests": 238,
+      "brier": 0.169774,
+      "mean_predicted": 0.256366,
+      "actual_rate": 0.214286,
+      "median_analogues": 10920.0
+    },
+    {
+      "market": "Home win",
+      "model": "League baseline",
+      "tests": 238,
+      "brier": 0.248168,
+      "mean_predicted": 0.435166,
+      "actual_rate": 0.466387,
+      "median_analogues": 1608.5
+    },
+    {
+      "market": "Home win",
+      "model": "Previous Matrix",
+      "tests": 238,
+      "brier": 0.234691,
+      "mean_predicted": 0.434647,
+      "actual_rate": 0.466387,
+      "median_analogues": 8858.0
+    },
+    {
+      "market": "Home win",
+      "model": "Updated Matrix",
+      "tests": 238,
+      "brier": 0.238993,
+      "mean_predicted": 0.436554,
+      "actual_rate": 0.466387,
+      "median_analogues": 10920.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "League baseline",
+      "tests": 238,
+      "brier": 0.247581,
+      "mean_predicted": 0.520867,
+      "actual_rate": 0.563025,
+      "median_analogues": 1608.5
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Previous Matrix",
+      "tests": 238,
+      "brier": 0.245568,
+      "mean_predicted": 0.515456,
+      "actual_rate": 0.563025,
+      "median_analogues": 8858.0
+    },
+    {
+      "market": "Over 2.5 goals",
+      "model": "Updated Matrix",
+      "tests": 238,
+      "brier": 0.246801,
+      "mean_predicted": 0.516146,
+      "actual_rate": 0.563025,
+      "median_analogues": 10920.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "League baseline",
+      "tests": 237,
+      "brier": 0.231351,
+      "mean_predicted": 0.391759,
+      "actual_rate": 0.333333,
+      "median_analogues": 1607.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Previous Matrix",
+      "tests": 237,
+      "brier": 0.222712,
+      "mean_predicted": 0.38481,
+      "actual_rate": 0.333333,
+      "median_analogues": 8819.0
+    },
+    {
+      "market": "Over 4.5 yellow cards",
+      "model": "Updated Matrix",
+      "tests": 237,
+      "brier": 0.223749,
+      "mean_predicted": 0.384822,
+      "actual_rate": 0.333333,
+      "median_analogues": 10912.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "League baseline",
+      "tests": 237,
+      "brier": 0.253197,
+      "mean_predicted": 0.513864,
+      "actual_rate": 0.518987,
+      "median_analogues": 1607.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Previous Matrix",
+      "tests": 237,
+      "brier": 0.249976,
+      "mean_predicted": 0.509603,
+      "actual_rate": 0.518987,
+      "median_analogues": 8818.0
+    },
+    {
+      "market": "Over 9.5 corners",
+      "model": "Updated Matrix",
+      "tests": 237,
+      "brier": 0.249835,
+      "mean_predicted": 0.508743,
+      "actual_rate": 0.518987,
+      "median_analogues": 10911.0
+    }
+  ],
+  "method": "Chronological pre-match data; 1.5 similarity cutoff; identical matched cases; no goal-substituted xG; 240 evenly spaced recent fixtures; match odds strength-only model is unchanged; not an untouched holdout"
+}
