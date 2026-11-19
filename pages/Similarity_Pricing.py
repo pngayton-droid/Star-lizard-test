@@ -32,6 +32,23 @@ def load():
         df[col]=pd.to_numeric(df[col],errors="coerce")
     return df.sort_values(["match_date","match_id"]).reset_index(drop=True)
 
+@st.cache_data(ttl=3600,show_spinner=False)
+def match_corners_cards():
+    rows=[]
+    for start in range(0,100000,1000):
+        batch=(client().table("historical_match_events").select("match_id,stats_data").order("match_id").range(start,start+999).execute().data or [])
+        for item in batch:
+            overview=((item.get("stats_data") or {}).get("overview") or {})
+            rec={"match_id":item["match_id"]}
+            for key,prefix in (("corner_kicks","corners"),("yellow_cards","yellows")):
+                sides=((overview.get(key) or {}).get("all") or {})
+                for side in ("home","away"):
+                    try:rec[f"{prefix}_{side}"]=float(sides[side])
+                    except (ValueError,TypeError,KeyError):rec[f"{prefix}_{side}"]=np.nan
+            rows.append(rec)
+        if len(batch)<1000:break
+    return pd.DataFrame(rows,columns=["match_id","corners_home","corners_away","yellows_home","yellows_away"])
+
 def season(date):
     return date.year if date.month>=7 else date.year-1
 
@@ -39,8 +56,10 @@ def season(date):
 def features():
     raw=load()
     if raw.empty:return pd.DataFrame()
+    raw=raw.merge(match_corners_cards(),on="match_id",how="left",validate="one_to_one")
     # Historical features computed BEFORE updating with each fixture.
     venue=defaultdict(lambda:deque(maxlen=5))
+    discipline=defaultdict(lambda:deque(maxlen=5))
     standings=defaultdict(lambda:defaultdict(lambda:[0,0,0]))
     out=[]
     for date,group in raw.groupby("match_date",sort=True):
@@ -51,6 +70,7 @@ def features():
             h,a=r.home_team,r.away_team
             hv=list(venue[(league,season(date),h,"home")]);av=list(venue[(league,season(date),a,"away")])
             hs=standings[key][h];ass=standings[key][a]
+            hdisc=list(discipline[(league,season(date),h,"home")]);adisc=list(discipline[(league,season(date),a,"away")])
             def form(v,index):
                 return float(np.mean([x[index] for x in v])) if len(v)>=3 else np.nan
             def ppg(s):return s[1]/s[0] if s[0] else np.nan
@@ -61,10 +81,10 @@ def features():
                 return ordered.index(team)+1
             out.append(dict(match_id=r.match_id,date=date,league=league,home=h,away=a,
                 h_form=form(hv,0),a_form=form(av,0),h_concede=form(hv,1),a_concede=form(av,1),
-                h_xg=form(hv,2),a_xg=form(av,2),h_ppg=ppg(hs),a_ppg=ppg(ass),
+                h_xg=form(hv,2),a_xg=form(av,2),h_corners_form=form(hdisc,0),a_corners_form=form(adisc,0),h_yellows_form=form(hdisc,1),a_yellows_form=form(adisc,1),h_ppg=ppg(hs),a_ppg=ppg(ass),
                 h_gdpg=gdpg(hs),a_gdpg=gdpg(ass),h_rank=rank(h),a_rank=rank(a),
                 ht_h=r.home_ht_goals,ht_a=r.away_ht_goals,ht_xg_h=r.home_ht_xg,ht_xg_a=r.away_ht_xg,
-                hg=r.home_goals,ag=r.away_goals))
+                hg=r.home_goals,ag=r.away_goals,corners_home=r.corners_home,corners_away=r.corners_away,yellows_home=r.yellows_home,yellows_away=r.yellows_away))
             pending.append(r)
         # No same-day result can enter another same-day pre-match feature.
         for r in pending:
@@ -75,6 +95,8 @@ def features():
                 v=standings[key][team];v[0]+=1;v[1]+=3 if gf>ga else (1 if gf==ga else 0);v[2]+=gf-ga
             venue[(r.competition_id,season(date),r.home_team,"home")].append((hg,ag,r.home_xg if pd.notna(r.home_xg) else hg))
             venue[(r.competition_id,season(date),r.away_team,"away")].append((ag,hg,r.away_xg if pd.notna(r.away_xg) else ag))
+            if pd.notna(r.corners_home) and pd.notna(r.yellows_home):discipline[(r.competition_id,season(date),r.home_team,"home")].append((r.corners_home,r.yellows_home))
+            if pd.notna(r.corners_away) and pd.notna(r.yellows_away):discipline[(r.competition_id,season(date),r.away_team,"away")].append((r.corners_away,r.yellows_away))
     return pd.DataFrame(out)
 
 @st.cache_data(ttl=900,show_spinner=False)
@@ -110,7 +132,7 @@ def daily_fixtures(day):
 def upcoming_target(df,match):
     day=match["date"].tz_convert("Europe/London").tz_localize(None).normalize()
     league=match["league"]
-    raw=load()
+    raw=load().merge(match_corners_cards(),on="match_id",how="left",validate="one_to_one")
     history=raw[(raw.competition_id==league)&(raw.match_date<day)&raw.home_goals.notna()&raw.away_goals.notna()].copy()
     h,a=match["home"],match["away"]
     season_start=pd.Timestamp(year=season(day),month=7,day=1)
@@ -143,7 +165,11 @@ def upcoming_target(df,match):
     def position(team):
         return ordered.index(team)+1 if team in ordered and table[team][0]>=3 else np.nan
     hf,hc=venue(h,"home");af,ac=venue(a,"away")
-    return {"date":day,"league":league,"home":h,"away":a,"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a)}
+    def recent_stat(team,side,field):
+        col="home_team" if side=="home" else "away_team"
+        values=current[current[col]==team].sort_values("match_date")[field].dropna().tail(5)
+        return float(values.mean()) if len(values)>=3 else np.nan
+    return {"date":day,"league":league,"home":h,"away":a,"h_ppg":hp,"a_ppg":ap,"h_gdpg":hgd,"a_gdpg":agd,"h_form":hf,"a_form":af,"h_concede":hc,"a_concede":ac,"h_rank":position(h),"a_rank":position(a),"h_corners_form":recent_stat(h,"home","corners_home"),"a_corners_form":recent_stat(a,"away","corners_away"),"h_yellows_form":recent_stat(h,"home","yellows_home"),"a_yellows_form":recent_stat(a,"away","yellows_away")}
 
 @st.cache_data(ttl=3600,show_spinner=False)
 def historical_opening_prices():
@@ -192,6 +218,7 @@ def analogues(df,target,mode,cutoff,max_distance):
         target=dict(target,rank_gap=(target["a_rank"]-target["h_rank"])/size)
         pool["rank_gap"]=(pool.a_rank-pool.h_rank)/pool.league.map(sizes)
         fields["rank_gap"]=0.20
+    fields.update({"h_corners_form":2.5,"a_corners_form":2.5,"h_yellows_form":1.5,"a_yellows_form":1.5})
     odds_enabled=all(pd.notna(target.get(k,np.nan)) for k in ("market_home","market_draw","market_away"))
     if odds_enabled:
         pool=pool.dropna(subset=["market_home","market_draw","market_away"])
@@ -225,15 +252,24 @@ def market_results(df,mode):
                 "Over 1.5 second-half goals":h+a-hh-aa>=2,
                 "Over 2.5 second-half goals":h+a-hh-aa>=3,
                 "Home scores in second half":h>hh,"Away scores in second half":a>aa}
-    return {name:float(np.mean(v)) for name,v in result.items()}
+    for prefix,label,lines in (("corners","corners",[7.5,8.5,9.5,10.5,11.5]),("yellows","yellow cards",[2.5,3.5,4.5,5.5])):
+        totals=df[f"{prefix}_home"]+df[f"{prefix}_away"]
+        valid=totals.notna()
+        for line in lines:
+            result[f"Over {line:g} {label}"]=(totals[valid]>line)
+    return {name:(int(np.asarray(v).sum()),len(v)) for name,v in result.items()}
 
 def score_card(matches,mode):
     n=len(matches)
     if not n:return pd.DataFrame()
     result=market_results(matches,mode)
-    return pd.DataFrame([{"Market":name,"Wins":round(p*n),"Matches":n,"Hit rate":f"{p:.1%}",
-       "Historical fair odds":f"{1/p:.2f}" if p else "—",
-       "Approx. 95% interval":f"{max(0,p-1.96*math.sqrt(p*(1-p)/n)):.1%}–{min(1,p+1.96*math.sqrt(p*(1-p)/n)):.1%}"} for name,p in result.items()])
+    rows=[]
+    for name,(wins,count) in result.items():
+        p=wins/count if count else 0
+        rows.append({"Market":name,"Wins":wins,"Matches":count,"Hit rate":f"{p:.1%}" if count else "—",
+          "Historical fair odds":f"{1/p:.2f}" if p else "—",
+          "Approx. 95% interval":f"{max(0,p-1.96*math.sqrt(p*(1-p)/count)):.1%}–{min(1,p+1.96*math.sqrt(p*(1-p)/count)):.1%}" if count else "—"})
+    return pd.DataFrame(rows)
 
 with st.spinner("Preparing historical features without future-data leakage…"):
     df=attach_opening_prices(features())
