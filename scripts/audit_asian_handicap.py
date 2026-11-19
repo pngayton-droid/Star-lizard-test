@@ -117,3 +117,33 @@ if len(best):
  best.groupby(["period","phase","bookmaker"],dropna=False).apply(summary_fn,include_groups=False).reset_index().to_csv("research_results/asian_handicap_bookmaker_best_summary.csv",index=False)
 print("PRICED",len(priced),"UNIQUE MATCHES",priced.match_id.nunique(),"BEST",len(best),flush=True)
 print(priced.groupby(["phase","side","bookmaker"]).apply(summary_fn,include_groups=False).to_string(),flush=True)
+
+
+# Diagnostic: keep the original Matrix selections, add favourite strength and quote sanity.
+favorite_rows=[]
+for record in priced.itertuples(index=False):
+ market=(odds_by_match.get(record.match_id) or {}).get(record.bookmaker) or {}
+ # match_odds lives alongside asian_handicap; recover it from the original payload below.
+favorite_by_match={}
+for rec in odds_records:
+ for bookmaker in (((rec.get("odds_payload") or {}).get("data") or {}).get("bookmakers") or []):
+  name=str(bookmaker.get("bookmaker") or "unknown")
+  match_odds=((bookmaker.get("markets") or {}).get("match_odds") or {})
+  favorite_by_match[(rec["match_id"],name)]=match_odds
+for record in priced.itertuples(index=False):
+ odds=favorite_by_match.get((record.match_id,record.bookmaker),{})
+ for favphase in ("opening","last_seen"):
+  try:home_price=float((odds.get("home") or {}).get(favphase))
+  except (ValueError,TypeError,AttributeError):continue
+  if home_price<=1.01:continue
+  favorite_rows.append(dict(match_id=record.match_id,period=record.period,bookmaker=record.bookmaker,phase=record.phase,favorite_phase=favphase,home_favorite_price=home_price,favorite_band=("<1.30" if home_price<1.30 else "1.30-1.49" if home_price<1.50 else ">=1.50"),side=record.side,line=record.line,price=record.price,predicted_roi=record.predicted_roi,realized_profit=record.realized_profit,signal_5pct=record.signal_5pct))
+diag=pd.DataFrame(favorite_rows)
+if not diag.empty:
+ diag.to_csv("research_results/asian_handicap_favorite_diagnostic_detail.csv",index=False)
+ def report(g):
+  return pd.Series({"bets":len(g),"matches":g.match_id.nunique(),"actual_roi":g.realized_profit.mean(),"predicted_roi":g.predicted_roi.mean(),"median_price":g.price.median()})
+ focus=diag[(diag.side=="away")&(diag.line==1.75)&(diag.phase=="last_seen")&(diag.bookmaker.isin(["Bet365","Betfair Exchange","Pinnacle"]))]
+ focus.groupby(["period","bookmaker","favorite_phase","favorite_band","signal_5pct"]).apply(report,include_groups=False).reset_index().to_csv("research_results/asian_handicap_favorite_diagnostic_summary.csv",index=False)
+ sanity=priced.groupby(["bookmaker","phase"]).agg(quotes=("price","size"),median_price=("price","median"),mean_price=("price","mean"),above_5=("price",lambda x:(x>5).sum()),above_10=("price",lambda x:(x>10).sum())).reset_index()
+ sanity.to_csv("research_results/asian_handicap_quote_sanity.csv",index=False)
+ print("DIAGNOSTIC",len(diag),"FOCUS",len(focus),flush=True)
