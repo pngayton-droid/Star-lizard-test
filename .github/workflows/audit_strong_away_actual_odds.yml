@@ -1,0 +1,32 @@
+name: Strong away teams real opening odds validation
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit_strong_away_actual_odds.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Validate predeclared strength gaps on actual bookmaker quotes and 2026 holdout
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python -u scripts/audit_strong_away_actual_odds.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strong-away-real-opening-odds
+          path: |
+            strong_away_real_odds_summary.csv
+            strong_away_real_odds_detail.csv
+            strong_away_opening_quotes.csv
+          if-no-files-found: ignore
