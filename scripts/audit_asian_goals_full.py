@@ -95,13 +95,23 @@ rivals["peer_outlier"]=(rivals.bookmaker=="Betfair Exchange")&(
 rivals["role"]="matched rival"
 allbets=pd.concat([anchor,rivals],ignore_index=True)
 allbets.to_csv("research_results/asian_goals_full_chrono_bets.csv",index=False)
-allbets["usable"]=~allbets.peer_outlier.fillna(False)
+# Explicit booleans: pandas object dtype + bitwise NOT can yield -1/-2.
+# Only Betfair quotes need peer checks; missing peers are not verified.
+allbets["peer_outlier"]=allbets["peer_outlier"].fillna(False).astype(bool)
+is_betfair=allbets["bookmaker"].eq("Betfair Exchange")
+allbets["usable"]=(~is_betfair | (
+ allbets["peer_median"].notna() & ~allbets["peer_outlier"]
+)).astype(bool)
+allbets.to_csv("research_results/asian_goals_full_chrono_bets.csv",index=False)
+assert allbets["usable"].isin([True,False]).all()
+assert not allbets.loc[is_betfair & allbets.peer_median.isna(),"usable"].any()
 summary=allbets.groupby(["year","bookmaker","usable"]).agg(
  bets=("match_id","size"),matches=("match_id","nunique"),
  gross_roi=("profit","mean"),net_roi=("net_profit","mean"),
  mean_price=("price","mean"),model_predicted_roi=("predicted_roi","mean")
 ).reset_index()
 summary.to_csv("research_results/asian_goals_full_chrono_summary.csv",index=False)
+print("BETFAIR PEER-MATCHED",int((is_betfair & allbets.peer_median.notna()).sum()),"BETFAIR USABLE",int((is_betfair & allbets.usable).sum()),flush=True)
 print("FULL CHRONOLOGICAL SUMMARY",flush=True)
 print(summary.to_string(index=False),flush=True)
 print("UNIQUE FIXTURES",df.match_id.nunique(),"ANCHOR",len(anchor),flush=True)
