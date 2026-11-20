@@ -119,10 +119,49 @@ if st.button("Calculate trained model fair odds",type="primary",use_container_wi
                "away_scores_2h":"Away scores","both_score_2h":"Both score"}
         outcomes={"0":"No","1":"Yes","home":"Home","away":"Away",
                   "draw":"Draw","none":"No goal"}
-        rows=[]
+        # Coherence layer: reconcile independently fitted market probabilities.
+        # This is a post-processing constraint, not retraining or a claim of better calibration.
+        probs={}
         for market,clf in model["models"].items():
-            for selection,prob in zip(clf.classes_,clf.predict_proba(scaled)[0]):
-                p=float(prob)
+            probs[market]={str(k):float(v) for k,v in zip(clf.classes_,clf.predict_proba(scaled)[0])}
+        raw={k:dict(v) for k,v in probs.items()}
+        # Nested goal totals cannot increase with a higher threshold.
+        o05=probs["over_0_5_2h"]["1"]
+        o15=min(probs["over_1_5_2h"]["1"],o05)
+        o25=min(probs["over_2_5_2h"]["1"],o15)
+        for k,p in (("over_0_5_2h",o05),("over_1_5_2h",o15),("over_2_5_2h",o25)):
+            probs[k]={"1":p,"0":1-p}
+        # No next goal is exactly no second-half goals. Preserve the learned
+        # home/away next-goal ratio conditional on at least one goal.
+        nextp=probs["next_goal"]
+        hshare=nextp["home"]/max(nextp["home"]+nextp["away"],1e-12)
+        probs["next_goal"]={"home":o05*hshare,"away":o05*(1-hshare),"none":1-o05}
+        # Both sides scoring implies each side scores and at least two total goals.
+        both=min(probs["both_score_2h"]["1"],
+                 probs["home_scores_2h"]["1"],probs["away_scores_2h"]["1"],o15)
+        probs["both_score_2h"]={"1":both,"0":1-both}
+        # Inclusion-exclusion: P(H scores)+P(A scores)-P(both) <= P(any goal).
+        # Adjust individual scoring chances down only when necessary.
+        h=probs["home_scores_2h"]["1"];a=probs["away_scores_2h"]["1"]
+        excess=max(0.0,h+a-both-o05)
+        if excess:
+            room_h=max(0.0,h-both);room_a=max(0.0,a-both)
+            take_h=min(room_h,excess*room_h/max(room_h+room_a,1e-12))
+            h-=take_h;a-=min(room_a,excess-take_h)
+        probs["home_scores_2h"]={"1":h,"0":1-h}
+        probs["away_scores_2h"]={"1":a,"0":1-a}
+        # A scoreless second half necessarily finishes as a second-half draw.
+        draw=probs["second_half_result"]["draw"]
+        if draw<1-o05:
+            other=probs["second_half_result"]["home"]+probs["second_half_result"]["away"]
+            factor=o05/max(other,1e-12)
+            probs["second_half_result"]={"home":probs["second_half_result"]["home"]*factor,
+                                         "away":probs["second_half_result"]["away"]*factor,
+                                         "draw":1-o05}
+        adjustments=sum(abs(probs[k].get(sel,0)-v)>1e-8 for k,vals in raw.items() for sel,v in vals.items())
+        rows=[]
+        for market,values in probs.items():
+            for selection,p in values.items():
                 label=names[market]
                 if market in ("next_goal","second_half_result"):
                     label+=": "+outcomes[str(selection)]
@@ -138,7 +177,7 @@ if result and result[0]==inputs:
     st.subheader("Modelled second-half fair odds")
     st.dataframe(pd.DataFrame(result[1]),hide_index=True,use_container_width=True,
                  height=min(540,35*(len(result[1])+1)))
-    st.caption(f"Trained on {result[2]:,} verified matches through {result[3]}. Fair odds exclude bookmaker margin.")
+    st.caption(f"Trained on {result[2]:,} verified matches through {result[3]}. Probabilities reconciled for logical consistency; this does not establish better accuracy or betting value. Fair odds exclude bookmaker margin.")
 
 with st.expander("Model validation — 2,000-match retrospective holdout",expanded=False):
     st.caption("The final 2,000 chronological walk-forward fixtures are evaluated separately from earlier development predictions. This split was selected after earlier results had been reviewed; it is not a fresh untouched holdout.")
