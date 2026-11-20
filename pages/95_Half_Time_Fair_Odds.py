@@ -94,5 +94,23 @@ snapshot=st.session_state.get("ht_market_result")
 identity=(str(fixture.get("id")),int(home_goals),int(away_goals),float(home_xg),float(away_xg),float(tolerance))
 if snapshot and snapshot[:6]==identity:
     st.subheader("Second-half historical prices")
-    st.dataframe(pd.DataFrame(snapshot[6]),hide_index=True,use_container_width=True)
+    compact=pd.DataFrame(snapshot[6]).rename(columns={
+        "Second-half market":"Market","Historical probability":"Chance",
+        "Descriptive decimal odds":"Odds","Earlier sample":"Sample",
+        "Later sample":"Test N","Later observed rate":"Test %"})
+    compact["Market"]=compact["Market"].replace({
+        "Second half: at least 1 goal":"Over 0.5",
+        "Second half: at least 2 goals":"Over 1.5",
+        "Second half: at least 3 goals":"Over 2.5",
+        "Home scores in second half":"Home scores",
+        "Away scores in second half":"Away scores",
+        "Both teams score in second half":"Both score",
+        "Home wins second half":"Home wins",
+        "Second half draw":"Draw",
+        "Away wins second half":"Away wins"})
+    st.dataframe(compact[["Market","Chance","Odds"]],hide_index=True,
+        use_container_width=True,height=350)
+    with st.expander("Historical sample details"):
+        st.dataframe(compact[["Market","Sample","Test N","Test %"]],
+            hide_index=True,use_container_width=True)
 st.warning("These are descriptive historical frequencies, NOT the trained A0 model's live fair odds. The verified model must still be fitted and deployed for fixture-specific prices. No bookmaker value or ROI is claimed.")
