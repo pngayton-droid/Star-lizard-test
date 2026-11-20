@@ -1,0 +1,35 @@
+name: HT xG next-goal segment research
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/audit_ht_xg_next_goal_segments.py'
+      - '.github/workflows/audit_ht_xg_next_goal_segments.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pandas scipy scikit-learn supabase
+      - name: Evaluate next-goal segments
+        run: mkdir -p research_results && python scripts/audit_ht_xg_next_goal_segments.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      - name: Commit segment results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/ht_xg_next_goal_segments.csv
+          git commit -m "Record next-goal segment findings" || exit 0
+          for i in 1 2 3 4 5; do
+            git -c rebase.autoStash=true pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1
