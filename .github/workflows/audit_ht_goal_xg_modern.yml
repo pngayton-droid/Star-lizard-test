@@ -28,7 +28,7 @@ jobs:
           git add research_results/ht_goal_xg_modern_*.csv
           git commit -m "Record halftime xG model audit" || exit 0
           for i in 1 2 3 4 5; do
-            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            git -c rebase.autoStash=true pull --rebase origin main && git push origin HEAD:main && exit 0
             sleep 5
           done
           exit 1
