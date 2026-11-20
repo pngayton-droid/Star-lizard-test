@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install numpy pandas scipy scikit-learn supabase
+      - run: pip install numpy pandas scipy scikit-learn supabase joblib
       - name: Preflight syntax and imports
         run: |
           python -m compileall -q scripts/audit_ht_second_half_fair_odds.py
@@ -35,7 +35,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add research_results/ht_second_half_fair_odds_*.csv
+          git add research_results/ht_second_half_fair_odds_*.csv model_artifacts/halftime_second_half_models.joblib
           git diff --cached --quiet && exit 0
           git commit -m "Record chronological second-half fair odds results"
           for i in 1 2 3 4 5; do
