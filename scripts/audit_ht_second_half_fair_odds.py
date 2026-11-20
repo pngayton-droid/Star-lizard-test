@@ -144,6 +144,7 @@ period=f.date.dt.to_period("M")
 months=sorted(period.unique())
 holdout_start=months[-3]
 rows=[]
+baseline_rows=[]
 for month in months:
     test=np.flatnonzero(period==month)
     train=np.flatnonzero(period<month)
@@ -151,8 +152,20 @@ for month in months:
     scaler=StandardScaler().fit(f.loc[train,cols])
     xtrain=scaler.transform(f.loc[train,cols])
     xtest=scaler.transform(f.loc[test,cols])
+    # Benchmark: same training dates, only bookmaker 1X2 strength and HT score.
+    baseline_cols=["home_ht_goals","away_ht_goals","p_home","p_draw","p_away"]
+    base_scaler=StandardScaler().fit(f.loc[train,baseline_cols])
+    xbtrain=base_scaler.transform(f.loc[train,baseline_cols])
+    xbtest=base_scaler.transform(f.loc[test,baseline_cols])
     for market,y in targets.items():
         y=np.asarray(y)
+        baseline=LogisticRegression(C=1,max_iter=400).fit(xbtrain,y[train])
+        base_probs=baseline.predict_proba(xbtest)
+        for j,idx in enumerate(test):
+            for k,selection in enumerate(baseline.classes_):
+                baseline_rows.append({"match_id":f.loc[idx,"match_id"],"match_date":f.loc[idx,"match_date"],
+                  "market":market,"selection":str(selection),"probability":float(base_probs[j,k]),
+                  "won":int(y[idx]==selection)})
         model=LogisticRegression(C=1,max_iter=400)
         model.fit(xtrain,y[train])
         probabilities=model.predict_proba(xtest)
@@ -175,6 +188,30 @@ for month in months:
 pred=pd.DataFrame(rows)
 if pred.empty:raise RuntimeError("No walk-forward predictions generated")
 pred.to_csv("research_results/ht_second_half_fair_odds_predictions.csv",index=False)
+# Evaluate the most recent 2,000 chronological walk-forward predictions.
+# This is retrospective, not a fresh untouched holdout; paired benchmark controls
+# for fixture difficulty and measures added value of HT xG and event statistics.
+base_pred=pd.DataFrame(baseline_rows)
+latest_ids=(pred[["match_id","match_date"]].drop_duplicates()
+            .sort_values(["match_date","match_id"]).tail(2000)["match_id"])
+latest=set(latest_ids)
+comparison=[]
+for market in targets:
+    for label,source in (("full_model",pred),("odds_and_score_baseline",base_pred)):
+        group=source[(source.market==market)&source.match_id.isin(latest)]
+        winners=group[group.won==1]
+        if winners.match_id.nunique()!=len(latest):
+            raise RuntimeError(f"Incomplete evaluation: {label} {market}")
+        p=np.clip(winners.probability.to_numpy(float),1e-12,1)
+        comparison.append({"market":market,"model":label,"matches":len(p),
+                           "logloss":float(-np.log(p).mean()),
+                           "start_date":str(winners.match_date.min()),
+                           "end_date":str(winners.match_date.max())})
+compare=pd.DataFrame(comparison)
+compare.to_csv("research_results/ht_large_chronological_comparison.csv",index=False)
+print("LAST 2000 WALK-FORWARD FIXTURES: FULL VS ODDS+SCORE BASELINE")
+print(compare.to_string(index=False),flush=True)
+
 summary=[]
 for (split,market),g in pred.groupby(["split","market"]):
     # One row per match in each class; evaluate proper multiclass log loss.
