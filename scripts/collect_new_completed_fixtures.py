@@ -104,7 +104,9 @@ def main():
                "home_ht_goals":ht[0],"away_ht_goals":ht[1],"home_ht_xg":vals[2],"away_ht_xg":vals[3],
                "home_goals":final[0],"away_goals":final[1],"home_second_half_goals":diff[0],"away_second_half_goals":diff[1],
                "trailing_side":trailing,"trailing_ht_xg":vals[2] if trailing=="home" else vals[3] if trailing=="away" else None}
-      DB.table("halftime_research_outcomes").upsert(outcome,on_conflict="match_date,home_team,away_team").execute()
+      present=(DB.table("halftime_research_outcomes").select("match_date")
+       .eq("match_date",date).eq("home_team",home["name"]).eq("away_team",away["name"]).limit(1).execute().data)
+      if not present:DB.table("halftime_research_outcomes").insert(outcome).execute()
      counts["updated" if mid in x else "new"]+=1
    if len(data)<100:break
    page+=1
