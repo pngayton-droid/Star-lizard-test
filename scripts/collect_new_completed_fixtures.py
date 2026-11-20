@@ -42,10 +42,10 @@ def score(m,period):
  return None
 def main():
  today=dt.datetime.now(dt.timezone.utc).date()
- # Initial backfill starts after the verified Nov 8 cutoff; subsequent runs recheck
+ # Initial backfill starts from the Nov 20 restart; subsequent runs recheck
  # the last seven days for late-arriving statistics without scanning all history.
- latest=DB.table("historical_xg").select("match_date").gt("match_date","2026-11-08").order("match_date",desc=True).limit(1).execute().data or []
- start=dt.date(2026,11,9)
+ latest=DB.table("historical_xg").select("match_date").gte("match_date","2026-11-20").order("match_date",desc=True).limit(1).execute().data or []
+ start=dt.date(2026,11,20)
  if latest:start=max(start,dt.date.fromisoformat(latest[0]["match_date"])-dt.timedelta(days=7))
  end=today-dt.timedelta(days=1)
  if start>end:print("No completed dates to scan");return
