@@ -15,7 +15,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install numpy pandas
+      - run: pip install numpy pandas scipy scikit-learn supabase joblib
+      - name: Recreate walk-forward predictions from stored database (no API requests)
+        run: python scripts/audit_ht_second_half_fair_odds.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
       - run: python scripts/audit_probability_consistency.py
       - name: Commit results
         run: |
