@@ -24,6 +24,8 @@ border-radius:10px;margin-bottom:14px}
 <p>HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT</p></div>
 """,unsafe_allow_html=True)
 st.title("Half-Time Match Centre")
+st.info("NEW: A simpler halftime scanner is available below. The original calculator remains here for comparison.")
+st.page_link("pages/94_Quick_Halftime_Scanner.py", label="⚡ OPEN QUICK HALF-TIME SCANNER", icon="⚽")
 st.caption("Choose today's fixture, enter the observed half-time statistics, then calculate modelled second-half fair odds.")
 key=get_key()
 if not key:
@@ -87,7 +89,7 @@ with st.expander("Collected bookmaker odds — pre-kick-off and half-time", expa
                 st.caption("Quotes are observational snapshots; no automatic ROI or edge claim is made.")
     except Exception as _exc:
         st.info("Odds snapshot table is not yet available to the dashboard.")
-        st.caption(type(_exc).__name__)
+        st.caption("Odds storage could not be queried. The rest of the model remains available. Error type: "+type(_exc).__name__+"; detail: "+str(_exc)[:220])
 
 score=fixture.get("score") or {}
 home_default=score.get("home")
