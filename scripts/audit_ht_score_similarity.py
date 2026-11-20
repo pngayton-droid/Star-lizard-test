@@ -153,7 +153,7 @@ for target in targets:
     for metric in ("brier","logloss"):
         for competitor in ("exact_score_history","score_plus_stats"):
             gain=sub[(metric,competitor)]-sub[(metric,"score_plus_stats_xg")]
-            comparisons.append(dict(target=target,metric=metric,comparison=competitor+"_minus_full",fixtures=len(gain),gain=float(gain.mean()),positive_years=int(sum(gain[gain.index.get_level_values("year")==yr].mean()>0 for yr in sorted(gain.index.get_level_values("year").unique()))))
+            comparisons.append(dict(target=target,metric=metric,comparison=competitor+"_minus_full",fixtures=len(gain),gain=float(gain.mean()),positive_years=int(sum(gain[gain.index.get_level_values("year")==yr].mean()>0 for yr in sorted(gain.index.get_level_values("year").unique())))))
 pd.DataFrame(comparisons).to_csv("research_results/ht_score_similarity_comparisons.csv",index=False)
 # Exact score frequencies and outcome distributions, with strict minimum counts.
 detail=[]
