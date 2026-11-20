@@ -38,9 +38,9 @@ period=f.date.dt.to_period("M")
 preds=[]
 # Joint score via independent team Poissons, evaluated with joint count log likelihood.
 for month in sorted(period.unique()):
- tr=np.flatnonzero((period<month)&(f.date>=pd.Timestamp("2021-01-01")))
+ tr=np.flatnonzero((period<month)&(f.date>=pd.Timestamp("2015-01-01")))
  te=np.flatnonzero(period==month)
- if len(tr)<3000 or len(te)<20:continue
+ if len(tr)<1000 or len(te)<20:continue
  for model,features in [("M0",base),("M1_xg",base+extra)]:
   for side in ("h","a"):
    y=f["goals_"+side].to_numpy()
