@@ -1,0 +1,27 @@
+name: Four-match half-time odds trial (20 Nov only)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 20-21 20 11 *'
+permissions:
+  contents: read
+concurrency:
+  group: ht-odds-trial-20261120
+  cancel-in-progress: false
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install requests supabase
+      - run: python -m py_compile scripts/collect_four_ht_odds_20261120.py
+      - run: python scripts/collect_four_ht_odds_20261120.py
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          HT_ODDS_RESERVE: '500'
