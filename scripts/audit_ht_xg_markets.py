@@ -93,6 +93,7 @@ f["ht_diff"]=f.home_ht_goals-f.away_ht_goals
 f["ht_total"]=f.home_ht_goals+f.away_ht_goals
 f["score_strength"]=f.ht_diff*(f.p_home-f.p_away)
 f["red_any"]=((f.h_red+f.a_red)>0).astype(int)
+f=f[f.timeline_goals==(f.goals_h+f.goals_a)].copy()
 f=f.sort_values(["date","match_id"]).reset_index(drop=True)
 core=["home_ht_goals","away_ht_goals","p_home","p_draw","p_away"]
 strong=core+["ht_diff","ht_total","score_strength","h_shots","a_shots","h_sot","a_sot","h_red","a_red"]
