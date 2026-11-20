@@ -54,6 +54,41 @@ if st.session_state.get("selected_ht_fixture")!=str(fixture.get("id")):
         st.session_state.pop(k,None)
     st.session_state["selected_ht_fixture"]=str(fixture.get("id"))
 st.caption("TheStatsAPI status: "+str(fixture.get("status","Unknown")))
+
+# Display collected quotes without silently feeding them into the model.
+with st.expander("Collected bookmaker odds — pre-kick-off and half-time", expanded=True):
+    st.caption("Recorded market snapshots from our four-match trial. These are actual captured quotes, not model inputs or guaranteed executable prices.")
+    try:
+        import os as _os
+        from supabase import create_client as _create_client
+        _url = _os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+        _secret = _os.environ.get("SUPABASE_SECRET_KEY") or st.secrets.get("SUPABASE_SECRET_KEY")
+        if not (_url and _secret):
+            st.info("Supabase connection not configured for this dashboard.")
+        else:
+            _db = _create_client(_url, _secret)
+            _mid = str(fixture.get("id") or "")
+            _res = (_db.table("ht_odds_trial_20261120")
+                    .select("observed_at,bookmaker,snapshot_kind,match_status,markets")
+                    .eq("match_id",_mid).order("observed_at",desc=True).limit(80).execute())
+            _quotes = _res.data or []
+            if not _quotes:
+                st.info("No captured bookmaker quotes yet for this match.")
+            else:
+                _rows=[]
+                for _q in _quotes:
+                    _markets=_q.get("markets") or {}
+                    for _market,_outcomes in _markets.items():
+                        _rows.append({"Captured UTC":_q.get("observed_at"),
+                            "Phase":_q.get("snapshot_kind"),
+                            "Bookmaker":_q.get("bookmaker"),
+                            "Market":_market,"Quoted prices":str(_outcomes)[:400]})
+                st.dataframe(pd.DataFrame(_rows),hide_index=True,use_container_width=True)
+                st.caption("Quotes are observational snapshots; no automatic ROI or edge claim is made.")
+    except Exception as _exc:
+        st.info("Odds snapshot table is not yet available to the dashboard.")
+        st.caption(type(_exc).__name__)
+
 score=fixture.get("score") or {}
 home_default=score.get("home")
 away_default=score.get("away")
