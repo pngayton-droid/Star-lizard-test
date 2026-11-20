@@ -8,7 +8,7 @@ from statsapi_refresh import LEAGUES
 from halftime_research_engine import halftime_sample
 from halftime_snapshot_pricing import OUTCOMES, snapshot_research
 
-st.set_page_config(page_title="PRO STARLIZARD | Half-Time",page_icon="🦎",layout="wide")
+st.set_page_config(page_title="The Match Matrix | Half-Time",page_icon="⚽",layout="wide")
 st.markdown("""
 <style>
 [data-testid="stAppViewContainer"] {background:linear-gradient(160deg,rgba(218,41,28,.13),transparent 340px)}
@@ -18,9 +18,9 @@ div.stButton>button[kind="primary"]{background-color:#da291c;color:white}
 border-left:6px solid #fbe122;border-bottom:3px solid #da291c;padding:15px 16px;
 border-radius:10px;margin-bottom:14px}
 .hero h2{color:white!important;margin:0;font-size:clamp(1.7rem,5vw,3rem)}
-.hero p{color:#fff4df;margin:5px 0}
+.hero p{color:#fff4df;margin:5px 0}\n.hero img{float:right;width:clamp(95px,20vw,145px);height:145px;object-fit:contain;margin:0 0 4px 12px}\n.hero:after{content:"";display:block;clear:both}
 </style>
-<div class="hero"><h2>🦎 PRO STARLIZARD</h2>
+<div class="hero"><img src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United crest" /><h2>THE MATCH MATRIX</h2>
 <p>HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT</p></div>
 """,unsafe_allow_html=True)
 st.title("Half-Time Match Centre")
