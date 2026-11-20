@@ -103,10 +103,10 @@ if st.button("Calculate trained model fair odds",type="primary",use_container_wi
     try:
         model=load_model()
         inverse=np.array([1/home_price,1/draw_price,1/away_price])
-        ph,pd,pa=inverse/inverse.sum()
+        ph,p_draw,pa=inverse/inverse.sum()
         diff=home_goals-away_goals
         features={"home_ht_goals":home_goals,"away_ht_goals":away_goals,
-            "p_home":ph,"p_draw":pd,"p_away":pa,"ht_diff":diff,
+            "p_home":ph,"p_draw":p_draw,"p_away":pa,"ht_diff":diff,
             "ht_total":home_goals+away_goals,"score_strength":diff*(ph-pa),
             "h_shots":hs,"a_shots":ats,"h_sot":hst,"a_sot":ast,
             "h_corners":hc,"a_corners":ac,"h_red":hr,"a_red":ar,
