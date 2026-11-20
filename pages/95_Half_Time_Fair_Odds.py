@@ -38,7 +38,10 @@ except Exception as exc:
     st.caption(type(exc).__name__)
     st.stop()
 allowed=set(LEAGUES.values())
-fixtures=[f for f in fixtures if str(f.get("competition_id") or (f.get("competition") or {}).get("id") if isinstance(f.get("competition"),dict) else f.get("competition_id")) in allowed]
+def comp_id(f):
+    competition=f.get("competition")
+    return str(f.get("competition_id") or (competition.get("id") if isinstance(competition,dict) else "") or "")
+fixtures=[f for f in fixtures if comp_id(f) in allowed]
 fixtures=sorted(fixtures,key=fixture_label)
 if not fixtures:
     st.info("No fixtures in the selected leagues on this date.")
@@ -46,6 +49,10 @@ if not fixtures:
 chosen=st.selectbox("Today's fixtures — select a match",range(len(fixtures)),format_func=lambda i:fixture_label(fixtures[i]))
 fixture=fixtures[chosen]
 st.subheader(f"{team_name(fixture,'home')} v {team_name(fixture,'away')}")
+if st.session_state.get("selected_ht_fixture")!=str(fixture.get("id")):
+    for k in ("ht_home_goals","ht_away_goals","ht_home_xg","ht_away_xg","ht_market_result"):
+        st.session_state.pop(k,None)
+    st.session_state["selected_ht_fixture"]=str(fixture.get("id"))
 st.caption("TheStatsAPI status: "+str(fixture.get("status","Unknown")))
 score=fixture.get("score") or {}
 home_default=score.get("home")
