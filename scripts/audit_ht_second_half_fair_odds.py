@@ -142,7 +142,7 @@ targets={
 }
 period=f.date.dt.to_period("M")
 months=sorted(period.unique())
-holdout_start=months[-3]
+holdout_start=None  # Assigned by final 2,000 unique chronological predictions below
 rows=[]
 baseline_rows=[]
 for month in months:
@@ -180,12 +180,19 @@ for month in months:
                     "away_team":f.loc[idx,"away_team"],
                     "ht_score":str(int(f.loc[idx,"home_ht_goals"]))+"-"+str(int(f.loc[idx,"away_ht_goals"])),
                     "month":str(month),
-                    "split":"holdout" if month>=holdout_start else "development",
+                    "split":"development",
                     "market":market,"selection":str(selection),
                     "probability":prob,"fair_odds":1/prob if prob>0 else np.inf,
                     "won":int(y[idx]==selection),
                 })
 pred=pd.DataFrame(rows)
+# Final 2,000 unique chronological fixtures form the retrospective evaluation holdout.
+# This is a redesigned split, not an untouched prospective holdout.
+ordered=(pred[["match_id","match_date"]].drop_duplicates()
+         .sort_values(["match_date","match_id"]))
+if len(ordered)<2000:raise RuntimeError("Fewer than 2,000 walk-forward predictions")
+held_ids=set(ordered.tail(2000).match_id)
+pred["split"]=np.where(pred.match_id.isin(held_ids),"holdout_2000","development")
 if pred.empty:raise RuntimeError("No walk-forward predictions generated")
 pred.to_csv("research_results/ht_second_half_fair_odds_predictions.csv",index=False)
 # Evaluate the most recent 2,000 chronological walk-forward predictions.
