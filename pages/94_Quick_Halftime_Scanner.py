@@ -71,6 +71,17 @@ if st.button("Fetch first-half stats",type="primary",use_container_width=True):
     st.session_state["scanner_stats_id"]=mid
     try:
         st.session_state["scanner_stats"]=fetch_stats(key,mid)
+        # Streamlit widget keys persist between reruns: explicitly hydrate empty fields.
+        payload=st.session_state["scanner_stats"]
+        ov=payload.get("overview",{}) if isinstance(payload,dict) else {}
+        for metric,name in (("expected_goals","hx"),("total_shots","shots"),("shots_on_target","sot"),("corner_kicks","corners"),("red_cards","red")):
+            half=(ov.get(metric) or {}).get("first_half") or {}
+            for side in ("home","away"):
+                v=half.get(side) if isinstance(half,dict) else None
+                widget=f"sc_{name}_{side}_{mid}" if name!="hx" else f"sc_{'hx' if side=='home' else 'ax'}_{mid}"
+                if v is not None and st.session_state.get(widget) is None:
+                    try:st.session_state[widget]=float(v) if name=="hx" else int(float(v))
+                    except (ValueError,TypeError):pass
     except Exception as exc:
         st.session_state["scanner_stats"]={}
         st.error(f"Stats unavailable: {type(exc).__name__}. No substitute values used.")
@@ -90,7 +101,10 @@ def score_half(side):
             except (ValueError,TypeError):pass
     return None
 if data:
-    st.success("Stats retrieved from TheStatsAPI. Only verified first-half fields are prefilled.")
+    found=sum(half_stat(m,side) is not None for m in ("expected_goals","total_shots","shots_on_target","corner_kicks","red_cards") for side in ("home","away"))
+    st.info(f"Stats API responded. {found}/10 first-half stat fields recognised; half-time score and pre-match odds checked separately.")
+    if found==0:
+        st.warning("No recognised first-half fields in this response. We must inspect its structure before claiming automatic population.")
 else:
     st.info("Fetch stats when the match reaches halftime. Blank fields mean unverified data.")
 with st.expander("Edit missing half-time facts",expanded=False):
@@ -164,4 +178,4 @@ else:
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v2: compact mobile view. Verified statistics only; no invented odds or betting-value claims.")
+st.caption("Scanner v3: field-count diagnostics and verified input hydration; no invented odds or betting-value claims.")
