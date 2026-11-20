@@ -102,7 +102,8 @@ strong=core+["ht_diff","ht_total","score_strength","h_shots","a_shots","h_sot","
 
 
 
-from sklearn.linear_model import PoissonRegressor,HistGradientBoostingClassifier
+from sklearn.linear_model import PoissonRegressor
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import log_loss
 from scipy.special import softmax
 # Team and competition priors use only games completed on an earlier DATE.
