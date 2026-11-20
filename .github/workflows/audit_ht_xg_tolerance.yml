@@ -1,0 +1,29 @@
+name: Audit halftime xG tolerance
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/audit_ht_xg_tolerance.py
+      - .github/workflows/audit_ht_xg_tolerance.yml
+permissions:
+  contents: write
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install pandas numpy supabase
+      - name: Compare historical tolerance settings
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/audit_ht_xg_tolerance.py
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/ht_xg_tolerance_comparison.csv
+          git diff --cached --quiet || (git commit -m "Record out-of-time halftime xG tolerance comparison" && git push)
