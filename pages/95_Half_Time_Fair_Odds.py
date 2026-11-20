@@ -114,6 +114,16 @@ if True:
             "home_ht_xg":home_xg,"away_ht_xg":away_xg}
         X=pd.DataFrame([features])[model["feature_columns"]]
         scaled=model["scaler"].transform(X)
+        # Diagnostic counterfactual: test actual model sensitivity to a large
+        # change in home HT xG, keeping every other input fixed.
+        test_features=dict(features)
+        test_features["home_ht_xg"]=min(float(home_xg)+1.0,10.0) if home_xg<=9 else max(float(home_xg)-1.0,0.0)
+        test_scaled=model["scaler"].transform(pd.DataFrame([test_features])[model["feature_columns"]])
+        diagnostic=[]
+        for _market,_clf in model["models"].items():
+            _base=_clf.predict_proba(scaled)[0]
+            _test=_clf.predict_proba(test_scaled)[0]
+            diagnostic.append({"Market":_market,"Max probability change (percentage points)":round(float(np.max(np.abs(_test-_base)))*100,4)})
         names={"next_goal":"Next goal","second_half_result":"2H result",
                "over_0_5_2h":"Over 0.5","over_1_5_2h":"Over 1.5",
                "over_2_5_2h":"Over 2.5","home_scores_2h":"Home scores",
@@ -169,7 +179,7 @@ if True:
                 elif str(selection)!="1":continue
                 rows.append({"Market":label,"Chance":f"{100*p:.1f}%",
                              "Fair odds":f"{1/p:.2f}" if p>0 else "—"})
-        st.session_state["trained_ht_result"]=(inputs,rows,model["training_rows"],model["last_training_date"])
+        st.session_state["trained_ht_result"]=(inputs,rows,model["training_rows"],model["last_training_date"],diagnostic)
     except Exception as exc:
         st.session_state.pop("trained_ht_result",None)
         st.error("Unable to calculate trained model probabilities.")
@@ -180,6 +190,11 @@ if result and result[0]==inputs:
     st.dataframe(pd.DataFrame(result[1]),hide_index=True,use_container_width=True,
                  height=min(540,35*(len(result[1])+1)))
     st.caption(f"Trained on {result[2]:,} verified matches through {result[3]}. Updated from current inputs. Fair odds exclude bookmaker margin.")
+    with st.expander("Model responsiveness check",expanded=False):
+        st.caption("Actual model calculation: change home first-half xG by 1.00, holding all other inputs constant. This checks whether the loaded model responds to xG, independently of the interface.")
+        st.dataframe(pd.DataFrame(result[4]),hide_index=True,use_container_width=True)
+        st.caption("The selected teams are not model features. Two fixtures with identical entered statistics and odds will produce identical probabilities.")
+
 
 with st.expander("Model validation — 2,000-match retrospective holdout",expanded=False):
     st.caption("The final 2,000 chronological walk-forward fixtures are evaluated separately from earlier development predictions. This split was selected after earlier results had been reviewed; it is not a fresh untouched holdout.")
