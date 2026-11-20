@@ -139,4 +139,23 @@ if result and result[0]==inputs:
     st.dataframe(pd.DataFrame(result[1]),hide_index=True,use_container_width=True,
                  height=min(540,35*(len(result[1])+1)))
     st.caption(f"Trained on {result[2]:,} verified matches through {result[3]}. Fair odds exclude bookmaker margin.")
+
+with st.expander("Model validation — 2,000-match retrospective holdout",expanded=False):
+    st.caption("The final 2,000 chronological walk-forward fixtures are evaluated separately from earlier development predictions. This split was selected after earlier results had been reviewed; it is not a fresh untouched holdout.")
+    try:
+        import requests as _requests
+        import io as _io
+        _url="https://raw.githubusercontent.com/pngayton-droid/Star-lizard-test/main/research_results/ht_second_half_fair_odds_summary.csv"
+        _r=_requests.get(_url,timeout=12)
+        _r.raise_for_status()
+        _scores=pd.read_csv(_io.StringIO(_r.text))
+        _hold=_scores[_scores["split"]=="holdout_2000"]
+        if len(_hold):
+            st.dataframe(_hold[["market","fixtures","logloss"]].rename(columns={"market":"Market","fixtures":"Matches","logloss":"Log loss"}),
+                         hide_index=True,use_container_width=True)
+        else:
+            st.info("The 2,000-match holdout results are being generated. The previous 369-match split is no longer the target.")
+    except Exception:
+        st.info("Holdout results not yet available. Please check again after the research workflow completes.")
+
 st.warning("Experimental fixture-specific model probabilities, not proven betting value. Enter verified halftime data and genuine pre-match odds; do not use placeholder values.")
