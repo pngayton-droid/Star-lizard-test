@@ -190,3 +190,19 @@ for (split,market),g in pred.groupby(["split","market"]):
 pd.DataFrame(summary).to_csv("research_results/ht_second_half_fair_odds_summary.csv",index=False)
 print(pd.DataFrame(summary).to_string(index=False),flush=True)
 print("Historical walk-forward prices only; no bookmaker ROI or live fixture predictions.",flush=True)
+
+# Export fitted models using every verified historical row for future HT inference.
+# This happens AFTER the frozen walk-forward evaluation above.
+import joblib
+from pathlib import Path
+model_dir=Path("model_artifacts")
+model_dir.mkdir(exist_ok=True)
+scaler=StandardScaler().fit(f[cols])
+x_all=scaler.transform(f[cols])
+bundle={"feature_columns":cols,"scaler":scaler,"models":{},
+        "training_rows":len(f),"last_training_date":str(f.date.max().date())}
+for market,y in targets.items():
+    clf=LogisticRegression(C=1,max_iter=400).fit(x_all,np.asarray(y))
+    bundle["models"][market]=clf
+joblib.dump(bundle,model_dir/"halftime_second_half_models.joblib",compress=3)
+print("Exported fitted halftime models:",len(bundle["models"]),flush=True)
