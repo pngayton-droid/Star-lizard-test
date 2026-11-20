@@ -1,0 +1,26 @@
+name: Research script preflight
+on:
+  push:
+    paths:
+      - 'scripts/audit_*.py'
+      - 'scripts/preflight_research.py'
+      - '.github/workflows/research_preflight.yml'
+  pull_request:
+    paths:
+      - 'scripts/audit_*.py'
+      - 'scripts/preflight_research.py'
+      - '.github/workflows/research_preflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pandas scipy scikit-learn supabase
+      - name: Validate all research scripts without running database queries
+        run: python scripts/preflight_research.py
