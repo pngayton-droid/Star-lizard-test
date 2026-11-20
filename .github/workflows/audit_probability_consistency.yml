@@ -1,0 +1,28 @@
+name: Audit probability consistency (2000 matches)
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/audit_probability_consistency.py'
+      - '.github/workflows/audit_probability_consistency.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pandas
+      - run: python scripts/audit_probability_consistency.py
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/probability_consistency_audit.csv research_results/probability_consistency_violations.csv
+          git diff --cached --quiet && exit 0
+          git commit -m "Record paired probability coherence audit"
+          git pull --rebase origin main
+          git push origin HEAD:main
