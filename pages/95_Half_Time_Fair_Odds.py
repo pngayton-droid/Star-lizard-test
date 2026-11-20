@@ -24,7 +24,7 @@ border-radius:10px;margin-bottom:14px}
 <p>HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT</p></div>
 """,unsafe_allow_html=True)
 st.title("Half-Time Match Centre")
-st.caption("Choose today's fixture, enter the observed half-time statistics, then inspect historical second-half probabilities.")
+st.caption("Choose today's fixture, enter the observed half-time statistics, then calculate modelled second-half fair odds.")
 key=get_key()
 if not key:
     st.error("TheStatsAPI key is missing from Streamlit secrets.")
@@ -65,52 +65,78 @@ with b:
     away_goals=st.number_input("Away HT goals",min_value=0,max_value=12,value=int(away_default) if isinstance(away_default,int) else 0,key="ht_away_goals")
     away_xg=st.number_input("Away first-half xG",min_value=0.0,max_value=10.0,value=0.6,step=0.05,key="ht_away_xg")
 st.caption("Confirm the half-time score and xG manually. Live API score fields may reflect full-time or an in-play score, not half-time.")
-tolerance=st.slider("Historical xG similarity range",0.2,1.5,0.5,0.1)
-markets=[
-"Second half: at least 1 goal","Second half: at least 2 goals","Second half: at least 3 goals",
-"Home scores in second half","Away scores in second half","Both teams score in second half",
-"Home wins second half","Second half draw","Away wins second half"]
-if st.button("Calculate second-half historical prices",type="primary",use_container_width=True):
-    with st.spinner("Checking matching historical half-time situations…"):
-        try:
-            rows=halftime_sample(None)
-            output=[]
-            for market in markets:
-                result=snapshot_research(rows,int(home_goals),int(away_goals),float(home_xg),float(away_xg),market,float(tolerance))
-                if result["status"]=="Research estimate available":
-                    p=result["train_rate"]
-                    output.append({"Second-half market":market,"Historical probability":f"{100*p:.1f}%",
-                      "Descriptive decimal odds":f"{1/p:.2f}" if p>0 else "—",
-                      "Earlier sample":result["train_n"],"Later sample":result["later_n"],
-                      "Later observed rate":f'{100*result["later_rate"]:.1f}%'})
-                else:
-                    output.append({"Second-half market":market,"Historical probability":"Insufficient sample",
-                      "Descriptive decimal odds":"—","Earlier sample":result.get("train_n",0),
-                      "Later sample":result.get("later_n",0),"Later observed rate":"—"})
-            st.session_state["ht_market_result"]=(str(fixture.get("id")),int(home_goals),int(away_goals),float(home_xg),float(away_xg),float(tolerance),output)
-        except Exception as exc:
-            st.error("Historical halftime comparison unavailable: "+str(exc)[:160])
-snapshot=st.session_state.get("ht_market_result")
-identity=(str(fixture.get("id")),int(home_goals),int(away_goals),float(home_xg),float(away_xg),float(tolerance))
-if snapshot and snapshot[:6]==identity:
-    st.subheader("Second-half historical prices")
-    compact=pd.DataFrame(snapshot[6]).rename(columns={
-        "Second-half market":"Market","Historical probability":"Chance",
-        "Descriptive decimal odds":"Odds","Earlier sample":"Sample",
-        "Later sample":"Test N","Later observed rate":"Test %"})
-    compact["Market"]=compact["Market"].replace({
-        "Second half: at least 1 goal":"Over 0.5",
-        "Second half: at least 2 goals":"Over 1.5",
-        "Second half: at least 3 goals":"Over 2.5",
-        "Home scores in second half":"Home scores",
-        "Away scores in second half":"Away scores",
-        "Both teams score in second half":"Both score",
-        "Home wins second half":"Home wins",
-        "Second half draw":"Draw",
-        "Away wins second half":"Away wins"})
-    st.dataframe(compact[["Market","Chance","Odds"]],hide_index=True,
-        use_container_width=True,height=350)
-    with st.expander("Historical sample details"):
-        st.dataframe(compact[["Market","Sample","Test N","Test %"]],
-            hide_index=True,use_container_width=True)
-st.warning("These are descriptive historical frequencies, NOT the trained A0 model's live fair odds. The verified model must still be fitted and deployed for fixture-specific prices. No bookmaker value or ROI is claimed.")
+st.subheader("Pre-match market prices (model strength input)")
+st.caption("Enter genuine pre-match 1X2 decimal prices. These are model inputs, not halftime bookmaker quotes.")
+p1,p2,p3=st.columns(3)
+with p1: home_price=st.number_input("Home",min_value=1.01,max_value=1000.0,value=2.50,step=0.05)
+with p2: draw_price=st.number_input("Draw",min_value=1.01,max_value=1000.0,value=3.30,step=0.05)
+with p3: away_price=st.number_input("Away",min_value=1.01,max_value=1000.0,value=3.00,step=0.05)
+st.subheader("First-half match events")
+a,b=st.columns(2)
+with a:
+    hs=st.number_input("Home shots",0,80,5)
+    hst=st.number_input("Home shots on target",0,80,2)
+    hc=st.number_input("Home corners",0,50,2)
+    hr=st.number_input("Home red cards",0,5,0)
+with b:
+    ats=st.number_input("Away shots",0,80,5)
+    ast=st.number_input("Away shots on target",0,80,2)
+    ac=st.number_input("Away corners",0,50,2)
+    ar=st.number_input("Away red cards",0,5,0)
+st.caption("Use actual first-half events; default numbers are placeholders, not live StatsAPI data.")
+if hst>hs or ast>ats:
+    st.error("Shots on target cannot exceed total shots.")
+    st.stop()
+import io
+import requests
+import joblib
+import numpy as np
+@st.cache_resource(ttl=3600,show_spinner=False)
+def load_model():
+    url="https://raw.githubusercontent.com/pngayton-droid/Star-lizard-test/main/model_artifacts/halftime_second_half_models.joblib"
+    response=requests.get(url,timeout=30)
+    response.raise_for_status()
+    return joblib.load(io.BytesIO(response.content))
+inputs=(str(fixture.get("id")),int(home_goals),int(away_goals),float(home_xg),float(away_xg),
+        float(home_price),float(draw_price),float(away_price),hs,hst,hc,hr,ats,ast,ac,ar)
+if st.button("Calculate trained model fair odds",type="primary",use_container_width=True):
+    try:
+        model=load_model()
+        inverse=np.array([1/home_price,1/draw_price,1/away_price])
+        ph,pd,pa=inverse/inverse.sum()
+        diff=home_goals-away_goals
+        features={"home_ht_goals":home_goals,"away_ht_goals":away_goals,
+            "p_home":ph,"p_draw":pd,"p_away":pa,"ht_diff":diff,
+            "ht_total":home_goals+away_goals,"score_strength":diff*(ph-pa),
+            "h_shots":hs,"a_shots":ats,"h_sot":hst,"a_sot":ast,
+            "h_corners":hc,"a_corners":ac,"h_red":hr,"a_red":ar,
+            "home_ht_xg":home_xg,"away_ht_xg":away_xg}
+        X=pd.DataFrame([features])[model["feature_columns"]]
+        scaled=model["scaler"].transform(X)
+        names={"next_goal":"Next goal","second_half_result":"2H result",
+               "over_0_5_2h":"Over 0.5","over_1_5_2h":"Over 1.5",
+               "over_2_5_2h":"Over 2.5","home_scores_2h":"Home scores",
+               "away_scores_2h":"Away scores","both_score_2h":"Both score"}
+        outcomes={"0":"No","1":"Yes","home":"Home","away":"Away",
+                  "draw":"Draw","none":"No goal"}
+        rows=[]
+        for market,clf in model["models"].items():
+            for selection,prob in zip(clf.classes_,clf.predict_proba(scaled)[0]):
+                p=float(prob)
+                label=names[market]
+                if market in ("next_goal","second_half_result"):
+                    label+=": "+outcomes[str(selection)]
+                elif str(selection)!="1":continue
+                rows.append({"Market":label,"Chance":f"{100*p:.1f}%",
+                             "Fair odds":f"{1/p:.2f}" if p>0 else "—"})
+        st.session_state["trained_ht_result"]=(inputs,rows,model["training_rows"],model["last_training_date"])
+    except Exception as exc:
+        st.error("Trained model not available yet. The export workflow may still be running.")
+        st.caption(type(exc).__name__+": "+str(exc)[:120])
+result=st.session_state.get("trained_ht_result")
+if result and result[0]==inputs:
+    st.subheader("Modelled second-half fair odds")
+    st.dataframe(pd.DataFrame(result[1]),hide_index=True,use_container_width=True,
+                 height=min(540,35*(len(result[1])+1)))
+    st.caption(f"Trained on {result[2]:,} verified matches through {result[3]}. Fair odds exclude bookmaker margin.")
+st.warning("Experimental fixture-specific model probabilities, not proven betting value. Enter verified halftime data and genuine pre-match odds; do not use placeholder values.")
