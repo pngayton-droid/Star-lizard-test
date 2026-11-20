@@ -100,6 +100,13 @@ def score_half(side):
             try:return int(container[side])
             except (ValueError,TypeError):pass
     return None
+# Never use the current fixture score as a halftime score.
+# A verified explicit halftime score may be supplied by the fixture feed.
+for side,short in (("home","hg"),("away","ag")):
+    widget=f"sc_{short}_{mid}"
+    verified=score_half(side)
+    if verified is not None and st.session_state.get(widget) is None:
+        st.session_state[widget]=verified
 if data:
     found=sum(half_stat(m,side) is not None for m in ("expected_goals","total_shots","shots_on_target","corner_kicks","red_cards") for side in ("home","away"))
     st.info(f"Stats API responded. {found}/10 first-half stat fields recognised; half-time score and pre-match odds checked separately.")
@@ -124,6 +131,40 @@ with st.expander("Edit missing half-time facts",expanded=False):
                 v=half_stat(metric,side)
                 fields[(name,side)]=st.number_input(f"{side.title()} {name}",0,80,value=int(v) if v is not None else None,
                                                     placeholder="Required",key=f"sc_{name}_{side}_{mid}")
+# Historical stored pre-match odds: never substitute halftime/live prices.
+@st.cache_data(ttl=300,show_spinner=False)
+def stored_prematch(match_id):
+    import os
+    from supabase import create_client
+    url=os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+    secret=os.environ.get("SUPABASE_SECRET_KEY") or st.secrets.get("SUPABASE_SECRET_KEY")
+    if not url or not secret:return None
+    db=create_client(url,secret)
+    records=(db.table("historical_match_odds").select("odds_payload")
+             .eq("match_id",match_id).limit(1).execute().data or [])
+    if not records:return None
+    payload=records[0].get("odds_payload") or {}
+    bookmakers=(payload.get("data") or {}).get("bookmakers") or []
+    for preferred in ("Bet365","Betfair Exchange","William Hill","Pinnacle"):
+        for book in bookmakers:
+            if str(book.get("bookmaker") or "").casefold()!=preferred.casefold():continue
+            market=(book.get("markets") or {}).get("match_odds") or {}
+            try:
+                prices=[float((market.get(side) or {}).get("last_seen")) for side in ("home","draw","away")]
+                if all(p>1 for p in prices):return (prices,preferred)
+            except (ValueError,TypeError):pass
+    return None
+try:
+    stored=stored_prematch(mid)
+except Exception as exc:
+    stored=None
+    st.caption("Stored pre-match odds lookup unavailable: "+type(exc).__name__)
+if stored:
+    prices,source=stored
+    for side,v in zip(("hp","dp","ap"),prices):
+        widget=f"sc_{side}_{mid}"
+        if st.session_state.get(widget) is None:st.session_state[widget]=v
+    st.caption(f"Pre-match odds prefilled from stored {source} last-seen prices (not live quotes).")
 st.subheader("Pre-match 1X2 odds")
 st.caption("Use genuine pre-kickoff prices, not live/halftime prices. No fabricated defaults.")
 c1,c2,c3=st.columns(3)
@@ -178,4 +219,4 @@ else:
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v3: field-count diagnostics and verified input hydration; no invented odds or betting-value claims.")
+st.caption("Scanner v4: verified stat hydration and stored pre-match odds lookup; no invented odds or betting-value claims.")
