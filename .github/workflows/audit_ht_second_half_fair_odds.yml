@@ -1,0 +1,45 @@
+name: HT second-half fair odds research
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/audit_ht_second_half_fair_odds.py'
+      - '.github/workflows/audit_ht_second_half_fair_odds.yml'
+permissions:
+  contents: write
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pandas scipy scikit-learn supabase
+      - name: Preflight syntax and imports
+        run: |
+          python -m compileall -q scripts/audit_ht_second_half_fair_odds.py
+          python - <<'PY'
+          import numpy, pandas, scipy, supabase
+          from sklearn.linear_model import LogisticRegression
+          from sklearn.preprocessing import StandardScaler
+          print("Preflight passed")
+          PY
+      - name: Run walk-forward second-half market research
+        run: python scripts/audit_ht_second_half_fair_odds.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      - name: Commit research outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/ht_second_half_fair_odds_*.csv
+          git diff --cached --quiet && exit 0
+          git commit -m "Record chronological second-half fair odds results"
+          for i in 1 2 3 4 5; do
+            git -c rebase.autoStash=true pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1
