@@ -75,6 +75,6 @@ yearly=pd.DataFrame([dict(year=int(y),fixtures=int(sum(meta.year==y)),gain=float
 lo,hi=np.quantile(boot,[.025,.975]);positive=int(sum(yearly.gain>0))
 summary=pd.DataFrame([dict(fixtures=len(gain),gain=float(gain.mean()),ci_low=float(lo),ci_high=float(hi),positive_years=positive,years=len(yearly),pass_rule=bool(gain.mean()>=.001 and lo>0 and positive>=min(4,len(yearly)) and len(yearly)>=3),usable_matches=len(f),archive_matches=int(coverage.matches.sum()),red_card_data="NOT VERIFIED in modern table",odds_timestamp="UNVERIFIED modern historical odds; bookmaker identity/timestamp require audit",ht_xg_provisional="Potential postmatch revisions")])
 os.makedirs("research_results",exist_ok=True)
-summary.to_csv("research_results/ht_goal_xg_summary.csv",index=False)
-yearly.to_csv("research_results/ht_goal_xg_yearly.csv",index=False)
+summary.to_csv("research_results/ht_goal_xg_modern_summary.csv",index=False)
+yearly.to_csv("research_results/ht_goal_xg_modern_yearly.csv",index=False)
 print(summary.to_string(index=False),flush=True)
