@@ -33,13 +33,13 @@ def main():
   except (KeyError,ValueError,TypeError):continue
   found.append((kickoff,m,label,cid))
  for kickoff,m,label,cid in sorted(found):
-  target=kickoff-dt.timedelta(minutes=2)
+  target=kickoff-dt.timedelta(minutes=5)
   delay=(target-dt.datetime.now(dt.timezone.utc)).total_seconds()
   if delay>0:time.sleep(min(delay,3600))
   actual=dt.datetime.now(dt.timezone.utc)
   lag=(actual-target).total_seconds()
   if abs(lag)>180:
-   print("Missed 2-minute window",label,"offset_seconds",round(lag));continue
+   print("Missed 5-minute window",label,"offset_seconds",round(lag));continue
   if not m.get("odds_available"):
    print("No pre-match odds flag",label);continue
   data=get("/football/matches/"+m["id"]+"/odds",{"bookmaker":"bet365,betfair-exchange,pinnacle"})
@@ -52,7 +52,7 @@ def main():
     rows.append({"match_id":m["id"],"fixture":label,"competition_id":cid,
      "observed_at":actual.isoformat(),"match_status":"scheduled",
      "elapsed_minutes":None,"bookmaker":name,"markets":markets,
-     "snapshot_kind":"prematch_target_minus_2m"})
+     "snapshot_kind":"prematch_target_minus_5m"})
   if rows:db.table("ht_odds_trial_20261120").insert(rows).execute()
   print(label,"bookmakers",len(rows),"offset_seconds",round(lag),"calls",calls,flush=True)
  print("FINISHED",calls)
