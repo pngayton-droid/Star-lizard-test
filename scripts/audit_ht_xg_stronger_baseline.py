@@ -35,6 +35,8 @@ h=fetch("halftime_research_outcomes","competition_id,match_date,home_team,away_t
 b=fetch("starlizard_backtest_1x2","match_date,home_team,away_team,home_price,draw_price,away_price")
 x=fetch("historical_xg","match_id,match_date,home_team,away_team")
 ev=fetch("historical_match_events","match_id,timeline_data")
+# Only actual StatsAPI IDs have event timelines; synthetic legacy rows duplicate fixtures.
+x=x[x.match_id.astype(str).str.startswith("mt_")].copy()
 key=["match_date","home_team","away_team"]
 for label,df in [("HT",h),("odds",b),("match ids",x)]:
     if df.duplicated(key).any():raise RuntimeError("Duplicate keys in "+label)
