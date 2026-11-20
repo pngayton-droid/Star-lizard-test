@@ -12,6 +12,7 @@ from statsapi_refresh import LEAGUES
 
 st.set_page_config(page_title="Match Matrix | Quick Scanner", page_icon="⚽", layout="wide")
 st.title("⚽ THE MATCH MATRIX")
+st.markdown("""<style>div[data-testid="stNumberInput"] label p{font-size:.78rem} div[data-testid="stVerticalBlock"]{gap:.55rem} h1{font-size:1.55rem!important} h2,h3{font-size:1.15rem!important}</style>""",unsafe_allow_html=True)
 st.caption("Quick halftime scanner · live StatsAPI facts · no guessed statistics or bookmaker prices")
 key = get_key()
 if not key:
@@ -46,8 +47,9 @@ labels=[fixture_label(f) for f in visible]
 if not visible:
     st.info("No fixtures in this filter.")
     st.stop()
-st.dataframe(pd.DataFrame([{"Fixture":fixture_label(f),"Phase":phase(f)} for f in visible]),
-             hide_index=True, use_container_width=True, height=min(380,38*(len(visible)+1)))
+with st.expander(f"Fixture list ({len(visible)})",expanded=False):
+    st.dataframe(pd.DataFrame([{"Fixture":fixture_label(f),"Phase":phase(f)} for f in visible]),
+                 hide_index=True, use_container_width=True, height=min(300,38*(len(visible)+1)))
 selected=st.selectbox("Open a match", range(len(visible)), format_func=lambda i:labels[i])
 f=visible[selected]
 mid=str(f.get("id") or "")
@@ -64,7 +66,7 @@ def model_bundle():
     r=requests.get("https://raw.githubusercontent.com/pngayton-droid/Star-lizard-test/main/model_artifacts/halftime_second_half_models.joblib",timeout=30)
     r.raise_for_status()
     return joblib.load(io.BytesIO(r.content))
-if st.button("Fetch / refresh first-half stats",type="primary"):
+if st.button("Fetch first-half stats",type="primary",use_container_width=True):
     fetch_stats.clear()
     st.session_state["scanner_stats_id"]=mid
     try:
@@ -91,7 +93,7 @@ if data:
     st.success("Stats retrieved from TheStatsAPI. Only verified first-half fields are prefilled.")
 else:
     st.info("Fetch stats when the match reaches halftime. Blank fields mean unverified data.")
-with st.expander("Half-time facts (edit only if verified)",expanded=True):
+with st.expander("Edit missing half-time facts",expanded=False):
     st.caption("Enter the confirmed half-time score; current live score is not used as a substitute.")
     a,b=st.columns(2)
     with a:
@@ -162,4 +164,4 @@ else:
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v1: read-only. It does not automatically fetch pre-match odds, compare live bookmaker prices, or claim betting value.")
+st.caption("Scanner v2: compact mobile view. Verified statistics only; no invented odds or betting-value claims.")
