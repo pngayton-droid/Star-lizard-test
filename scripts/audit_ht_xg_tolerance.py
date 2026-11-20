@@ -59,3 +59,33 @@ os.makedirs("research_results",exist_ok=True)
 result.to_csv("research_results/ht_xg_tolerance_comparison.csv",index=False)
 print("Train:",len(train),"Test:",len(test))
 print(result.to_string(index=False))
+
+# Strict like-for-like comparison: same test fixtures at every tolerance.
+# All three tolerance predictions must have at least 30 historical neighbours.
+common=[]
+for (h,a),group in test.groupby(["h","a"]):
+    historical=train[(train.h==h)&(train.a==a)]
+    if historical.empty:continue
+    hx=historical.home_ht_xg.to_numpy()
+    ax=historical.away_ht_xg.to_numpy()
+    for _,match in group.iterrows():
+        masks={tol:(np.abs(hx-match.home_ht_xg)<=tol)&(np.abs(ax-match.away_ht_xg)<=tol)
+               for tol in (0.2,0.3,0.5)}
+        if any(int(mask.sum())<30 for mask in masks.values()):continue
+        for tol,mask in masks.items():
+            n=int(mask.sum())
+            for name in markets:
+                prior=float(train[name].mean())
+                p=np.clip((float(historical.loc[mask,name].sum())+2*prior)/(n+2),1e-8,1-1e-8)
+                y=int(match[name])
+                common.append({"tolerance":tol,"market":name,"sample_n":n,
+                               "actual":y,"probability":p,
+                               "brier":(p-y)**2,
+                               "logloss":-(y*np.log(p)+(1-y)*np.log1p(-p))})
+common=pd.DataFrame(common)
+summary=(common.groupby(["market","tolerance"],as_index=False)
+         .agg(test_n=("actual","size"),mean_training_matches=("sample_n","mean"),
+              brier=("brier","mean"),logloss=("logloss","mean")))
+summary.to_csv("research_results/ht_xg_tolerance_same_fixtures.csv",index=False,
+               float_format="%.6f")
+print("\nCOMMON-COHORT RESULTS\n",summary.to_string(index=False))
