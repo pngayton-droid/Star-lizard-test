@@ -1,0 +1,34 @@
+name: HT goals xG capped research
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/audit_ht_goal_xg.py'
+      - '.github/workflows/audit_ht_goal_xg.yml'
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pandas scipy scikit-learn supabase
+      - run: mkdir -p research_results && python scripts/audit_ht_goal_xg.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      - name: Save results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research_results/ht_goal_xg_*.csv
+          git commit -m "Record halftime xG model audit" || exit 0
+          for i in 1 2 3 4 5; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          exit 1
