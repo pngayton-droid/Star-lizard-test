@@ -29,5 +29,6 @@ jobs:
           git add research_results/probability_consistency_audit.csv research_results/probability_consistency_violations.csv
           git diff --cached --quiet && exit 0
           git commit -m "Record paired probability coherence audit"
+          git stash push --include-untracked -m "temporary research outputs" -- research_results/ht_second_half_fair_odds_predictions.csv research_results/ht_second_half_fair_odds_summary.csv research_results/ht_large_chronological_comparison.csv model_artifacts/halftime_second_half_models.joblib
           git pull --rebase origin main
           git push origin HEAD:main
