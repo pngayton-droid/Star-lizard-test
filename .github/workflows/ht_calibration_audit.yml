@@ -6,6 +6,7 @@ on:
     paths:
       - scripts/generate_ht_calibration_predictions.py
       - scripts/audit_halftime_calibration.py
+      - scripts/retrain_ht_chronological_audit.py
       - .github/workflows/ht_calibration_audit.yml
 
 permissions:
@@ -21,7 +22,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Validate Python syntax
-        run: python -m py_compile scripts/generate_ht_calibration_predictions.py scripts/audit_halftime_calibration.py
+        run: python -m py_compile scripts/generate_ht_calibration_predictions.py scripts/audit_halftime_calibration.py scripts/retrain_ht_chronological_audit.py
       - name: Install runtime dependencies
         run: pip install 'numpy==1.26.4' 'pandas==2.2.3' 'scikit-learn==1.5.2' 'joblib==1.4.2' 'requests==2.32.3'
       - name: Check database secrets
@@ -31,11 +32,11 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" || (echo "Missing SUPABASE_URL secret" && exit 1)
           test -n "$SUPABASE_SECRET_KEY" || (echo "Missing SUPABASE_SECRET_KEY secret" && exit 1)
-      - name: Generate genuinely post-training predictions
+      - name: Generate chronological retrospective predictions
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-        run: python scripts/generate_ht_calibration_predictions.py
+        run: python scripts/retrain_ht_chronological_audit.py
       - name: Audit probability bands
         run: python scripts/audit_halftime_calibration.py --input research_results/ht_calibration_predictions.csv
       - name: Upload predictions and audit
