@@ -1,0 +1,2 @@
+fixtures,gain,ci_low,ci_high,positive_years,years,pass_rule,usable_matches,archive_matches,red_card_data,odds_timestamp,ht_xg_provisional
+10812,0.0018481008384532197,0.0015670259522740958,0.0021386403324982826,4,4,True,11994,12028,NOT VERIFIED in modern table,UNVERIFIED modern historical odds; bookmaker identity/timestamp require audit,Potential postmatch revisions
