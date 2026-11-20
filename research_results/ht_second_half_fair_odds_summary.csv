@@ -1,0 +1,17 @@
+split,market,fixtures,logloss,classes
+development,away_scores_2h,10037,0.6629197092714909,2
+development,both_score_2h,10037,0.5867157815377552,2
+development,home_scores_2h,10037,0.6535464843991274,2
+development,next_goal,10037,1.0084958808801776,3
+development,over_0_5_2h,10037,0.4974158218859502,2
+development,over_1_5_2h,10037,0.6841321693213653,2
+development,over_2_5_2h,10037,0.49631903088822305,2
+development,second_half_result,10037,1.030934274165187,3
+holdout,away_scores_2h,369,0.6618489880897266,2
+holdout,both_score_2h,369,0.6025928441459574,2
+holdout,home_scores_2h,369,0.6462035163692613,2
+holdout,next_goal,369,1.00647497164846,3
+holdout,over_0_5_2h,369,0.4763441818887689,2
+holdout,over_1_5_2h,369,0.6838168144014675,2
+holdout,over_2_5_2h,369,0.5354769509560576,2
+holdout,second_half_result,369,1.047315003712917,3
