@@ -1,9 +1,9 @@
 """Four-fixture pre-kickoff odds trial; API limit 12, no historical table writes."""
-import os,time,datetime as dt,requests
+import os,time,datetime as dt,requests,unicodedata
 from supabase import create_client
 DAY="2026-11-20"
 TARGETS=[
- ("comp_4643","bayern","cologne","Bayern Munich v Cologne"),
+ ("comp_4643","bayern","koln","Bayern Munich v Cologne"),
  ("comp_0256","troyes","le havre","Troyes v Le Havre"),
  ("comp_8531","cercle","westerlo","Cercle Brugge v Westerlo"),
  ("comp_8814","athletic","espanyol","Athletic Bilbao v Espanyol")]
@@ -18,14 +18,14 @@ def get(path,params=None):
  if q is not None and int(q)<=500:raise RuntimeError("Quota reserve reached")
  if r.status_code in (404,409,429):print("HTTP",r.status_code,path);return None
  r.raise_for_status();return r.json().get("data")
-def main():
+def norm(value):\n return "".join(c for c in unicodedata.normalize("NFKD",str(value).lower()) if not unicodedata.combining(c)).replace("ö","o")\ndef main():
  now=dt.datetime.now(dt.timezone.utc)
  if now.date().isoformat()!=DAY:return
  found=[]
  for cid,home,away,label in TARGETS:
   matches=get("/football/matches",{"competition_id":cid,"date_from":DAY,"date_to":DAY,"per_page":100})
   if not isinstance(matches,list):continue
-  matching=[m for m in matches if home in str((m.get("home_team") or {}).get("name","")).lower() and away in str((m.get("away_team") or {}).get("name","")).lower()]
+  matching=[m for m in matches if home in str((m.get("home_team") or {}).get("name","")).lower() and (away in norm((m.get("away_team") or {}).get("name","")) or (away=="koln" and "cologne" in norm((m.get("away_team") or {}).get("name",""))))]
   if len(matching)!=1:
    print("Match unresolved",label,len(matching));continue
   m=matching[0]
