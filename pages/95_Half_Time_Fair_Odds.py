@@ -99,7 +99,8 @@ def load_model():
     return joblib.load(io.BytesIO(response.content))
 inputs=(str(fixture.get("id")),int(home_goals),int(away_goals),float(home_xg),float(away_xg),
         float(home_price),float(draw_price),float(away_price),hs,hst,hc,hr,ats,ast,ac,ar)
-if st.button("Calculate trained model fair odds",type="primary",use_container_width=True):
+st.caption("Fair odds update automatically when you change any input.")
+if True:
     try:
         model=load_model()
         inverse=np.array([1/home_price,1/draw_price,1/away_price])
@@ -170,14 +171,15 @@ if st.button("Calculate trained model fair odds",type="primary",use_container_wi
                              "Fair odds":f"{1/p:.2f}" if p>0 else "—"})
         st.session_state["trained_ht_result"]=(inputs,rows,model["training_rows"],model["last_training_date"])
     except Exception as exc:
-        st.error("Trained model not available yet. The export workflow may still be running.")
+        st.session_state.pop("trained_ht_result",None)
+        st.error("Unable to calculate trained model probabilities.")
         st.caption(type(exc).__name__+": "+str(exc)[:120])
 result=st.session_state.get("trained_ht_result")
 if result and result[0]==inputs:
     st.subheader("Modelled second-half fair odds")
     st.dataframe(pd.DataFrame(result[1]),hide_index=True,use_container_width=True,
                  height=min(540,35*(len(result[1])+1)))
-    st.caption(f"Trained on {result[2]:,} verified matches through {result[3]}. Probabilities reconciled for logical consistency; this does not establish better accuracy or betting value. Fair odds exclude bookmaker margin.")
+    st.caption(f"Trained on {result[2]:,} verified matches through {result[3]}. Updated from current inputs. Fair odds exclude bookmaker margin.")
 
 with st.expander("Model validation — 2,000-match retrospective holdout",expanded=False):
     st.caption("The final 2,000 chronological walk-forward fixtures are evaluated separately from earlier development predictions. This split was selected after earlier results had been reviewed; it is not a fresh untouched holdout.")
