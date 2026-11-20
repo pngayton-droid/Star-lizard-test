@@ -1,0 +1,17 @@
+target,metric,comparison,fixtures,gain,positive_years
+next_goal,brier,exact_score_history_minus_full,10802,0.03165622110214229,4
+next_goal,brier,score_plus_stats_minus_full,10802,-0.00030193052989855283,0
+next_goal,logloss,exact_score_history_minus_full,10802,0.0692642465406202,4
+next_goal,logloss,score_plus_stats_minus_full,10802,-0.0007705183672968131,1
+over_1_5,brier,exact_score_history_minus_full,10802,0.0084164662152116,4
+over_1_5,brier,score_plus_stats_minus_full,10802,0.0006049705324882341,3
+over_1_5,logloss,exact_score_history_minus_full,10802,0.01693470263939231,4
+over_1_5,logloss,score_plus_stats_minus_full,10802,0.001240582018671285,3
+home_wins_2h,brier,exact_score_history_minus_full,10802,0.04045532177805079,4
+home_wins_2h,brier,score_plus_stats_minus_full,10802,-0.00024053816173095273,2
+home_wins_2h,logloss,exact_score_history_minus_full,10802,0.08927558135359501,4
+home_wins_2h,logloss,score_plus_stats_minus_full,10802,-0.0006763512806567361,2
+away_wins_2h,brier,exact_score_history_minus_full,10802,0.03150554837684453,4
+away_wins_2h,brier,score_plus_stats_minus_full,10802,-0.00031122569335105137,1
+away_wins_2h,logloss,exact_score_history_minus_full,10802,0.07862110672333157,4
+away_wins_2h,logloss,score_plus_stats_minus_full,10802,-0.0006362092687077887,1
