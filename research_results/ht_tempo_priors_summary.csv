@@ -1,0 +1,9 @@
+split,model,fixtures,logloss
+development,A0_logistic,10037,1.0084958808801776
+development,A1_tempo,10037,1.0090120608471407
+development,A2_poisson,10037,1.0367795851776676
+development,A3_shallow_boost,10037,1.0130099802242836
+holdout,A0_logistic,369,1.0064749716484602
+holdout,A1_tempo,369,1.0065037736172002
+holdout,A2_poisson,369,1.031434951843333
+holdout,A3_shallow_boost,369,1.0076187671569776

@@ -1,0 +1,7 @@
+split,arm,n,gain,positive_years
+development,A1_tempo,10037,-0.0005161799669633854,2
+development,A2_poisson,10037,-0.028283704297490126,0
+development,A3_shallow_boost,10037,-0.004514099344106144,1
+holdout,A1_tempo,369,-2.88019687401208e-05,0
+holdout,A2_poisson,369,-0.02495998019487297,0
+holdout,A3_shallow_boost,369,-0.001143795508517569,0
