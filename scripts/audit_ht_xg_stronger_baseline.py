@@ -2,6 +2,7 @@
 No live prices, no ROI claims. Missing timelines excluded from paired comparison.
 """
 import os
+import time
 import numpy as np
 import pandas as pd
 from supabase import create_client
@@ -13,10 +14,21 @@ db=create_client(os.environ["SUPABASE_URL"],os.environ["SUPABASE_SECRET_KEY"])
 os.makedirs("research_results",exist_ok=True)
 def fetch(table,cols):
     out=[]
-    for start in range(0,100000,1000):
-        chunk=db.table(table).select(cols).range(start,start+999).execute().data or []
+    batch_size=50 if table=="historical_match_events" else 1000
+    start=0
+    while start<100000:
+        for attempt in range(4):
+            try:
+                chunk=db.table(table).select(cols).range(start,start+batch_size-1).execute().data or []
+                break
+            except Exception as exc:
+                if "57014" not in str(exc) or attempt==3:raise
+                print(f"Timeout on {table} at {start}, retry {attempt+1}",flush=True)
+                time.sleep(2*(attempt+1))
         out.extend(chunk)
-        if len(chunk)<1000:break
+        start+=batch_size
+        if len(chunk)<batch_size:break
+    print(f"Fetched {table}: {len(out)} rows",flush=True)
     return pd.DataFrame(out)
 
 h=fetch("halftime_research_outcomes","competition_id,match_date,home_team,away_team,home_ht_goals,away_ht_goals,home_ht_xg,away_ht_xg,home_goals,away_goals")
