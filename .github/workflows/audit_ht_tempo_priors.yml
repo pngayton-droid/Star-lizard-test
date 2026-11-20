@@ -17,6 +17,16 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install numpy pandas scipy scikit-learn supabase
+      - name: Preflight Python syntax and dependency imports
+        run: |
+          python -m compileall -q scripts/audit_ht_tempo_priors.py
+          python - <<'PY'
+          import numpy, pandas, scipy, supabase
+          from sklearn.linear_model import LogisticRegression, PoissonRegressor
+          from sklearn.ensemble import HistGradientBoostingClassifier
+          from sklearn.preprocessing import StandardScaler
+          print("Preflight imports passed")
+          PY
       - name: Run four-arm chronological comparison
         run: python scripts/audit_ht_tempo_priors.py
         env:
