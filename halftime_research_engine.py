@@ -4,7 +4,7 @@ import streamlit as st
 from archive_data_engine import _credentials
 
 @st.cache_data(ttl=300,max_entries=1,show_spinner=False)
-def halftime_sample(competition_id=None,limit=12000):
+def halftime_sample(competition_id=None,limit=100000):
     url,key=_credentials()
     params={"select":"competition_id,match_date,home_ht_goals,away_ht_goals,home_ht_xg,away_ht_xg,home_goals,away_goals,home_second_half_goals,away_second_half_goals,trailing_side,trailing_ht_xg",
             "order":"match_date.asc","limit":1000}
@@ -20,7 +20,7 @@ def halftime_sample(competition_id=None,limit=12000):
         records.extend(batch)
         if len(batch)<1000:return records
     if len(records)>=limit:
-        raise RuntimeError("Sample limit reached; refusing partial historical rates")
+        raise RuntimeError("Safety limit reached; refusing partial historical rates")
     return records
 
 def rates(rows,min_xg=0.2,deficit=1):
