@@ -22,6 +22,8 @@ def cid(m):
 
 def ht_score(m):
     score=m.get("score") or {}
+    if score.get("half_time_home") is not None and score.get("half_time_away") is not None:
+        return {"home":int(score["half_time_home"]),"away":int(score["half_time_away"])}
     for item in (score.get("half_time"),score.get("halftime"),score.get("halfTime"),m.get("half_time_score"),m.get("halfTime")):
         if isinstance(item,dict) and item.get("home") is not None and item.get("away") is not None:
             return {"home":int(item["home"]),"away":int(item["away"])}
@@ -65,10 +67,13 @@ def main():
         detail.raise_for_status()
         live=detail.json().get("data") or {}
         status=str(live.get("status") or "").lower().replace("-","_").replace(" ","_")
-        if status not in {"ht","half_time","halftime"}:
-            print("Not confirmed halftime:",mid,status)
+        if status not in {"ht","half_time","halftime","live"}:
+            print("Not live/halftime:",mid,status)
             continue
         score=ht_score(live)
+        # The provider documents live rather than a distinct HT status.
+        # A populated explicit halftime score confirms the first-half result;
+        # the 45–58-minute kickoff window limits capture to the interval.
         if score is None:
             print("No verified halftime score:",mid)
             continue
