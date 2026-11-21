@@ -13,9 +13,9 @@ from supabase import create_client
 BASE = "https://api.thestatsapi.com/api"
 LEAGUES = {"comp_3039","comp_8321","comp_8814","comp_5840","comp_4643",
            "comp_0256","comp_3809","comp_8385","comp_8531","comp_6387"}
-CAP = 9
+CAP = 35
 RESERVE = 500
-WINDOW_MINUTES = 20
+WINDOW_MINUTES = 25
 TABLE = "ht_odds_trial_20261120"
 SCHEDULE_PATH = Path(os.environ.get("SCANNER_SCHEDULE_PATH", ".cache/scanner_fixture_schedule.json"))
 now = dt.datetime.now(dt.timezone.utc)
@@ -89,13 +89,15 @@ def main():
             continue
         if not 0 < remaining <= WINDOW_MINUTES:
             continue
-        if not match.get("odds_available"):
-            continue
+        # Do not trust stale odds_available from the morning fixture snapshot.
+        # The odds endpoint itself determines current coverage.
         mid = str(match.get("id") or "")
         if mid:
             upcoming.append((kickoff, mid, match, cid))
     upcoming.sort()
     print("Eligible fixtures:", len(upcoming), "API calls:", calls)
+    for kickoff, mid, _match, _cid in upcoming:
+        print("Upcoming:", mid, "kickoff UTC:", kickoff.isoformat(), "minutes:", round((kickoff-now).total_seconds()/60,1))
     saved = 0
     for kickoff, mid, match, cid in upcoming:
         if calls >= CAP:
@@ -107,7 +109,7 @@ def main():
                     .execute().data or [])
         existing_books = {str(row.get("bookmaker") or "").casefold() for row in existing}
         if existing_books:
-            print("Already captured", mid)
+            print("Already captured", mid, sorted(existing_books))
             continue
         # Verify kickoff is still in future immediately before fetching odds.
         observed = dt.datetime.now(dt.timezone.utc)
@@ -141,8 +143,13 @@ def main():
                          "bookmaker": name, "markets": markets,
                          "snapshot_kind": "prematch_within_20m"})
         if rows:
+            # Existing match/bookmaker/snapshot rows are checked above;
+            # the workflow concurrency group prevents overlapping runs.
             db.table(TABLE).insert(rows).execute()
             saved += len(rows)
+            print("Saved:", mid, "bookmakers:", [row["bookmaker"] for row in rows])
+        else:
+            print("No complete 1X2 prices:", mid)
     print("FINISHED", "saved", saved, "calls", calls)
 
 if __name__ == "__main__":
