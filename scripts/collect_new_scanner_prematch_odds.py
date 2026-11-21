@@ -37,7 +37,10 @@ def get(path, params=None):
         print("Skipping response", response.status_code, path)
         return None
     response.raise_for_status()
-    return response.json().get("data")
+    body = response.json()
+    if path == "/football/matches":
+        return {"data": body.get("data"), "meta": body.get("meta") or {}}
+    return body.get("data")
 
 def main():
     day = now.date().isoformat()
@@ -55,20 +58,25 @@ def main():
             print("Invalid schedule cache; refetching:", type(exc).__name__)
     if matches is None:
         matches = []
-        for page in range(1, 4):
+        # Follow the API's pagination metadata, like the working scanner feed.
+        for page in range(1, 21):
             payload = get("/football/matches", {
                 "date_from": day, "date_to": day, "sort": "utc_date",
                 "per_page": 100, "page": page
             })
-            if not isinstance(payload, list):
-                print("Unexpected fixture feed; stop without caching")
-                return
-            matches.extend(payload)
-            if len(payload) < 100:
+            if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+                raise RuntimeError("Unexpected fixture feed; refusing to cache incomplete schedule")
+            matches.extend(payload["data"])
+            total_pages = int((payload.get("meta") or {}).get("total_pages") or 1)
+            print("Fixture page:", page, "of", total_pages, "items:", len(payload["data"]))
+            if page >= total_pages:
+                break
+            # The endpoint's meta.total_pages is authoritative. Our get()
+            # wrapper returns data only, so a short final page also terminates.
+            if len(payload["data"]) < 100:
                 break
         else:
-            print("Fixture feed exceeded 3 pages; stop without caching")
-            return
+            raise RuntimeError("Fixture feed exceeded 20 pages; no complete schedule cached")
         SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
         SCHEDULE_PATH.write_text(
             json.dumps({"date": day, "matches": matches}), encoding="utf-8"
