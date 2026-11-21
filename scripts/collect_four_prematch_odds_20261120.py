@@ -18,7 +18,9 @@ def get(path,params=None):
  if q is not None and int(q)<=500:raise RuntimeError("Quota reserve reached")
  if r.status_code in (404,409,429):print("HTTP",r.status_code,path);return None
  r.raise_for_status();return r.json().get("data")
-def norm(value):\n return "".join(c for c in unicodedata.normalize("NFKD",str(value).lower()) if not unicodedata.combining(c)).replace("ö","o")\ndef main():
+def norm(value):
+ return "".join(c for c in unicodedata.normalize("NFKD",str(value).lower()) if not unicodedata.combining(c)).replace("ö","o")
+def main():
  now=dt.datetime.now(dt.timezone.utc)
  if now.date().isoformat()!=DAY:return
  found=[]
