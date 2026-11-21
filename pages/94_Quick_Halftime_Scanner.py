@@ -198,12 +198,13 @@ if stored:
         widget=f"sc_{side}_{mid}"
         if st.session_state.get(widget) is None:st.session_state[widget]=v
     st.caption(f"Pre-match odds prefilled from stored {source} last-seen prices (not live quotes).")
-st.subheader("Pre-match 1X2 odds")
-st.caption("Use genuine pre-kickoff prices, not live/halftime prices. No fabricated defaults.")
-c1,c2,c3=st.columns(3)
-with c1:hp=st.number_input("Home",min_value=1.01,value=None,placeholder="Odds",key=f"sc_hp_{mid}")
-with c2:dp=st.number_input("Draw",min_value=1.01,value=None,placeholder="Odds",key=f"sc_dp_{mid}")
-with c3:ap=st.number_input("Away",min_value=1.01,value=None,placeholder="Odds",key=f"sc_ap_{mid}")
+with st.expander("Edit missing pre-match 1X2 odds",expanded=False):
+    st.caption("Only enter genuine pre-kickoff prices; not live or halftime odds.")
+    c1,c2,c3=st.columns(3)
+    with c1:hp=st.number_input("Home",min_value=1.01,value=None,placeholder="Odds",key=f"sc_hp_{mid}")
+    with c2:dp=st.number_input("Draw",min_value=1.01,value=None,placeholder="Odds",key=f"sc_dp_{mid}")
+    with c3:ap=st.number_input("Away",min_value=1.01,value=None,placeholder="Odds",key=f"sc_ap_{mid}")
+
 required=[hg,ag,hx,ax,hp,dp,ap,*fields.values()]
 if any(v is None for v in required):
     st.warning(f"Missing {sum(v is None for v in required)} verified inputs. No fair prices calculated.")
@@ -252,4 +253,4 @@ else:
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v7: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
+st.caption("Scanner v8: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
