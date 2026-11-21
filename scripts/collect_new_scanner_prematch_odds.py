@@ -1,0 +1,129 @@
+"""Bounded pre-kickoff 1X2 snapshot collector for the ten selected leagues.
+
+Runs once per invocation (no sleeping); stores verified bookmaker payloads only
+before scheduled kickoff. Existing table name is legacy but holds new snapshots.
+"""
+import datetime as dt
+import os
+import requests
+from supabase import create_client
+
+BASE = "https://api.thestatsapi.com/api"
+LEAGUES = {"comp_3039","comp_8321","comp_8814","comp_5840","comp_4643",
+           "comp_0256","comp_3809","comp_8385","comp_8531","comp_6387"}
+CAP = 9
+RESERVE = 500
+WINDOW_MINUTES = 20
+TABLE = "ht_odds_trial_20261120"
+now = dt.datetime.now(dt.timezone.utc)
+session = requests.Session()
+session.headers["Authorization"] = "Bearer " + os.environ["STATS_API_KEY"]
+db = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SECRET_KEY"])
+calls = 0
+
+def get(path, params=None):
+    global calls
+    if calls >= CAP:
+        raise RuntimeError("API request cap reached")
+    response = session.get(BASE + path, params=params, timeout=30)
+    calls += 1
+    quota = response.headers.get("X-Monthly-Quota-Remaining")
+    if quota is not None and int(quota) <= RESERVE:
+        raise RuntimeError("Quota reserve reached")
+    if response.status_code in (404, 409, 429):
+        print("Skipping response", response.status_code, path)
+        return None
+    response.raise_for_status()
+    return response.json().get("data")
+
+def main():
+    day = now.date().isoformat()
+    matches = []
+    # Global date feed: bounded pagination, filter by league locally.
+    for page in range(1, 4):
+        payload = get("/football/matches", {
+            "date_from": day, "date_to": day, "sort": "utc_date",
+            "per_page": 100, "page": page
+        })
+        if not isinstance(payload, list):
+            print("Unexpected fixture feed; stop")
+            return
+        matches.extend(payload)
+        if len(payload) < 100:
+            break
+    else:
+        print("Fixture feed exceeded 3 pages; incomplete coverage, stop safely")
+        return
+
+    upcoming = []
+    for match in matches:
+        comp = match.get("competition") or {}
+        cid = str(match.get("competition_id") or (comp.get("id") if isinstance(comp, dict) else "") or "")
+        if cid not in LEAGUES:
+            continue
+        raw = match.get("utc_date")
+        try:
+            kickoff = dt.datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            remaining = (kickoff - now).total_seconds() / 60
+        except (ValueError, TypeError):
+            continue
+        if not 0 < remaining <= WINDOW_MINUTES:
+            continue
+        if not match.get("odds_available"):
+            continue
+        mid = str(match.get("id") or "")
+        if mid:
+            upcoming.append((kickoff, mid, match, cid))
+    upcoming.sort()
+    print("Eligible fixtures:", len(upcoming), "API calls:", calls)
+    saved = 0
+    for kickoff, mid, match, cid in upcoming:
+        if calls >= CAP:
+            print("Request cap reached; remaining fixtures deferred")
+            break
+        existing = (db.table(TABLE).select("bookmaker")
+                    .eq("match_id", mid)
+                    .eq("snapshot_kind", "prematch_within_20m")
+                    .execute().data or [])
+        existing_books = {str(row.get("bookmaker") or "").casefold() for row in existing}
+        if existing_books:
+            print("Already captured", mid)
+            continue
+        # Verify kickoff is still in future immediately before fetching odds.
+        observed = dt.datetime.now(dt.timezone.utc)
+        if observed >= kickoff:
+            continue
+        payload = get("/football/matches/" + mid + "/odds",
+                      {"bookmaker": "bet365,betfair-exchange,pinnacle"})
+        if not isinstance(payload, dict):
+            continue
+        rows = []
+        home = (match.get("home_team") or {}).get("name", "Home")
+        away = (match.get("away_team") or {}).get("name", "Away")
+        for book in payload.get("bookmakers") or []:
+            if not isinstance(book, dict):
+                continue
+            name, markets = book.get("bookmaker"), book.get("markets")
+            match_odds = (markets or {}).get("match_odds") if isinstance(markets, dict) else None
+            if not name or not isinstance(match_odds, dict):
+                continue
+            # Only store bookmakers with a complete, valid pre-match 1X2.
+            try:
+                prices = [float((match_odds.get(side) or {}).get("last_seen"))
+                          for side in ("home", "draw", "away")]
+            except (TypeError, ValueError):
+                continue
+            if not all(price > 1 for price in prices):
+                continue
+            rows.append({"match_id": mid, "fixture": f"{home} v {away}",
+                         "competition_id": cid, "observed_at": observed.isoformat(),
+                         "match_status": "scheduled", "elapsed_minutes": None,
+                         "bookmaker": name, "markets": markets,
+                         "snapshot_kind": "prematch_within_20m"})
+        if rows:
+            db.table(TABLE).insert(rows).execute()
+            saved += len(rows)
+    print("FINISHED", "saved", saved, "calls", calls)
+
+if __name__ == "__main__":
+    main()
