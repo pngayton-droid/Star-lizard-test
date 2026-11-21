@@ -10,7 +10,7 @@ BASE="https://api.thestatsapi.com/api"
 LEAGUES={"comp_3039","comp_8321","comp_8814","comp_5840","comp_4643","comp_0256","comp_3809","comp_8385","comp_8531","comp_6387"}
 CACHE=Path(".cache/scanner_fixture_schedule.json")
 TABLE="match_matrix_halftime_stats"
-CAP=20
+CAP=24
 now=dt.datetime.now(dt.timezone.utc)
 session=requests.Session()
 session.headers["Authorization"]="Bearer "+os.environ["STATS_API_KEY"]
@@ -44,7 +44,7 @@ def main():
         except (KeyError,TypeError,ValueError):continue
         # First-half data may arrive late. Keep a narrow window, and
         # label these as first-half snapshots, not guaranteed HT live odds.
-        if 43<=minutes<=80 and m.get("id"):
+        if 45<=minutes<=58 and m.get("id"):
             eligible.append((ko,m))
     eligible.sort(key=lambda x:x[0])
     print("First-half stats candidates:",len(eligible),"cap:",CAP)
@@ -54,6 +54,24 @@ def main():
         mid=str(m["id"])
         existing=db.table(TABLE).select("match_id").eq("match_id",mid).limit(1).execute().data or []
         if existing:continue
+        # Cached status is stale; verify actual halftime before capturing.
+        if calls+2>CAP:break
+        detail=session.get(f"{BASE}/football/matches/{mid}",timeout=25)
+        calls+=1
+        if detail.status_code in (404,409,429):
+            print("Live match status unavailable:",mid,detail.status_code)
+            if detail.status_code==429:break
+            continue
+        detail.raise_for_status()
+        live=detail.json().get("data") or {}
+        status=str(live.get("status") or "").lower().replace("-","_").replace(" ","_")
+        if status not in {"ht","half_time","halftime"}:
+            print("Not confirmed halftime:",mid,status)
+            continue
+        score=ht_score(live)
+        if score is None:
+            print("No verified halftime score:",mid)
+            continue
         resp=session.get(f"{BASE}/football/matches/{mid}/stats",timeout=30)
         calls+=1
         if resp.status_code in (404,409,429):
@@ -75,8 +93,8 @@ def main():
         row={"match_id":mid,"fixture":str(home.get("name") or "Home")+" v "+str(away.get("name") or "Away"),
              "competition_id":cid(m),"kickoff_utc":ko.isoformat(),
              "observed_at":dt.datetime.now(dt.timezone.utc).isoformat(),
-             "match_status":str(m.get("status") or ""),
-             "half_time_score":ht_score(m),"first_half_stats":first,"stats_payload":payload}
+             "match_status":status,
+             "half_time_score":score,"first_half_stats":first,"stats_payload":payload}
         db.table(TABLE).insert(row).execute()
         saved+=1
         print("Saved first-half stats:",mid,"fields:",len(first))
