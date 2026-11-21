@@ -19,10 +19,13 @@ st.markdown("""<style>
 .stButton button[kind="primary"]{background:#35bba5;color:#061b21;border:0;font-weight:800}
 @media(max-width:640px){.block-container{padding:.8rem .6rem 3rem}}
 </style>""",unsafe_allow_html=True)
-try:
-    st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
-except Exception:
-    pass
+# Pages execute with the repository root as their asset base only in some
+# launch contexts. Resolve the preserved original artwork from this file.
+header_image = Path(__file__).resolve().parents[1] / "pro_starlizard_header_correct-1.png"
+if header_image.is_file():
+    st.image(str(header_image), use_container_width=True)
+else:
+    st.warning("Original Manchester United header artwork is missing from deployment.")
 st.title("⚽ THE MATCH MATRIX")
 st.markdown("""<style>div[data-testid="stNumberInput"] label p{font-size:.78rem} div[data-testid="stVerticalBlock"]{gap:.55rem} h1{font-size:1.55rem!important} h2,h3{font-size:1.15rem!important}</style>""",unsafe_allow_html=True)
 st.caption("HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT")
