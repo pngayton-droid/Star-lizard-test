@@ -13,8 +13,12 @@ st.markdown("""<style>
 .stButton button[kind="primary"]{background:#35bba5;color:#061b21;border:0;font-weight:800}
 @media(max-width:640px){.block-container{padding:.8rem .6rem 3rem}}
 </style>""",unsafe_allow_html=True)
-try:st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
-except Exception:pass
+from pathlib import Path
+_header = Path(__file__).resolve().parent / "pro_starlizard_header_correct-1.png"
+if _header.is_file():
+    st.image(str(_header),use_container_width=True)
+else:
+    st.warning("Original Manchester United header artwork missing from deployment.")
 st.title("⚽ THE MATCH MATRIX")
 st.caption("Enter a fixture. We retrieve individual match records from our saved TheStatsAPI database and calculate the fair odds.")
 @st.cache_data(ttl=3600,show_spinner=False)
