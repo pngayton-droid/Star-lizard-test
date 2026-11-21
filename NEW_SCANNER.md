@@ -113,3 +113,43 @@ Actual repository files were inspected and these **source changes were committed
 - Scanner now retains the original PRO STARLIZARD dark-blue styling and header artwork; collapsed links to the legacy match analysis and old halftime calculator. Commit `a1a0031a44d7d2ee50957864c7e763ecfa3a1c4e`.
 - Earlier today, independent odds lookup error handling and a diagnostic expander were committed, and the manual odds inputs were collapsed. User screenshot confirmed scanner v8 deployed before the home-page promotion.
 - **Deployment of new home-page redirect and retained artwork is not yet verified.** Validate root URL `https://pro-starlizard-preview.streamlit.app/` after deployment, ensure legacy page imports work, and continue solving odds APIError and automatic multi-fixture pricing.
+
+
+---
+
+## 21 November 2026 — MATCH MATRIX handover after successful fixture-cache run
+
+### Current state and evidence (05:45 UK time, 21 November)
+- User confirmed a manual GitHub Actions run of `.github/workflows/new_scanner_prematch_odds.yml` succeeded in 16 seconds. The **Capture upcoming fixture odds** log explicitly reported:
+  ```
+  Using cached daily kickoff schedule: 413 fixtures
+  Eligible fixtures: 0 API calls: 0
+  FINISHED saved 0 calls 0
+  ```
+- This **confirms today's full API fixture schedule was cached and restored** (413 across all API leagues, not 413 selected fixtures). The scanner previously displayed **52 fixtures in selected leagues**; this 52 was not independently reconciled against the cached list. At 05:45 there were no fixtures within the 25-minute collection window, so **no bookmaker odds were captured** and no API requests were consumed by that run.
+- The *first* manual run (around 05:39) displayed a green tick but the log said `Fixture feed exceeded 3 pages; stop without caching`; it had silently returned without collecting anything. Fixed pagination to use API `meta.total_pages`, up to 20 pages, and to raise on incomplete data: commit `a8c7c3670e5f90ba5f4844e525ce8a45e854bdcb`. **Important: the 05:45 run restored a cached 413-fixture schedule; it does not itself prove that the newly corrected pagination executed on a cache miss.** The restored cache's existence is evidence of a previous successful schedule save.
+- Supabase `ht_odds_trial_20261120` was directly queried before the first kickoff and had **zero `prematch_within_20m` snapshots**. This is expected at that hour. No successful odds insert or dashboard prefill has yet been observed.
+
+### Current source and workflow
+- Main dashboard: `pro_starlizard.py` redirects to `pages/94_Quick_Halftime_Scanner.py`.
+- **Do not change the user's approved design**: THE MATCH MATRIX in red-and-gold Manchester United colours, large Manchester United crest, mobile-safe top padding `.block-container{padding-top:5rem!important}` to avoid the Streamlit toolbar overlap. The previous blue PRO STARLIZARD interface is archived at `pages/96_Legacy_Match_Analysis.py`; original halftime calculator at `pages/95_Half_Time_Fair_Odds.py`.
+- Odds collector: `scripts/collect_new_scanner_prematch_odds.py`. Workflow: `.github/workflows/new_scanner_prematch_odds.yml`, scheduled every **5 minutes from 08:00 through 22:59 UTC**, plus manual dispatch. Daily schedule cached via `actions/cache@v4` using date/run_id key and date restore prefix. Selected league IDs hardcoded in collector; verify they match `statsapi_refresh.LEAGUES`.
+- Collector requests `GET /api/football/matches/{id}/odds?bookmaker=bet365,betfair-exchange,pinnacle` only if kickoff is within **25 minutes in the future**. Up to **35 API calls per invocation**, with a hardcoded **500-request reserve** (user reported 6,475 requests remaining at 05:30). It ignores stale fixture `odds_available` flags. Stores complete 1X2 `last_seen` price payloads with `observed_at`, `bookmaker`, `match_id` and `snapshot_kind=prematch_within_20m` (legacy label; actual window is now 25 minutes) in `ht_odds_trial_20261120`.
+- Collector fixes committed: `247e10a4147c5c57986662452f4343d8ce096561` (odds_available filter removed, 35-call cap, 25-minute window, improved logs), `ac2646e2580d387e9fea9493974b51db7184862a` (five-minute workflow and run-id cache), `a8c7c3670e5f90ba5f4844e525ce8a45e854bdcb` (correct fixture pagination and visible failure).
+- Supabase table columns confirmed: `id bigint`, `match_id text`, `fixture text`, `competition_id text`, `observed_at timestamptz`, `match_status text`, `elapsed_minutes integer`, `bookmaker text`, `markets jsonb`, `snapshot_kind text`. Unique index on `(match_id, observed_at, bookmaker)`, **not** `(match_id, bookmaker, snapshot_kind)`. Existing row check and workflow concurrency mitigate duplicates but are not atomic; plain `.insert()` remains. No schema changed.
+- The scanner's `stored_prematch(mid)` queries new snapshot table first, then `historical_match_odds`; it prioritises Bet365, Betfair Exchange, William Hill, Pinnacle. William Hill is not a supported TheStatsAPI bookmaker slug according to Claude's doc review; current collector does not request it. When saved prices exist and input boxes are empty, the home/draw/away pre-match odds fields are prefilled. Database lookup cached for 300 seconds; existing non-empty widget values are not overwritten.
+- The scanner now **automatically fetches first-half stats once per selected match only when the fixture's explicit status is `ht`, `half_time` or `halftime`**, while preserving the manual button. Commit `422ec4e1a8e7934d65f2e82d43b79a6768820269`. **This automatic HT behaviour is committed but NOT yet tested in a live halftime fixture.** It does not guarantee verified HT score or all fields; no fabricated values are allowed.
+- **Halftime bookmaker odds are NOT automatically collected yet.** The pre-match 1X2 prices are model inputs and must never be represented as halftime market quotes. Current model needs verified HT score, first-half stats, and pre-match 1X2 odds to price 2H markets. The model file `model_artifacts/halftime_second_half_models.joblib` and historical data were preserved.
+
+### Immediate next checkpoints (Saturday 21 November)
+1. **First kickoff:** Manchester City v Fulham, **12:30 GMT**. Odds collector should start checking this fixture within the 25-minute window (~12:05). GitHub Actions cron is best-effort; verify a run actually fires before kickoff.
+2. Inspect GitHub Actions log for eligible fixture IDs, bookmaker names and `Saved:` messages. Verify corresponding rows in Supabase with `observed_at` strictly before kickoff, and complete 1X2 prices. Confirm scanner auto-populates home/draw/away pre-match odds. Do not claim success based only on a green workflow tick.
+3. At verified halftime (~13:15, approximate), select the match and check automatic stats, explicit halftime goals, model inputs and resulting fair odds. Never substitute current score for HT score.
+4. Research the actual TheStatsAPI **halftime/in-play bookmaker odds coverage and response structure** before implementing timestamped HT odds collection. Use only documented supported endpoints, preserve API budget and distinguish quotes from model fair odds.
+5. Future target: a genuinely automatic multi-fixture mobile halftime scanner with complete verified facts, genuine market comparison and a readiness indicator. No more unbounded calibration/model changes.
+
+### Risks and guardrails
+- The 413 cached matches are **all leagues**; validate filtering to the 10 intended league IDs. The saved cache is a snapshot; rescheduled fixtures may require refresh. Workflow only runs 08:00–22:59 UTC and may be delayed.
+- `last_seen` is the latest API-recorded bookmaker price, not a timestamped exchange quote. `observed_at` proves only when *our request* occurred. Do not claim it is guaranteed closing price or executable.
+- If odds endpoint returns 404/409/429, current collector skips; it does not retry within the same run. Its `RESERVE=500` does not preserve the user's currently reported 6,475 calls; consider stronger budget guard if needed. No live API or end-to-end odds insert verified yet.
+- In the new conversation, read **this file and the actual current GitHub code first**. Keep original keys, Supabase historical tables, model, old pages and Manchester United branding. User prefers direct GitHub edits and concise reports, not pasted code or repeated manual steps.
