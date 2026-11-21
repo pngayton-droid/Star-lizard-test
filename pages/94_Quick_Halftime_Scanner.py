@@ -32,8 +32,9 @@ line-height:1.15!important;letter-spacing:-.025em;white-space:normal;overflow-wr
 <div class="hero-content"><p>HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT</p><img src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United crest" /></div></div>
 """,unsafe_allow_html=True)
 st.markdown("""<style>
-.block-container{max-width:1080px;padding-top:1rem}
-@media(max-width:640px){.block-container{padding:.7rem .6rem 3rem}}
+/* Keep the title BELOW Streamlit's fixed Share/Edit toolbar on phones. */
+.block-container{max-width:1080px;padding-top:5rem!important}
+@media(max-width:640px){.block-container{padding:5rem .6rem 3rem!important}}
 div[data-testid="stNumberInput"] label p{font-size:.78rem}
 h2,h3{font-size:1.15rem!important}
 </style>""",unsafe_allow_html=True)
