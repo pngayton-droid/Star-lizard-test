@@ -117,7 +117,14 @@ except Exception as exc:
     archived=None
     st.caption("Saved halftime statistics lookup unavailable: "+type(exc).__name__)
 if archived and st.session_state.get("scanner_stats_id")!=mid:
-    st.session_state["scanner_stats"]=archived.get("stats_payload") or {}
+    # Convert the archived live-stats snapshot to the scanner's existing
+    # first_half overview shape. Preserve the exact archived raw response in DB.
+    raw=archived.get("stats_payload") or {}
+    live_stats=raw.get("stats") or {}
+    adapted={"overview":{metric:{"first_half":pair.get("all")}
+        for metric,pair in live_stats.items()
+        if isinstance(pair,dict) and isinstance(pair.get("all"),dict)}}
+    st.session_state["scanner_stats"]=adapted
     st.session_state["scanner_stats_id"]=mid
     st.caption("First-half statistics loaded from saved Supabase snapshot.")
     saved_score=archived.get("half_time_score") or {}
@@ -128,7 +135,7 @@ if archived and st.session_state.get("scanner_stats_id")!=mid:
 # halftime fixture. Cached per match to avoid repeated API calls on reruns.
 raw_status=str(f.get("status") or "").lower().replace(" ","_").replace("-","_")
 is_halftime=raw_status in {"ht","half_time","halftime"}
-if is_halftime and not archived and st.session_state.get("scanner_auto_ht_id") != mid:
+if False and is_halftime and not archived and st.session_state.get("scanner_auto_ht_id") != mid:
     st.session_state["scanner_auto_ht_id"]=mid
     try:
         st.session_state["scanner_stats"]=fetch_stats(key,mid)
