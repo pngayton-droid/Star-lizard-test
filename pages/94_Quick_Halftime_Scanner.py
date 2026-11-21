@@ -140,6 +140,21 @@ def stored_prematch(match_id):
     secret=os.environ.get("SUPABASE_SECRET_KEY") or st.secrets.get("SUPABASE_SECRET_KEY")
     if not url or not secret:return None
     db=create_client(url,secret)
+    # New scanner: use timestamped pre-kickoff snapshots first.
+    snapshots=(db.table("ht_odds_trial_20261120")
+               .select("bookmaker,markets,observed_at")
+               .eq("match_id",match_id)
+               .eq("snapshot_kind","prematch_within_20m")
+               .order("observed_at",desc=True).limit(12).execute().data or [])
+    for preferred in ("Bet365","Betfair Exchange","William Hill","Pinnacle"):
+        for row in snapshots:
+            if str(row.get("bookmaker") or "").casefold()!=preferred.casefold():continue
+            market=(row.get("markets") or {}).get("match_odds") or {}
+            try:
+                prices=[float((market.get(side) or {}).get("last_seen")) for side in ("home","draw","away")]
+                if all(p>1 for p in prices):
+                    return (prices,preferred+" · prematch snapshot "+str(row.get("observed_at") or ""))
+            except (TypeError,ValueError):pass
     records=(db.table("historical_match_odds").select("odds_payload")
              .eq("match_id",match_id).limit(1).execute().data or [])
     if not records:return None
@@ -219,4 +234,4 @@ else:
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v5: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
+st.caption("Scanner v6: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
