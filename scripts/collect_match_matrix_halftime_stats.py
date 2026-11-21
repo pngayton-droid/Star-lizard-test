@@ -1,5 +1,7 @@
-"""Bounded, once-per-match first-half statistics snapshots from cached fixtures.
-Runs in the existing five-minute prematch workflow; no fixture API calls.
+"""Capture running live statistics only when TheStatsAPI confirms halftime.
+
+The /stats endpoint is post-match only. /live-stats uses stats.<metric>.all.
+This job runs on the existing five-minute workflow, sharing the kickoff cache.
 """
 import os, json, datetime as dt
 from pathlib import Path
@@ -10,7 +12,7 @@ BASE="https://api.thestatsapi.com/api"
 LEAGUES={"comp_3039","comp_8321","comp_8814","comp_5840","comp_4643","comp_0256","comp_3809","comp_8385","comp_8531","comp_6387"}
 CACHE=Path(".cache/scanner_fixture_schedule.json")
 TABLE="match_matrix_halftime_stats"
-CAP=24
+CAP=30
 now=dt.datetime.now(dt.timezone.utc)
 session=requests.Session()
 session.headers["Authorization"]="Bearer "+os.environ["STATS_API_KEY"]
@@ -20,89 +22,104 @@ def cid(m):
     comp=m.get("competition") or {}
     return str(m.get("competition_id") or (comp.get("id") if isinstance(comp,dict) else "") or "")
 
-def ht_score(m):
-    score=m.get("score") or {}
-    if score.get("half_time_home") is not None and score.get("half_time_away") is not None:
-        return {"home":int(score["half_time_home"]),"away":int(score["half_time_away"])}
-    for item in (score.get("half_time"),score.get("halftime"),score.get("halfTime"),m.get("half_time_score"),m.get("halfTime")):
-        if isinstance(item,dict) and item.get("home") is not None and item.get("away") is not None:
-            return {"home":int(item["home"]),"away":int(item["away"])}
-    return None
+def get_json(path,params=None):
+    response=session.get(BASE+path,params=params,timeout=25)
+    if response.status_code in (404,409,429):
+        print("Unavailable",path,response.status_code)
+        return None,response.status_code
+    response.raise_for_status()
+    return response.json(),response.status_code
 
 def main():
     if not CACHE.is_file():
-        print("No cached fixture schedule; skip halftime collection without API calls")
+        print("No fixture cache; skip without API calls")
         return
-    data=json.loads(CACHE.read_text())
-    if data.get("date")!=now.date().isoformat():
-        print("Cached fixture schedule is not for today; skip")
+    cache=json.loads(CACHE.read_text())
+    if cache.get("date")!=now.date().isoformat():
+        print("Stale fixture cache; skip")
         return
-    eligible=[]
-    for m in data.get("matches") or []:
-        if cid(m) not in LEAGUES:continue
+    candidates={}
+    for fixture in cache.get("matches") or []:
+        if cid(fixture) not in LEAGUES:continue
         try:
-            ko=dt.datetime.fromisoformat(str(m["utc_date"]).replace("Z","+00:00"))
-            minutes=(now-ko).total_seconds()/60
+            kickoff=dt.datetime.fromisoformat(str(fixture["utc_date"]).replace("Z","+00:00"))
+            age=(now-kickoff).total_seconds()/60
         except (KeyError,TypeError,ValueError):continue
-        # First-half data may arrive late. Keep a narrow window, and
-        # label these as first-half snapshots, not guaranteed HT live odds.
-        if 45<=minutes<=58 and m.get("id"):
-            eligible.append((ko,m))
-    eligible.sort(key=lambda x:x[0])
-    print("First-half stats candidates:",len(eligible),"cap:",CAP)
-    calls=saved=0
-    for ko,m in eligible:
+        # This is a broad *polling eligibility* window, NOT a halftime detector.
+        if 40<=age<=75 and fixture.get("id"):
+            candidates[str(fixture["id"])]=(fixture,kickoff)
+    if not candidates:
+        print("No plausible halftime candidates; zero API calls")
+        return
+    saved_ids=set()
+    for mid in candidates:
+        if db.table(TABLE).select("match_id").eq("match_id",mid).limit(1).execute().data:
+            saved_ids.add(mid)
+    pending=set(candidates)-saved_ids
+    if not pending:
+        print("All candidate first halves saved; zero API calls")
+        return
+    # One live fixture list request per scheduled run, not one status request per match.
+    body,status=get_json("/football/matches",{"status":"live","per_page":100})
+    calls=1
+    if body is None:return
+    live_rows=body.get("data") or []
+    if not isinstance(live_rows,list):
+        print("Unexpected live fixture list shape; skip")
+        return
+    count=0
+    for item in live_rows:
+        mid=str(item.get("id") or item.get("match_id") or "")
+        if mid not in pending:continue
+        live=item.get("live") or {}
+        phase=str(live.get("match_status") or "").lower().replace("-","_")
+        period=str(live.get("period") or "").lower().replace("-","_")
+        if phase not in {"halftime","half_time"} and period not in {"halftime","half_time"}:
+            continue
         if calls>=CAP:break
-        mid=str(m["id"])
-        existing=db.table(TABLE).select("match_id").eq("match_id",mid).limit(1).execute().data or []
-        if existing:continue
-        # Cached status is stale; verify actual halftime before capturing.
-        if calls+2>CAP:break
-        detail=session.get(f"{BASE}/football/matches/{mid}",timeout=25)
+        response,status=get_json(f"/football/matches/{mid}/live-stats")
         calls+=1
-        if detail.status_code in (404,409,429):
-            print("Live match status unavailable:",mid,detail.status_code)
-            if detail.status_code==429:break
+        if response is None:
+            if status==429:break
             continue
-        detail.raise_for_status()
-        live=detail.json().get("data") or {}
-        status=str(live.get("status") or "").lower().replace("-","_").replace(" ","_")
-        if status not in {"ht","half_time","halftime","live"}:
-            print("Not live/halftime:",mid,status)
+        payload=response.get("data") or {}
+        meta=payload.get("meta") or {}
+        meta_status=str(meta.get("match_status") or "").lower().replace("-","_")
+        meta_period=str(meta.get("period") or "").lower().replace("-","_")
+        if meta_status not in {"halftime","half_time"} and meta_period not in {"halftime","half_time"}:
+            print("Live stats not confirmed halftime",mid,meta_status,meta_period)
             continue
-        score=ht_score(live)
-        # The provider documents live rather than a distinct HT status.
-        # A populated explicit halftime score confirms the first-half result;
-        # the 45–58-minute kickoff window limits capture to the interval.
-        if score is None:
-            print("No verified halftime score:",mid)
-            continue
-        resp=session.get(f"{BASE}/football/matches/{mid}/stats",timeout=30)
-        calls+=1
-        if resp.status_code in (404,409,429):
-            print("Stats unavailable:",mid,resp.status_code)
-            if resp.status_code==429:break
-            continue
-        resp.raise_for_status()
-        payload=resp.json().get("data") or {}
-        ov=payload.get("overview") or {} if isinstance(payload,dict) else {}
+        raw=payload.get("stats") or {}
         first={}
-        for field in ("expected_goals","total_shots","shots_on_target","corner_kicks","red_cards"):
-            block=(ov.get(field) or {}).get("first_half") or {}
-            if isinstance(block,dict) and block.get("home") is not None and block.get("away") is not None:
-                first[field]={"home":block["home"],"away":block["away"]}
-        if len(first)<5:
-            print("Incomplete first-half stats:",mid,len(first),"/5; retry next run")
+        for metric in ("expected_goals","total_shots","shots_on_target","corner_kicks","red_cards"):
+            metric_data=raw.get(metric) or {}
+            pair=metric_data.get("all") or {}
+            if isinstance(pair,dict) and pair.get("home") is not None and pair.get("away") is not None:
+                first[metric]={"home":pair["home"],"away":pair["away"]}
+        # Do not store a snapshot without xG or the core first-half stats.
+        required={"expected_goals","total_shots","shots_on_target","corner_kicks"}
+        if not required.issubset(first):
+            print("Missing required halftime stats",mid,sorted(required-set(first)))
             continue
-        home=m.get("home_team") or {};away=m.get("away_team") or {}
-        row={"match_id":mid,"fixture":str(home.get("name") or "Home")+" v "+str(away.get("name") or "Away"),
-             "competition_id":cid(m),"kickoff_utc":ko.isoformat(),
+        fixture,kickoff=candidates[mid]
+        home=fixture.get("home_team") or {}
+        away=fixture.get("away_team") or {}
+        score=None
+        current=item.get("score") or {}
+        if current.get("home") is not None and current.get("away") is not None:
+            score={"home":int(current["home"]),"away":int(current["away"])}
+        if score is None:
+            print("No confirmed halftime score",mid)
+            continue
+        row={"match_id":mid,
+             "fixture":str(home.get("name") or "Home")+" v "+str(away.get("name") or "Away"),
+             "competition_id":cid(fixture),"kickoff_utc":kickoff.isoformat(),
              "observed_at":dt.datetime.now(dt.timezone.utc).isoformat(),
-             "match_status":status,
-             "half_time_score":score,"first_half_stats":first,"stats_payload":payload}
-        db.table(TABLE).insert(row).execute()
-        saved+=1
-        print("Saved first-half stats:",mid,"fields:",len(first))
-    print("HALFTIME FINISHED saved",saved,"calls",calls)
+             "match_status":"halftime","half_time_score":score,
+             "first_half_stats":first,"stats_payload":payload}
+        db.table(TABLE).upsert(row,on_conflict="match_id").execute()
+        count+=1
+        print("SAVED confirmed halftime",mid,"metrics",sorted(first))
+    print("HALFTIME saved",count,"API calls",calls,"pending",len(pending))
 
 if __name__=="__main__":main()
