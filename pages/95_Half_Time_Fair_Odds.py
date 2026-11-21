@@ -2,6 +2,10 @@
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import streamlit as st
+
+# Keep existing installed home-screen shortcuts pointing at this legacy URL
+# working: send them directly to the new Match Matrix scanner.
+st.switch_page("pages/94_Quick_Halftime_Scanner.py")
 import pandas as pd
 from lightweight_fixture_feed import get_key, fixtures_for_day, fixture_label, team_name
 from statsapi_refresh import LEAGUES
