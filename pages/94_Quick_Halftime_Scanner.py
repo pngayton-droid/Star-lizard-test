@@ -12,23 +12,26 @@ from statsapi_refresh import LEAGUES
 from fixture_live_status import fixture_status
 
 st.set_page_config(page_title="The Match Matrix | Live Scanner", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"] {background:linear-gradient(160deg,rgba(218,41,28,.13),transparent 340px)}
+h1,h2,h3{letter-spacing:-.025em} h1{color:#da291c!important}
+div.stButton>button[kind="primary"]{background-color:#da291c;color:white}
+.hero{background:linear-gradient(110deg,#8b1114,#da291c 72%,#a41918);color:white;
+border-left:6px solid #fbe122;border-bottom:3px solid #da291c;padding:15px 16px;
+border-radius:10px;margin-bottom:14px}
+.hero h2{color:white!important;margin:0;font-size:clamp(1.7rem,5vw,3rem)}
+.hero p{color:#fff4df;margin:5px 0}\n.hero img{float:right;width:clamp(155px,30vw,230px);height:230px;object-fit:contain;margin:0 0 4px 12px}\n.hero:after{content:"";display:block;clear:both}
+</style>
+<div class="hero"><img src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United crest" /><h2>THE MATCH MATRIX</h2>
+<p>HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT</p></div>
+""",unsafe_allow_html=True)
 st.markdown("""<style>
-.stApp{background:linear-gradient(145deg,#0a1220,#101f31);color:#eaf2f9}
-.block-container{max-width:1080px;padding-top:1.1rem}
-[data-testid="stSidebar"],[data-testid="stSidebarNav"]{display:none}
-.stButton button[kind="primary"]{background:#35bba5;color:#061b21;border:0;font-weight:800}
-@media(max-width:640px){.block-container{padding:.8rem .6rem 3rem}}
+.block-container{max-width:1080px;padding-top:1rem}
+@media(max-width:640px){.block-container{padding:.7rem .6rem 3rem}}
+div[data-testid="stNumberInput"] label p{font-size:.78rem}
+h2,h3{font-size:1.15rem!important}
 </style>""",unsafe_allow_html=True)
-# Pages execute with the repository root as their asset base only in some
-# launch contexts. Resolve the preserved original artwork from this file.
-header_image = Path(__file__).resolve().parents[1] / "pro_starlizard_header_correct-1.png"
-if header_image.is_file():
-    st.image(str(header_image), use_container_width=True)
-else:
-    st.warning("Original Manchester United header artwork is missing from deployment.")
-st.title("⚽ THE MATCH MATRIX")
-st.markdown("""<style>div[data-testid="stNumberInput"] label p{font-size:.78rem} div[data-testid="stVerticalBlock"]{gap:.55rem} h1{font-size:1.55rem!important} h2,h3{font-size:1.15rem!important}</style>""",unsafe_allow_html=True)
-st.caption("HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT")
 with st.expander("Other analysis tools",expanded=False):
     st.page_link("pages/96_Legacy_Match_Analysis.py",label="Original match analysis (archive)")
     st.page_link("pages/95_Half_Time_Fair_Odds.py",label="Original halftime calculator (archive)")
