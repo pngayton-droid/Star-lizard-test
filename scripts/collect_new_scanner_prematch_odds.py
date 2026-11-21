@@ -83,6 +83,25 @@ def main():
         )
         print("Saved daily kickoff schedule:", len(matches), "fixtures")
 
+    # Diagnose cached-feed mismatches without spending any extra API requests.
+    league_matches = []
+    missing_kickoffs = 0
+    for item in matches:
+        comp = item.get("competition") or {}
+        cid = str(item.get("competition_id") or (comp.get("id") if isinstance(comp, dict) else "") or "")
+        if cid not in LEAGUES:
+            continue
+        try:
+            start = dt.datetime.fromisoformat(str(item.get("utc_date")).replace("Z", "+00:00"))
+            minutes = (start - now).total_seconds() / 60
+            league_matches.append((minutes, str(item.get("id") or ""), str(item.get("utc_date") or ""), str(item.get("status") or "")))
+        except (ValueError, TypeError):
+            missing_kickoffs += 1
+    print("Selected-league fixture count:", len(league_matches), "invalid kickoff:", missing_kickoffs)
+    print("Nearest selected fixtures (minutes to kickoff, id, UTC, status):",
+          sorted(league_matches, key=lambda row: abs(row[0]))[:8])
+    if not league_matches:
+        print("WARNING: Cached schedule has no fixtures matching our ten competition IDs.")
     upcoming = []
     for match in matches:
         comp = match.get("competition") or {}
