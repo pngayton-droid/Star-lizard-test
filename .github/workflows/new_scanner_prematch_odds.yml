@@ -3,7 +3,7 @@ name: New Scanner prematch 1X2 snapshots
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/10 8-22 * * *'
+    - cron: '*/5 8-22 * * *'
 
 permissions:
   contents: read
@@ -28,7 +28,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/scanner_fixture_schedule.json
-          key: match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}
+          key: match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}-${{ github.run_id }}
+          restore-keys: |
+            match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}-
       - name: Install collector dependencies
         run: pip install 'requests>=2.31,<3' 'supabase>=2,<3'
       - name: Syntax check
