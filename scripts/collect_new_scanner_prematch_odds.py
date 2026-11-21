@@ -5,6 +5,8 @@ before scheduled kickoff. Existing table name is legacy but holds new snapshots.
 """
 import datetime as dt
 import os
+import json
+from pathlib import Path
 import requests
 from supabase import create_client
 
@@ -15,6 +17,7 @@ CAP = 9
 RESERVE = 500
 WINDOW_MINUTES = 20
 TABLE = "ht_odds_trial_20261120"
+SCHEDULE_PATH = Path(os.environ.get("SCANNER_SCHEDULE_PATH", ".cache/scanner_fixture_schedule.json"))
 now = dt.datetime.now(dt.timezone.utc)
 session = requests.Session()
 session.headers["Authorization"] = "Bearer " + os.environ["STATS_API_KEY"]
@@ -38,22 +41,39 @@ def get(path, params=None):
 
 def main():
     day = now.date().isoformat()
-    matches = []
-    # Global date feed: bounded pagination, filter by league locally.
-    for page in range(1, 4):
-        payload = get("/football/matches", {
-            "date_from": day, "date_to": day, "sort": "utc_date",
-            "per_page": 100, "page": page
-        })
-        if not isinstance(payload, list):
-            print("Unexpected fixture feed; stop")
+    # One fixture-feed collection per UTC date, cached across GitHub Actions runs.
+    # Later ten-minute invocations read kickoff times from the cached schedule
+    # without consuming any TheStatsAPI fixture-list requests.
+    matches = None
+    if SCHEDULE_PATH.is_file():
+        try:
+            cached = json.loads(SCHEDULE_PATH.read_text(encoding="utf-8"))
+            if cached.get("date") == day and isinstance(cached.get("matches"), list):
+                matches = cached["matches"]
+                print("Using cached daily kickoff schedule:", len(matches), "fixtures")
+        except (OSError, ValueError, TypeError) as exc:
+            print("Invalid schedule cache; refetching:", type(exc).__name__)
+    if matches is None:
+        matches = []
+        for page in range(1, 4):
+            payload = get("/football/matches", {
+                "date_from": day, "date_to": day, "sort": "utc_date",
+                "per_page": 100, "page": page
+            })
+            if not isinstance(payload, list):
+                print("Unexpected fixture feed; stop without caching")
+                return
+            matches.extend(payload)
+            if len(payload) < 100:
+                break
+        else:
+            print("Fixture feed exceeded 3 pages; stop without caching")
             return
-        matches.extend(payload)
-        if len(payload) < 100:
-            break
-    else:
-        print("Fixture feed exceeded 3 pages; incomplete coverage, stop safely")
-        return
+        SCHEDULE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        SCHEDULE_PATH.write_text(
+            json.dumps({"date": day, "matches": matches}), encoding="utf-8"
+        )
+        print("Saved daily kickoff schedule:", len(matches), "fixtures")
 
     upcoming = []
     for match in matches:
