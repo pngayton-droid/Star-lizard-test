@@ -99,11 +99,36 @@ def fetch_stats(api_key,match_id):
 def model_bundle():
     model_path = Path(__file__).resolve().parents[1] / "model_artifacts" / "halftime_second_half_models.joblib"
     return joblib.load(model_path)
+# Prefer the permanently archived first-half snapshot before making a live API call.
+@st.cache_data(ttl=120,show_spinner=False)
+def stored_first_half(match_id):
+    import os
+    from supabase import create_client
+    url=os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+    secret=os.environ.get("SUPABASE_SECRET_KEY") or st.secrets.get("SUPABASE_SECRET_KEY")
+    if not url or not secret:return None
+    rows=(create_client(url,secret).table("match_matrix_halftime_stats")
+          .select("stats_payload,half_time_score,observed_at")
+          .eq("match_id",match_id).limit(1).execute().data or [])
+    return rows[0] if rows else None
+try:
+    archived=stored_first_half(mid)
+except Exception as exc:
+    archived=None
+    st.caption("Saved halftime statistics lookup unavailable: "+type(exc).__name__)
+if archived and st.session_state.get("scanner_stats_id")!=mid:
+    st.session_state["scanner_stats"]=archived.get("stats_payload") or {}
+    st.session_state["scanner_stats_id"]=mid
+    st.caption("First-half statistics loaded from saved Supabase snapshot.")
+    saved_score=archived.get("half_time_score") or {}
+    for side,short in (("home","hg"),("away","ag")):
+        if saved_score.get(side) is not None and st.session_state.get(f"sc_{short}_{mid}") is None:
+            st.session_state[f"sc_{short}_{mid}"]=int(saved_score[side])
 # Automatically request verified first-half stats only for an explicitly
 # halftime fixture. Cached per match to avoid repeated API calls on reruns.
 raw_status=str(f.get("status") or "").lower().replace(" ","_").replace("-","_")
 is_halftime=raw_status in {"ht","half_time","halftime"}
-if is_halftime and st.session_state.get("scanner_auto_ht_id") != mid:
+if is_halftime and not archived and st.session_state.get("scanner_auto_ht_id") != mid:
     st.session_state["scanner_auto_ht_id"]=mid
     try:
         st.session_state["scanner_stats"]=fetch_stats(key,mid)
