@@ -105,3 +105,11 @@ Actual repository files were inspected and these **source changes were committed
 - Updated `pages/94_Quick_Halftime_Scanner.py` (commit `fed43a4f450abfdfd22b18cbea238dad8200edd6`) to prefer new timestamped odds snapshots, then historical odds.
 - **Still unverified:** first successful scheduled/manual Actions run, actual TheStatsAPI odds response, bookmaker availability, successful Supabase insert, and end-to-end Streamlit prices. No claim that odds have actually been collected.
 - **Next:** check GitHub Actions run logs and Supabase snapshot rows; fix any issues; confirm HT score payload; compare live-vs-training features; then implement genuine multi-match list. Consider improving pagination (3 pages max), scheduling coverage and idempotence before relying on production collection.
+
+
+## 21 November 2026 — Scanner promoted to main page
+- `pro_starlizard.py` now immediately opens `pages/94_Quick_Halftime_Scanner.py` via `st.switch_page`. Commit `bc4f5a76bb3fd84c9f0709608a240dc4224cedf4`.
+- The previous complete `pro_starlizard.py` was preserved at `pages/96_Legacy_Match_Analysis.py` (commit `e2e738cd775b4f7d4c2780ccf65173aba007c8f9`). No data/model deletion.
+- Scanner now retains the original PRO STARLIZARD dark-blue styling and header artwork; collapsed links to the legacy match analysis and old halftime calculator. Commit `a1a0031a44d7d2ee50957864c7e763ecfa3a1c4e`.
+- Earlier today, independent odds lookup error handling and a diagnostic expander were committed, and the manual odds inputs were collapsed. User screenshot confirmed scanner v8 deployed before the home-page promotion.
+- **Deployment of new home-page redirect and retained artwork is not yet verified.** Validate root URL `https://pro-starlizard-preview.streamlit.app/` after deployment, ensure legacy page imports work, and continue solving odds APIError and automatic multi-fixture pricing.
