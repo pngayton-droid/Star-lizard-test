@@ -21,6 +21,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Determine UTC schedule date
+        id: schedule_day
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      - name: Restore daily fixture schedule
+        uses: actions/cache@v4
+        with:
+          path: .cache/scanner_fixture_schedule.json
+          key: match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}
       - name: Install collector dependencies
         run: pip install 'requests>=2.31,<3' 'supabase>=2,<3'
       - name: Syntax check
