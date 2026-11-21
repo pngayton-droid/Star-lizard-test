@@ -18,13 +18,18 @@ st.markdown("""
 h1,h2,h3{letter-spacing:-.025em} h1{color:#da291c!important}
 div.stButton>button[kind="primary"]{background-color:#da291c;color:white}
 .hero{background:linear-gradient(110deg,#8b1114,#da291c 72%,#a41918);color:white;
-border-left:6px solid #fbe122;border-bottom:3px solid #da291c;padding:15px 16px;
+border-left:6px solid #fbe122;border-bottom:3px solid #da291c;padding:16px;
 border-radius:10px;margin-bottom:14px}
-.hero h2{color:white!important;margin:0;font-size:clamp(1.7rem,5vw,3rem)}
-.hero p{color:#fff4df;margin:5px 0}\n.hero img{float:right;width:clamp(155px,30vw,230px);height:230px;object-fit:contain;margin:0 0 4px 12px}\n.hero:after{content:"";display:block;clear:both}
+.hero h2{color:white!important;margin:0 0 12px!important;font-size:clamp(1.45rem,5.8vw,2.7rem)!important;
+line-height:1.15!important;letter-spacing:-.025em;white-space:normal;overflow-wrap:normal}
+.hero-content{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hero p{color:#fff4df;margin:0;flex:1;min-width:0;font-size:clamp(.83rem,2.8vw,1rem);line-height:1.55}
+.hero img{display:block;flex:none;width:min(38%,190px);height:auto;max-height:180px;object-fit:contain}
+@media(max-width:420px){.hero{padding:14px 12px}.hero h2{font-size:1.5rem!important}
+.hero img{width:38%;max-height:150px}.hero-content{gap:8px}}
 </style>
-<div class="hero"><img src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United crest" /><h2>THE MATCH MATRIX</h2>
-<p>HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT</p></div>
+<div class="hero"><h2>THE MATCH MATRIX</h2>
+<div class="hero-content"><p>HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT</p><img src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United crest" /></div></div>
 """,unsafe_allow_html=True)
 st.markdown("""<style>
 .block-container{max-width:1080px;padding-top:1rem}
