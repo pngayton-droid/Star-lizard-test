@@ -99,6 +99,20 @@ def fetch_stats(api_key,match_id):
 def model_bundle():
     model_path = Path(__file__).resolve().parents[1] / "model_artifacts" / "halftime_second_half_models.joblib"
     return joblib.load(model_path)
+# Automatically request verified first-half stats only for an explicitly
+# halftime fixture. Cached per match to avoid repeated API calls on reruns.
+raw_status=str(f.get("status") or "").lower().replace(" ","_").replace("-","_")
+is_halftime=raw_status in {"ht","half_time","halftime"}
+if is_halftime and st.session_state.get("scanner_auto_ht_id") != mid:
+    st.session_state["scanner_auto_ht_id"]=mid
+    try:
+        st.session_state["scanner_stats"]=fetch_stats(key,mid)
+        st.session_state["scanner_stats_id"]=mid
+        st.caption("First-half statistics fetched automatically at confirmed halftime.")
+    except Exception as exc:
+        st.session_state["scanner_stats"]={}
+        st.session_state["scanner_stats_id"]=mid
+        st.warning("Automatic halftime statistics unavailable: "+type(exc).__name__)
 if st.button("Fetch first-half stats",type="primary",use_container_width=True):
     fetch_stats.clear()
     st.session_state["scanner_stats_id"]=mid
