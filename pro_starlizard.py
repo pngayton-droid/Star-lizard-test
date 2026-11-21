@@ -5,7 +5,7 @@ import streamlit as st
 from supabase import create_client
 from statsapi_refresh import LEAGUES,settings,refresh
 
-st.set_page_config(page_title="PRO STARLIZARD | Match Intelligence",page_icon="⚽",layout="wide",initial_sidebar_state="collapsed")
+st.set_page_config(page_title="The Match Matrix | Match Intelligence",page_icon="⚽",layout="wide",initial_sidebar_state="collapsed")
 st.markdown("""<style>
 .stApp{background:linear-gradient(145deg,#0a1220,#101f31);color:#eaf2f9}
 .block-container{max-width:1080px;padding-top:1.1rem}
@@ -15,7 +15,7 @@ st.markdown("""<style>
 </style>""",unsafe_allow_html=True)
 try:st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
 except Exception:pass
-st.title("⚽ PRO STARLIZARD")
+st.title("⚽ THE MATCH MATRIX")
 st.caption("Enter a fixture. We retrieve individual match records from our saved TheStatsAPI database and calculate the fair odds.")
 @st.cache_data(ttl=3600,show_spinner=False)
 def team_options():
