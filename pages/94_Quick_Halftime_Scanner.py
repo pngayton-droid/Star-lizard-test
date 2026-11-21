@@ -1,14 +1,15 @@
 """Mobile-first halftime scanner. Read-only API; existing pricing page stays unchanged."""
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-import io
 import joblib
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
 import streamlit as st
 from lightweight_fixture_feed import get_key, fixtures_for_day, fixture_label, team_name, API_BASE
 from statsapi_refresh import LEAGUES
+from fixture_live_status import fixture_status
 
 st.set_page_config(page_title="Match Matrix | Quick Scanner", page_icon="⚽", layout="wide")
 st.title("⚽ THE MATCH MATRIX")
@@ -37,9 +38,9 @@ if not fixtures:
     st.stop()
 status_filter = st.radio("Show", ["All", "Half-time / live", "Finished"], horizontal=True)
 def phase(f):
-    s=str(f.get("status") or "").lower()
-    if any(v in s for v in ("finished","full_time","ft","completed")): return "Finished"
-    if any(v in s for v in ("half","live","in_play","1st","2nd","playing")): return "Half-time / live"
+    status = fixture_status(f)
+    if status == "Live": return "Half-time / live"
+    if status == "Finished / not active": return "Finished"
     return "Scheduled / unknown"
 visible=[f for f in fixtures if status_filter=="All" or phase(f)==status_filter]
 st.caption("Scores in the fixture feed may be live or final, not necessarily the halftime score.")
@@ -63,9 +64,8 @@ def fetch_stats(api_key,match_id):
     return r.json().get("data") or {}
 @st.cache_resource(show_spinner=False)
 def model_bundle():
-    r=requests.get("https://raw.githubusercontent.com/pngayton-droid/Star-lizard-test/main/model_artifacts/halftime_second_half_models.joblib",timeout=30)
-    r.raise_for_status()
-    return joblib.load(io.BytesIO(r.content))
+    model_path = Path(__file__).resolve().parents[1] / "model_artifacts" / "halftime_second_half_models.joblib"
+    return joblib.load(model_path)
 if st.button("Fetch first-half stats",type="primary",use_container_width=True):
     fetch_stats.clear()
     st.session_state["scanner_stats_id"]=mid
@@ -95,7 +95,7 @@ def half_stat(name,side):
 def score_half(side):
     score=f.get("score") or {}
     # Do not treat current score as halftime score.
-    for container in (score.get("half_time"),score.get("halftime"),f.get("half_time_score")):
+    for container in (score.get("half_time"),score.get("halftime"),score.get("halfTime"),f.get("half_time_score"),f.get("halfTime")):
         if isinstance(container,dict) and container.get(side) is not None:
             try:return int(container[side])
             except (ValueError,TypeError):pass
@@ -219,4 +219,4 @@ else:
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v4: verified stat hydration and stored pre-match odds lookup; no invented odds or betting-value claims.")
+st.caption("Scanner v5: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
