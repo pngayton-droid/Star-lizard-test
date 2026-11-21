@@ -86,3 +86,14 @@ The existing scanner code remains committed; **no fixes from the independent rev
 
 ## Important communication notes
 The user works on mobile and prefers the assistant to carry out GitHub/Supabase work directly, provide concise progress and copyable commands, and avoid asking to manually copy lots of code. The user requested this handover to allow a new chat to continue without re-explaining the project.
+
+
+---
+
+## 21 November 2026 — First dashboard repair commits
+
+Actual repository files were inspected and these **source changes were committed**:
+- `scripts/collect_four_prematch_odds_20261120.py`: repaired the literal escaped newline sequence in the `norm` definition. Commit `4c768de5fd601466bb00ebafd4bc67b973bb9d06`. **Important:** this is a dated four-match trial hard-coded to `DAY="2026-11-20"`; repairing its syntax does **not** make it a functioning recurring collector on 21 November. Its runtime/API/database behaviour still needs testing, and it must be redesigned before using for future fixtures.
+- `pages/94_Quick_Halftime_Scanner.py`: replaced substring status checks with existing `fixture_live_status.fixture_status`, changed model loading from remote GitHub download to the committed local joblib file, and added `score.halfTime` / `fixture.halfTime` to explicit HT-score lookup. Commit `345d1583572a1644c792b0386c1fb155e0bac219`.
+- These are GitHub commits, **not verified live Streamlit deployment or successful data collection**. Validate syntax, imports, deployed app and API payloads next.
+- The larger outstanding tasks remain: recurring bounded pre-kickoff odds snapshots, HT score payload verification, training-vs-live feature parity, and true automatic multi-match mobile scanner. Existing model, old dashboard, keys and historical data were not intentionally modified.
