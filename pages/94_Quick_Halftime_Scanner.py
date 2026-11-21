@@ -140,12 +140,18 @@ def stored_prematch(match_id):
     secret=os.environ.get("SUPABASE_SECRET_KEY") or st.secrets.get("SUPABASE_SECRET_KEY")
     if not url or not secret:return None
     db=create_client(url,secret)
-    # New scanner: use timestamped pre-kickoff snapshots first.
-    snapshots=(db.table("ht_odds_trial_20261120")
-               .select("bookmaker,markets,observed_at")
-               .eq("match_id",match_id)
-               .eq("snapshot_kind","prematch_within_20m")
-               .order("observed_at",desc=True).limit(12).execute().data or [])
+    # Snapshot and historical stores are independent: one failing query must
+    # never hide a valid price from the other source.
+    errors = []
+    try:
+        snapshots=(db.table("ht_odds_trial_20261120")
+                   .select("bookmaker,markets,observed_at")
+                   .eq("match_id",match_id)
+                   .eq("snapshot_kind","prematch_within_20m")
+                   .order("observed_at",desc=True).limit(12).execute().data or [])
+    except Exception as exc:
+        snapshots=[]
+        errors.append("snapshot: "+type(exc).__name__+" "+str(exc)[:220])
     for preferred in ("Bet365","Betfair Exchange","William Hill","Pinnacle"):
         for row in snapshots:
             if str(row.get("bookmaker") or "").casefold()!=preferred.casefold():continue
@@ -155,26 +161,38 @@ def stored_prematch(match_id):
                 if all(p>1 for p in prices):
                     return (prices,preferred+" · prematch snapshot "+str(row.get("observed_at") or ""))
             except (TypeError,ValueError):pass
-    records=(db.table("historical_match_odds").select("odds_payload")
-             .eq("match_id",match_id).limit(1).execute().data or [])
-    if not records:return None
-    payload=records[0].get("odds_payload") or {}
-    bookmakers=(payload.get("data") or {}).get("bookmakers") or []
-    for preferred in ("Bet365","Betfair Exchange","William Hill","Pinnacle"):
-        for book in bookmakers:
-            if str(book.get("bookmaker") or "").casefold()!=preferred.casefold():continue
-            market=(book.get("markets") or {}).get("match_odds") or {}
-            try:
-                prices=[float((market.get(side) or {}).get("last_seen")) for side in ("home","draw","away")]
-                if all(p>1 for p in prices):return (prices,preferred)
-            except (ValueError,TypeError):pass
+    try:
+        records=(db.table("historical_match_odds").select("odds_payload")
+                 .eq("match_id",match_id).limit(1).execute().data or [])
+    except Exception as exc:
+        records=[]
+        errors.append("historical: "+type(exc).__name__+" "+str(exc)[:220])
+    if records:
+        payload=records[0].get("odds_payload") or {}
+        bookmakers=(payload.get("data") or {}).get("bookmakers") or []
+        for preferred in ("Bet365","Betfair Exchange","William Hill","Pinnacle"):
+            for book in bookmakers:
+                if str(book.get("bookmaker") or "").casefold()!=preferred.casefold():continue
+                market=(book.get("markets") or {}).get("match_odds") or {}
+                try:
+                    prices=[float((market.get(side) or {}).get("last_seen")) for side in ("home","draw","away")]
+                    if all(p>1 for p in prices):return (prices,preferred)
+                except (ValueError,TypeError):pass
+    if errors:
+        # No credentials or authorization headers are included in these messages.
+        st.session_state["scanner_odds_lookup_error"]="; ".join(errors)
     return None
+
 try:
     stored=stored_prematch(mid)
 except Exception as exc:
     stored=None
-    st.caption("Stored pre-match odds lookup unavailable: "+type(exc).__name__)
+    st.caption("Stored pre-match odds lookup unavailable: "+type(exc).__name__+" "+str(exc)[:220])
+if not stored and st.session_state.get("scanner_odds_lookup_error"):
+    with st.expander("Odds database diagnostic",expanded=False):
+        st.code(st.session_state["scanner_odds_lookup_error"])
 if stored:
+    st.session_state.pop("scanner_odds_lookup_error",None)
     prices,source=stored
     for side,v in zip(("hp","dp","ap"),prices):
         widget=f"sc_{side}_{mid}"
@@ -234,4 +252,4 @@ else:
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v6: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
+st.caption("Scanner v7: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
