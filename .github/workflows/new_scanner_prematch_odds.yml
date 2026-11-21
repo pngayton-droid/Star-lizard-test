@@ -35,9 +35,18 @@ jobs:
         run: pip install 'requests>=2.31,<3' 'supabase>=2,<3'
       - name: Syntax check
         run: python -m py_compile scripts/collect_new_scanner_prematch_odds.py
+      - name: Syntax check halftime collector
+        run: python -m py_compile scripts/collect_match_matrix_halftime_stats.py
       - name: Capture upcoming fixture odds
         env:
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python scripts/collect_new_scanner_prematch_odds.py
+      - name: Capture first-half statistics
+        if: always() && steps.schedule_day.outcome == 'success'
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/collect_match_matrix_halftime_stats.py
