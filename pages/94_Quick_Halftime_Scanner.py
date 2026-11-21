@@ -11,10 +11,24 @@ from lightweight_fixture_feed import get_key, fixtures_for_day, fixture_label, t
 from statsapi_refresh import LEAGUES
 from fixture_live_status import fixture_status
 
-st.set_page_config(page_title="Match Matrix | Quick Scanner", page_icon="⚽", layout="wide")
+st.set_page_config(page_title="The Match Matrix | Live Scanner", page_icon="⚽", layout="wide", initial_sidebar_state="collapsed")
+st.markdown("""<style>
+.stApp{background:linear-gradient(145deg,#0a1220,#101f31);color:#eaf2f9}
+.block-container{max-width:1080px;padding-top:1.1rem}
+[data-testid="stSidebar"],[data-testid="stSidebarNav"]{display:none}
+.stButton button[kind="primary"]{background:#35bba5;color:#061b21;border:0;font-weight:800}
+@media(max-width:640px){.block-container{padding:.8rem .6rem 3rem}}
+</style>""",unsafe_allow_html=True)
+try:
+    st.image("pro_starlizard_header_correct-1.png",use_container_width=True)
+except Exception:
+    pass
 st.title("⚽ THE MATCH MATRIX")
 st.markdown("""<style>div[data-testid="stNumberInput"] label p{font-size:.78rem} div[data-testid="stVerticalBlock"]{gap:.55rem} h1{font-size:1.55rem!important} h2,h3{font-size:1.15rem!important}</style>""",unsafe_allow_html=True)
-st.caption("Quick halftime scanner · live StatsAPI facts · no guessed statistics or bookmaker prices")
+st.caption("HALF-TIME BETTING INTELLIGENCE · GOALS · NEXT GOAL · SECOND-HALF RESULT")
+with st.expander("Other analysis tools",expanded=False):
+    st.page_link("pages/96_Legacy_Match_Analysis.py",label="Original match analysis (archive)")
+    st.page_link("pages/95_Half_Time_Fair_Odds.py",label="Original halftime calculator (archive)")
 key = get_key()
 if not key:
     st.error("Missing TheStatsAPI key in Streamlit secrets.")
