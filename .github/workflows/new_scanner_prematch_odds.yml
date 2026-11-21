@@ -1,0 +1,33 @@
+name: New Scanner prematch 1X2 snapshots
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/10 8-22 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: new-scanner-prematch-odds
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install collector dependencies
+        run: pip install 'requests>=2.31,<3' 'supabase>=2,<3'
+      - name: Syntax check
+        run: python -m py_compile scripts/collect_new_scanner_prematch_odds.py
+      - name: Capture upcoming fixture odds
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: python scripts/collect_new_scanner_prematch_odds.py
