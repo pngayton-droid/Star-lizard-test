@@ -1,0 +1,46 @@
+name: Match Matrix rapid halftime polling
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '2,17,32,47 8-22 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: match-matrix-rapid-halftime
+  cancel-in-progress: false
+
+jobs:
+  halftime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Determine UTC date
+        id: schedule_day
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+      - name: Restore prematch daily fixture cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/scanner_fixture_schedule.json
+          key: match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}-halftime
+          restore-keys: |
+            match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}-
+      - name: Install dependencies
+        run: pip install 'requests>=2.31,<3' 'supabase>=2,<3'
+      - name: Check collector syntax
+        run: python -m py_compile scripts/poll_match_matrix_halftime.py
+      - name: Poll for confirmed halftime (45 seconds)
+        env:
+          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          HT_REQUEST_CAP: '45'
+          HT_QUOTA_RESERVE: '500'
+          HT_POLL_DURATION: '780'
+        run: python -u scripts/poll_match_matrix_halftime.py
