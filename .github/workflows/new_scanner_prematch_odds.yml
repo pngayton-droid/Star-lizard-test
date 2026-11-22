@@ -43,10 +43,3 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
         run: python scripts/collect_new_scanner_prematch_odds.py
-      - name: Capture first-half statistics
-        if: always() && steps.schedule_day.outcome == 'success'
-        env:
-          STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-        run: python scripts/collect_match_matrix_halftime_stats.py
