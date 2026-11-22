@@ -153,3 +153,12 @@ Actual repository files were inspected and these **source changes were committed
 - `last_seen` is the latest API-recorded bookmaker price, not a timestamped exchange quote. `observed_at` proves only when *our request* occurred. Do not claim it is guaranteed closing price or executable.
 - If odds endpoint returns 404/409/429, current collector skips; it does not retry within the same run. Its `RESERVE=500` does not preserve the user's currently reported 6,475 calls; consider stronger budget guard if needed. No live API or end-to-end odds insert verified yet.
 - In the new conversation, read **this file and the actual current GitHub code first**. Keep original keys, Supabase historical tables, model, old pages and Manchester United branding. User prefers direct GitHub edits and concise reports, not pasted code or repeated manual steps.
+
+
+## 22 Nov 2026 — rapid halftime collection trial
+- Existing prematch odds workflow remains intact; its old single-shot halftime step was removed to avoid races.
+- New workflow: `.github/workflows/match_matrix_rapid_halftime.yml`, scheduled at UTC minutes 02/17/32/47, 08:00–22:59. Separate concurrency group; 16-minute job timeout; 13-minute polling loop.
+- New script: `scripts/poll_match_matrix_halftime.py`, 45-second polling, live fixture list status detection, /football/matches/{id}/live-stats two snapshots at least 35 seconds apart, required xG/shots/SOT/corners, exact kickoff/capture/first_seen timestamps, quota cap 45 requests per run and reserve 500, HTTP 429 stop. Uses shared daily fixture cache from prematch collector. Skips if no relevant kickoff windows.
+- Supabase `match_matrix_halftime_stats` extended with `ht_first_seen_at`, `quality`, `api_updated_at`, `elapsed_minutes`, `raw_meta`, `second_observed_at`.
+- Previous 21 Nov three captures validated against finalised `historical_match_events.stats_data`: Dundee and Feyenoord xG exactly matched; Real Madrid xG varied by 0.01 per team; all corners matched.
+- Important: the new rapid poller has NOT yet been proven in a live run; check Actions logs and compare actual observed_at minus kickoff_utc today. GitHub schedule remains best-effort. API halftime status freshness also remains unverified.
