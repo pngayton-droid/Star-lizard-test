@@ -129,10 +129,11 @@ def main():
              .gte("kickoff_utc",start.date().isoformat()).execute().data or [])}
     first_seen={}
     pending={}
+    phase_seen={}
     print("START halftime loop",start.isoformat(),"matches",len(matches),"already_saved",len(captured),flush=True)
     while time.monotonic()<end and not stopped and calls<CAP:
         cycle=utcnow()
-        eligible={mid for mid in matches if possible(mid,cycle) and mid not in captured}
+        eligible={mid for mid in matches if possible(mid,cycle)}
         if not eligible:
             # Do not stop prematurely: later kickoffs may enter the window.
             time.sleep(min(POLL_SECONDS,max(0,end-time.monotonic())))
@@ -140,6 +141,30 @@ def main():
         live=live_list()
         for mid in eligible:
             row=live.get(mid)
+            if row:
+                status,period=phase(row)
+                state="halftime" if is_ht(row) else ("second_half" if period in ("second_half","2nd_half","2h","2","second") else (status or period or "unknown"))
+                if phase_seen.get(mid)!=state:
+                    phase_seen[mid]=state
+                    stamp=utcnow()
+                    fixture,ko=matches[mid]
+                    names=[(fixture.get(k) or {}).get("name") or fallback for k,fallback in (("home_team","Home"),("away_team","Away"))]
+                    current_score=score(row) or {}
+                    live_meta=row.get("live") or {}
+                    elapsed=live_meta.get("elapsed_minutes")
+                    try:elapsed=int(elapsed) if elapsed is not None else None
+                    except (TypeError,ValueError):elapsed=None
+                    log={"match_id":mid,"observed_at":stamp.isoformat(),
+                         "kickoff_utc":ko.isoformat(),"fixture":" v ".join(names),
+                         "match_status":status,"period":period,"elapsed_minutes":elapsed,
+                         "api_updated_at":str(live_meta.get("updated_at") or ""),
+                         "home_score":current_score.get("home"),"away_score":current_score.get("away")}
+                    db.table("match_matrix_live_phase_log").insert(log).execute()
+                    print("PHASE_TRANSITION",mid,state,stamp.isoformat(),
+                          "api_updated_at",log["api_updated_at"],
+                          "elapsed",elapsed,flush=True)
+            if mid in captured:
+                continue
             if not row or not is_ht(row):
                 pending.pop(mid,None)
                 continue
