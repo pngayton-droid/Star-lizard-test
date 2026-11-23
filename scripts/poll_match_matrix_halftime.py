@@ -246,7 +246,10 @@ def main():
             db.table(TABLE).upsert(record,on_conflict="match_id",ignore_duplicates=True).execute()
             captured.add(mid)
             pending.pop(mid,None)
-            collect_ht_odds(mid,fixture,ko,first_seen[mid])
+            try:
+                collect_ht_odds(mid,fixture,ko,first_seen[mid])
+            except Exception as exc:
+                print("HT_ODDS_ERROR",mid,type(exc).__name__,str(exc)[:250],flush=True)
             print("HT_SAVED",mid,"kickoff",ko.isoformat(),
                   "first_seen",first_seen[mid].isoformat(),
                   "captured",s2["observed"].isoformat(),
