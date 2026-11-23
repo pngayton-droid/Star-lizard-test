@@ -365,8 +365,61 @@ else:
                  ("No next goal",1-o05),("2H home win",result["home"]),
                  ("2H draw",result["draw"]),("2H away win",result["away"])]
         st.subheader("Second-half fair odds")
-        st.dataframe(pd.DataFrame([{"Market":name,"Probability":f"{100*p:.1f}%","Fair odds":f"{1/p:.2f}" if p>0 else "—"}
-                                  for name,p in markets]),hide_index=True,use_container_width=True)
+        # Only compare identical second-half markets. Never confuse full-match
+        # totals or match 1X2 with second-half-specific markets.
+        def live_quote(book,market_name):
+            if book.get("provenance")!="live_odds_endpoint":
+                return None
+            all_markets=book.get("markets") or {}
+            mappings={
+                "Over 0.5 2H":("second_half_total_goals","0.5","over"),
+                "Over 1.5 2H":("second_half_total_goals","1.5","over"),
+                "Over 2.5 2H":("second_half_total_goals","2.5","over"),
+                "2H home win":("second_half_result",None,"home"),
+                "2H draw":("second_half_result",None,"draw"),
+                "2H away win":("second_half_result",None,"away"),
+                "Next goal home":("next_goal",None,"home"),
+                "Next goal away":("next_goal",None,"away"),
+                "No next goal":("next_goal",None,"none")}
+            spec=mappings.get(market_name)
+            if not spec:return None
+            group,line,selection=spec
+            block=all_markets.get(group) or {}
+            if line is not None:block=block.get(line) or {}
+            item=block.get(selection) if isinstance(block,dict) else None
+            # Accept only an explicit quote field; never opening/last_seen.
+            if not isinstance(item,dict):return None
+            try:
+                price=float(item.get("price") or item.get("current") or item.get("decimal"))
+                return price if 1.01<=price<=1000 else None
+            except (ValueError,TypeError):return None
+
+        rows=[]
+        for name,p in markets:
+            fair=1/p if p>0 else None
+            offers=[(float(q),str(b.get("bookmaker") or ""))
+                    for b in ht_books if (q:=live_quote(b,name)) is not None]
+            best_price,best_book=max(offers,key=lambda t:t[0]) if offers else (None,None)
+            edge=(p*best_price-1)*100 if best_price is not None else None
+            # At least 2% theoretical EV to reduce highlighting marginal noise.
+            value=edge is not None and edge>=2
+            rows.append({"Market":name,"Model %":f"{100*p:.1f}%",
+                         "Fair odds":f"{fair:.2f}" if fair else "—",
+                         "HT odds":f"{best_price:.2f}" if best_price else "—",
+                         "Book":best_book or "—",
+                         "Model EV":f"{edge:+.1f}%" if edge is not None else "—",
+                         "Flag":"VALUE?" if value else ("—" if edge is None else "No value"),
+                         "_highlight":value})
+        view=pd.DataFrame(rows)
+        flags=view.pop("_highlight")
+        def highlight_value(row):
+            if flags.iloc[row.name]:
+                return ["background-color:#fbe122;color:#171717;font-weight:700"]*len(row)
+            return [""]*len(row)
+        st.dataframe(view.style.apply(highlight_value,axis=1),
+                     hide_index=True,use_container_width=True,
+                     column_config={"Market":st.column_config.TextColumn(width="medium")})
+        st.caption("Yellow = model-implied EV at least +2% against an explicitly mapped live quote. Fair odds are model estimates, not guaranteed profitable prices. Unverified or unmatched quotes are left blank.")
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
