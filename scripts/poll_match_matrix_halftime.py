@@ -105,8 +105,8 @@ def collect_ht_odds(mid, fixture, kickoff, first_seen):
               .eq("match_id",mid).limit(1).execute().data or [])
     if existing:
         return
-    payload=get("/football/matches/"+mid+"/odds",
-                {"bookmaker":"bet365,betfair-exchange,pinnacle"})
+    payload=get("/football/matches/"+mid+"/odds/live",
+                {"bookmaker":"bet365,pinnacle,betfair-sportsbook"})
     data=(payload or {}).get("data") or {}
     books=data.get("bookmakers") or []
     if not books:
@@ -124,12 +124,12 @@ def collect_ht_odds(mid, fixture, kickoff, first_seen):
                 "fixture":home+" v "+away,"kickoff_utc":kickoff.isoformat(),
                 "ht_first_seen_at":first_seen.isoformat(),
                 "status_at_request":"halftime_verified_by_two_stats_snapshots",
-                "markets":markets,"provenance":"unverified_live_quote"}
+                "markets":markets,"provenance":"live_odds_endpoint"}
         db.table("match_matrix_halftime_odds").upsert(
             record,on_conflict="match_id,bookmaker",ignore_duplicates=True).execute()
         saved+=1
     print("HT_ODDS_PROBE",mid,"bookmakers",saved,
-          "WARNING prices may be stale prematch last_seen, not verified inplay",flush=True)
+          "source dedicated live odds endpoint; inspect actual returned price fields",flush=True)
 
 def main():
     if not CACHE.exists():
