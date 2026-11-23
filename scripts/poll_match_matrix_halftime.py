@@ -105,8 +105,7 @@ def collect_ht_odds(mid, fixture, kickoff, first_seen):
               .eq("match_id",mid).limit(1).execute().data or [])
     if existing:
         return
-    payload=get("/football/matches/"+mid+"/odds/live",
-                {"bookmaker":"bet365,pinnacle,betfair-sportsbook"})
+    payload=get("/football/matches/"+mid+"/odds/live")
     data=(payload or {}).get("data") or {}
     books=data.get("bookmakers") or []
     if not books:
