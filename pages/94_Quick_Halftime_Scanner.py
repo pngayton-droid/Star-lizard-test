@@ -284,6 +284,41 @@ with st.expander("Edit missing pre-match 1X2 odds",expanded=False):
     with c2:dp=st.number_input("Draw",min_value=1.01,value=None,placeholder="Odds",key=f"sc_dp_{mid}")
     with c3:ap=st.number_input("Away",min_value=1.01,value=None,placeholder="Odds",key=f"sc_ap_{mid}")
 
+@st.cache_data(ttl=90,show_spinner=False)
+def stored_halftime_odds(match_id):
+    import os
+    from supabase import create_client
+    url=os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+    secret=os.environ.get("SUPABASE_SECRET_KEY") or st.secrets.get("SUPABASE_SECRET_KEY")
+    if not url or not secret:return []
+    return (create_client(url,secret).table("match_matrix_halftime_odds")
+            .select("bookmaker,markets,observed_at,provenance")
+            .eq("match_id",match_id).execute().data or [])
+
+st.subheader("Half-time bookmaker odds")
+try:
+    ht_books=stored_halftime_odds(mid)
+except Exception as exc:
+    ht_books=[]
+    st.caption("Half-time odds database unavailable: "+type(exc).__name__)
+if ht_books:
+    display=[]
+    for book in ht_books:
+        market=(book.get("markets") or {}).get("match_odds") or {}
+        prices={}
+        for side in ("home","draw","away"):
+            item=market.get(side) or {}
+            if isinstance(item,dict):
+                prices[side]=item.get("last_seen")
+        display.append({"Bookmaker":book.get("bookmaker"),
+                        "Captured (UTC)":str(book.get("observed_at") or "")[:19],
+                        "Home":prices.get("home"),"Draw":prices.get("draw"),
+                        "Away":prices.get("away")})
+    st.dataframe(pd.DataFrame(display),hide_index=True,use_container_width=True)
+    st.warning("These are odds-endpoint snapshots REQUESTED at halftime, not yet verified as in-play prices. The API may return stale pre-match last-seen odds. Do not use them to calculate betting value.")
+else:
+    st.caption("No bookmaker odds captured at halftime for this match yet.")
+
 required=[hg,ag,hx,ax,hp,dp,ap,*fields.values()]
 if any(v is None for v in required):
     st.warning(f"Missing {sum(v is None for v in required)} verified inputs. No fair prices calculated.")
