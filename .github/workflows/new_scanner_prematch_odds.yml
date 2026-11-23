@@ -61,7 +61,7 @@ jobs:
                   active=True
           print("Prematch collection needed:",active)
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
-              f.write("run="+str(active).lower()+"\\n")
+              f.write("run="+str(active).lower()+"\n")
           PY
       - name: Install collector dependencies
         if: steps.gate.outputs.run == 'true'
