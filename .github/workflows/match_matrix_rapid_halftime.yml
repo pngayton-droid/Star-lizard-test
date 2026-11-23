@@ -31,11 +31,44 @@ jobs:
           key: match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}-halftime
           restore-keys: |
             match-matrix-kickoffs-${{ steps.schedule_day.outputs.date }}-
+      - name: Check fixture windows without API requests
+        id: gate
+        shell: bash
+        run: |
+          python - <<'PY'
+          import datetime as dt, json, os
+          from pathlib import Path
+          p=Path(".cache/scanner_fixture_schedule.json")
+          active=False
+          now=dt.datetime.now(dt.timezone.utc)
+          leagues={"comp_3039","comp_8321","comp_8814","comp_5840","comp_4643","comp_0256","comp_3809","comp_8385","comp_8531","comp_6387"}
+          if p.exists():
+              try:
+                  data=json.loads(p.read_text())
+                  if data.get("date")==now.date().isoformat():
+                      for m in data.get("matches",[]):
+                          comp=m.get("competition") or {}
+                          cid=str(m.get("competition_id") or (comp.get("id") if isinstance(comp,dict) else "") or "")
+                          if cid not in leagues:continue
+                          ko=dt.datetime.fromisoformat(str(m.get("utc_date")).replace("Z","+00:00"))
+                          age=(now-ko).total_seconds()/60
+                          if 17 <= age <= 75:
+                              active=True
+                              break
+              except (ValueError,TypeError,KeyError) as exc:
+                  print("Invalid fixture cache:",type(exc).__name__)
+          print("Halftime window active:",active)
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write("run="+str(active).lower()+"\\n")
+          PY
       - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
         run: pip install 'requests>=2.31,<3' 'supabase>=2,<3'
       - name: Check collector syntax
+        if: steps.gate.outputs.run == 'true'
         run: python -m py_compile scripts/poll_match_matrix_halftime.py
       - name: Poll for confirmed halftime (45 seconds)
+        if: steps.gate.outputs.run == 'true'
         env:
           STATS_API_KEY: ${{ secrets.STATS_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
