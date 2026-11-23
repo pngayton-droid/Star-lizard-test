@@ -413,13 +413,20 @@ else:
         view=pd.DataFrame(rows)
         flags=view.pop("_highlight")
         def highlight_value(row):
+            styles=[""]*len(row)
+            # Always distinguish the model's fair price in green.
+            fair_col=row.index.get_loc("Fair odds")
+            if row["Fair odds"]!="—":
+                styles[fair_col]="background-color:#147d43;color:#ffffff;font-weight:700"
+            # Yellow highlights potential value without obscuring green fair odds.
             if flags.iloc[row.name]:
-                return ["background-color:#fbe122;color:#171717;font-weight:700"]*len(row)
-            return [""]*len(row)
+                for field in ("HT odds","Model EV","Flag"):
+                    styles[row.index.get_loc(field)]="background-color:#fbe122;color:#171717;font-weight:700"
+            return styles
         st.dataframe(view.style.apply(highlight_value,axis=1),
                      hide_index=True,use_container_width=True,
                      column_config={"Market":st.column_config.TextColumn(width="medium")})
-        st.caption("Yellow = model-implied EV at least +2% against an explicitly mapped live quote. Fair odds are model estimates, not guaranteed profitable prices. Unverified or unmatched quotes are left blank.")
+        st.caption("Green = model fair odds. Yellow = potential value (model EV at least +2%) against a matched live quote. Unverified or unmatched quotes stay blank.")
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
