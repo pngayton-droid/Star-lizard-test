@@ -59,7 +59,7 @@ jobs:
                   print("Invalid fixture cache:",type(exc).__name__)
           print("Halftime window active:",active)
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
-              f.write("run="+str(active).lower()+"\\n")
+              f.write("run="+str(active).lower()+"\n")
           PY
       - name: Install dependencies
         if: steps.gate.outputs.run == 'true'
