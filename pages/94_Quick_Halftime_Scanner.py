@@ -309,7 +309,7 @@ if ht_books:
         for side in ("home","draw","away"):
             item=market.get(side) or {}
             if isinstance(item,dict):
-                prices[side]=item.get("price") or item.get("current") or item.get("decimal")
+                prices[side]=item.get("live") or item.get("price") or item.get("current") or item.get("decimal")
         display.append({"Bookmaker":book.get("bookmaker"),
                         "Captured (UTC)":str(book.get("observed_at") or "")[:19],
                         "Home":prices.get("home"),"Draw":prices.get("draw"),
