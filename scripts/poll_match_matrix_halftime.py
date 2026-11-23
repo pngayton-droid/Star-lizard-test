@@ -99,6 +99,38 @@ def stats_snapshot(mid):
             first[metric]={"home":values["home"],"away":values["away"]}
     return {"payload":payload,"meta":meta,"first":first,"observed":utcnow()}
 
+def collect_ht_odds(mid, fixture, kickoff, first_seen):
+    """One bounded odds probe at verified halftime; never assert live-price freshness."""
+    existing=(db.table("match_matrix_halftime_odds").select("bookmaker")
+              .eq("match_id",mid).limit(1).execute().data or [])
+    if existing:
+        return
+    payload=get("/football/matches/"+mid+"/odds",
+                {"bookmaker":"bet365,betfair-exchange,pinnacle"})
+    data=(payload or {}).get("data") or {}
+    books=data.get("bookmakers") or []
+    if not books:
+        print("HT_ODDS_UNAVAILABLE",mid,flush=True)
+        return
+    home=(fixture.get("home_team") or {}).get("name") or "Home"
+    away=(fixture.get("away_team") or {}).get("name") or "Away"
+    saved=0
+    for book in books:
+        if not isinstance(book,dict):continue
+        name=book.get("bookmaker")
+        markets=book.get("markets")
+        if not name or not isinstance(markets,dict) or not markets:continue
+        record={"match_id":mid,"bookmaker":str(name),"observed_at":utcnow().isoformat(),
+                "fixture":home+" v "+away,"kickoff_utc":kickoff.isoformat(),
+                "ht_first_seen_at":first_seen.isoformat(),
+                "status_at_request":"halftime_verified_by_two_stats_snapshots",
+                "markets":markets,"provenance":"unverified_live_quote"}
+        db.table("match_matrix_halftime_odds").upsert(
+            record,on_conflict="match_id,bookmaker",ignore_duplicates=True).execute()
+        saved+=1
+    print("HT_ODDS_PROBE",mid,"bookmakers",saved,
+          "WARNING prices may be stale prematch last_seen, not verified inplay",flush=True)
+
 def main():
     if not CACHE.exists():
         print("No daily kickoff cache; no API calls",flush=True)
@@ -215,6 +247,7 @@ def main():
             db.table(TABLE).upsert(record,on_conflict="match_id",ignore_duplicates=True).execute()
             captured.add(mid)
             pending.pop(mid,None)
+            collect_ht_odds(mid,fixture,ko,first_seen[mid])
             print("HT_SAVED",mid,"kickoff",ko.isoformat(),
                   "first_seen",first_seen[mid].isoformat(),
                   "captured",s2["observed"].isoformat(),
