@@ -309,13 +309,16 @@ if ht_books:
         for side in ("home","draw","away"):
             item=market.get(side) or {}
             if isinstance(item,dict):
-                prices[side]=item.get("last_seen")
+                prices[side]=item.get("price") or item.get("current") or item.get("decimal")
         display.append({"Bookmaker":book.get("bookmaker"),
                         "Captured (UTC)":str(book.get("observed_at") or "")[:19],
                         "Home":prices.get("home"),"Draw":prices.get("draw"),
                         "Away":prices.get("away")})
     st.dataframe(pd.DataFrame(display),hide_index=True,use_container_width=True)
-    st.warning("These are odds-endpoint snapshots REQUESTED at halftime, not yet verified as in-play prices. The API may return stale pre-match last-seen odds. Do not use them to calculate betting value.")
+    st.caption("Source: dedicated /odds/live endpoint for new captures. Blank prices mean the response format needs inspection; pre-match last_seen is never substituted.")
+    with st.expander("Inspect raw halftime odds response",expanded=False):
+        st.json([{"bookmaker":b.get("bookmaker"),"provenance":b.get("provenance"),"markets":b.get("markets")} for b in ht_books])
+    st.warning("Live endpoint requested, but quote freshness and market mapping are not yet validated. No automatic value claims.")
 else:
     st.caption("No bookmaker odds captured at halftime for this match yet.")
 
