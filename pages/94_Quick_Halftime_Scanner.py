@@ -35,7 +35,7 @@ max-height:245px;object-fit:contain;justify-self:center}
 .hero p{font-size:.79rem;line-height:1.5}
 .hero img{max-height:205px}}
 </style>
-<div class="hero"><h2 style="margin:0!important">MATCH MATRIX</h2></div>
+<div class="hero"><h2>THE MATCH MATRIX</h2><div class="hero-content"><p>HALF-TIME BETTING INTELLIGENCE<br>GOALS · NEXT GOAL<br>SECOND-HALF RESULT</p><img src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United crest" /></div></div>
 """,unsafe_allow_html=True)
 st.markdown("""<style>
 /* Keep the title BELOW Streamlit's fixed Share/Edit toolbar on phones. */
@@ -64,7 +64,7 @@ def comp_id(f):
     c=f.get("competition") or {}
     return str(f.get("competition_id") or (c.get("id") if isinstance(c,dict) else "") or "")
 fixtures = sorted([f for f in all_fixtures if comp_id(f) in allowed], key=fixture_label)
-st.caption(f"{len(fixtures)} fixtures in selected leagues · fixture feed cached for 60 seconds")
+
 if not fixtures:
     st.info("No selected-league fixtures today.")
     st.stop()
@@ -75,7 +75,7 @@ def phase(f):
     if status == "Finished / not active": return "Finished"
     return "Scheduled / unknown"
 visible=[f for f in fixtures if status_filter=="All" or phase(f)==status_filter]
-st.caption("Scores in the fixture feed may be live or final, not necessarily the halftime score.")
+
 labels=[fixture_label(f) for f in visible]
 if not visible:
     st.info("No fixtures in this filter.")
@@ -208,7 +208,7 @@ if missing_red:
     if st.button("Confirm no first-half red cards",key=f"confirm_no_red_{mid}",use_container_width=True):
         for side in missing_red:
             st.session_state[f"sc_red_{side}_{mid}"]=0
-with st.expander("Edit missing half-time facts",expanded=bool(missing_red)):
+with st.expander("Edit missing half-time facts",expanded=False):
     st.caption("Enter the confirmed half-time score; current live score is not used as a substitute.")
     a,b=st.columns(2)
     with a:
@@ -464,4 +464,4 @@ else:
                 st.dataframe(pd.DataFrame(rows)[["Market","Book","HT odds","Model %"]],hide_index=True,use_container_width=True)
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
-st.caption("Scanner v8: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
+
