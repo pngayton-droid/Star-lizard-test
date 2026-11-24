@@ -99,6 +99,31 @@ def stats_snapshot(mid):
             first[metric]={"home":values["home"],"away":values["away"]}
     return {"payload":payload,"meta":meta,"first":first,"observed":utcnow()}
 
+def halftime_red_cards(mid, fixture):
+    body=get("/football/matches/"+mid+"/live-timeline",{"period":"first_half"})
+    data=(body or {}).get("data") or {}
+    meta=(body or {}).get("meta") or {}
+    events=data.get("events")
+    if meta.get("coverage")!="full" or data.get("coverage")!="full" or not isinstance(events,list) or not events:
+        return None
+    if not any(e.get("type")=="period_end" and e.get("period")=="first_half" for e in events):
+        return None
+    teams={str((fixture.get(side+"_team") or {}).get("id") or ""):side for side in ("home","away")}
+    if "" in teams or len(teams)!=2:return None
+    counts={"home":0,"away":0}
+    seen=set()
+    for e in events:
+        if e.get("type") not in ("red_card","yellow_red_card"):continue
+        if e.get("period")!="first_half":return None
+        side=teams.get(str((e.get("team") or {}).get("id") or ""))
+        player=(e.get("player") or {}).get("id")
+        if not side or not player:return None
+        key=(side,player)
+        if key not in seen:
+            counts[side]+=1
+            seen.add(key)
+    return counts
+
 def collect_ht_odds(mid, fixture, kickoff, first_seen):
     """One bounded odds probe at verified halftime; never assert live-price freshness."""
     existing=(db.table("match_matrix_halftime_odds").select("bookmaker")
@@ -242,6 +267,17 @@ def main():
               "second_observed_at":s2["observed"].isoformat(),
               "api_updated_at":str((row.get("live") or {}).get("updated_at") or ""),
               "elapsed_minutes":elapsed,"raw_meta":meta}
+            if "red_cards" not in record["first_half_stats"]:
+                try:
+                    reds=halftime_red_cards(mid,fixture)
+                    if reds is not None:
+                        record["first_half_stats"]["red_cards"]=reds
+                        record["raw_meta"]={**meta,"red_cards_source":"full_first_half_live_timeline"}
+                        print("HT_RED_CARDS",mid,reds,flush=True)
+                    else:
+                        print("HT_RED_CARDS_UNVERIFIED",mid,flush=True)
+                except Exception as exc:
+                    print("HT_RED_CARDS_ERROR",mid,type(exc).__name__,str(exc)[:200],flush=True)
             # Never overwrite an earlier saved record.
             db.table(TABLE).upsert(record,on_conflict="match_id",ignore_duplicates=True).execute()
             captured.add(mid)
