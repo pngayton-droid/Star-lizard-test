@@ -116,14 +116,21 @@ try:
 except Exception as exc:
     archived=None
     st.caption("Saved halftime statistics lookup unavailable: "+type(exc).__name__)
-if archived and st.session_state.get("scanner_stats_id")!=mid:
+if archived:
     # Convert the archived live-stats snapshot to the scanner's existing
     # first_half overview shape. Preserve the exact archived raw response in DB.
     raw=archived.get("stats_payload") or {}
-    live_stats=raw.get("stats") or {}
+    live_stats=(raw.get("data") or raw).get("stats") or {}
     adapted={"overview":{metric:{"first_half":pair.get("all")}
         for metric,pair in live_stats.items()
         if isinstance(pair,dict) and isinstance(pair.get("all"),dict)}}
+    for metric,name in (("expected_goals","hx"),("total_shots","shots"),("shots_on_target","sot"),("corner_kicks","corners"),("red_cards","red")):
+        for side in ("home","away"):
+            v=((adapted["overview"].get(metric) or {}).get("first_half") or {}).get(side)
+            widget=f"sc_{name}_{side}_{mid}" if name!="hx" else f"sc_{'hx' if side=='home' else 'ax'}_{mid}"
+            if v is not None and st.session_state.get(widget) is None:
+                try: st.session_state[widget]=float(v) if name=="hx" else int(float(v))
+                except (ValueError,TypeError): pass
     st.session_state["scanner_stats"]=adapted
     st.session_state["scanner_stats_id"]=mid
     st.caption("First-half statistics loaded from saved Supabase snapshot.")
@@ -145,7 +152,7 @@ if False and is_halftime and not archived and st.session_state.get("scanner_auto
         st.session_state["scanner_stats"]={}
         st.session_state["scanner_stats_id"]=mid
         st.warning("Automatic halftime statistics unavailable: "+type(exc).__name__)
-if st.button("Fetch first-half stats",type="primary",use_container_width=True):
+if not archived and st.button("Fetch first-half stats",type="primary",use_container_width=True):
     fetch_stats.clear()
     st.session_state["scanner_stats_id"]=mid
     try:
@@ -375,6 +382,7 @@ else:
                 "Over 0.5 2H":("second_half_total_goals","0.5","over"),
                 "Over 1.5 2H":("second_half_total_goals","1.5","over"),
                 "Over 2.5 2H":("second_half_total_goals","2.5","over"),
+                "Both score 2H":("btts_second_half",None,"yes"),
                 "2H home win":("second_half_result",None,"home"),
                 "2H draw":("second_half_result",None,"draw"),
                 "2H away win":("second_half_result",None,"away"),
@@ -385,12 +393,18 @@ else:
             if not spec:return None
             group,line,selection=spec
             block=all_markets.get(group) or {}
-            if line is not None:block=block.get(line) or {}
+            if line is not None:
+                block=block.get(line) or {}
+                if not block and group=="second_half_total_goals" and archived:
+                    score=archived.get("half_time_score") or {}
+                    if score.get("home") is not None and score.get("away") is not None and int(score["home"])==hg and int(score["away"])==ag:
+                        full_line=str(float(line)+hg+ag)
+                        block=(all_markets.get("total_goals") or {}).get(full_line) or {}
             item=block.get(selection) if isinstance(block,dict) else None
             # Accept only an explicit quote field; never opening/last_seen.
             if not isinstance(item,dict):return None
             try:
-                price=float(item.get("price") or item.get("current") or item.get("decimal"))
+                price=float(item.get("live"))
                 return price if 1.01<=price<=1000 else None
             except (ValueError,TypeError):return None
 
@@ -426,7 +440,7 @@ else:
         st.dataframe(view.style.apply(highlight_value,axis=1),
                      hide_index=True,use_container_width=True,
                      column_config={"Market":st.column_config.TextColumn(width="medium")})
-        st.caption("Green = model fair odds. Yellow = potential value (model EV at least +2%) against a matched live quote. Unverified or unmatched quotes stay blank.")
+        st.caption("Green = model fair odds. Yellow = potential model value (EV at least +2%). Second-half totals use equivalent full-match lines at the archived halftime score when needed. Quote freshness is not independently verified.")
         st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
