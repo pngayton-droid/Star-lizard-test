@@ -200,7 +200,13 @@ if data:
         st.warning("No recognised first-half fields in this response. We must inspect its structure before claiming automatic population.")
 else:
     st.info("Fetch stats when the match reaches halftime. Blank fields mean unverified data.")
-with st.expander("Edit missing half-time facts",expanded=False):
+missing_red=[side for side in ("home","away") if half_stat("red_cards",side) is None and st.session_state.get(f"sc_red_{side}_{mid}") is None]
+if missing_red:
+    st.warning("Red-card counts were omitted by the feed. Confirm the actual halftime counts below; do not assume zero.")
+    if st.button("Confirm no first-half red cards",key=f"confirm_no_red_{mid}",use_container_width=True):
+        for side in missing_red:
+            st.session_state[f"sc_red_{side}_{mid}"]=0
+with st.expander("Edit missing half-time facts",expanded=bool(missing_red)):
     st.caption("Enter the confirmed half-time score; current live score is not used as a substitute.")
     a,b=st.columns(2)
     with a:
@@ -331,7 +337,7 @@ else:
 
 required=[hg,ag,hx,ax,hp,dp,ap,*fields.values()]
 if any(v is None for v in required):
-    st.warning(f"Missing {sum(v is None for v in required)} verified inputs. No fair prices calculated.")
+    st.warning("Missing verified inputs: "+", ".join(name for name,v in zip(["Home HT goals","Away HT goals","Home xG","Away xG","Home pre-match odds","Draw pre-match odds","Away pre-match odds",*[f"{side} {name}" for name,side in fields]],required) if v is None)+". No fair prices calculated.")
 elif fields[("sot","home")]>fields[("shots","home")] or fields[("sot","away")]>fields[("shots","away")]:
     st.error("Shots on target cannot exceed total shots.")
 else:
