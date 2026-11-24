@@ -35,8 +35,7 @@ max-height:245px;object-fit:contain;justify-self:center}
 .hero p{font-size:.79rem;line-height:1.5}
 .hero img{max-height:205px}}
 </style>
-<div class="hero"><h2>THE MATCH MATRIX</h2>
-<div class="hero-content"><p>HALF-TIME BETTING INTELLIGENCE<br>GOALS · NEXT GOAL<br>SECOND-HALF RESULT</p><img src="https://en.wikinews.org/wiki/Special:FilePath/Manchester_United_F.C._logo.svg" alt="Manchester United crest" /></div></div>
+<div class="hero"><h2 style="margin:0!important">MATCH MATRIX</h2></div>
 """,unsafe_allow_html=True)
 st.markdown("""<style>
 /* Keep the title BELOW Streamlit's fixed Share/Edit toolbar on phones. */
@@ -88,7 +87,7 @@ selected=st.selectbox("Open a match", range(len(visible)), format_func=lambda i:
 f=visible[selected]
 mid=str(f.get("id") or "")
 st.subheader(f"{team_name(f,'home')} v {team_name(f,'away')}")
-st.caption("Only the selected match requests detailed stats. Refresh manually to control API usage.")
+price_slot=st.container()
 @st.cache_data(ttl=90, show_spinner=False)
 def fetch_stats(api_key,match_id):
     r=requests.get(f"{API_BASE}/football/matches/{match_id}/stats",
@@ -108,7 +107,7 @@ def stored_first_half(match_id):
     secret=os.environ.get("SUPABASE_SECRET_KEY") or st.secrets.get("SUPABASE_SECRET_KEY")
     if not url or not secret:return None
     rows=(create_client(url,secret).table("match_matrix_halftime_stats")
-          .select("stats_payload,half_time_score,observed_at")
+          .select("stats_payload,first_half_stats,half_time_score,observed_at")
           .eq("match_id",match_id).limit(1).execute().data or [])
     return rows[0] if rows else None
 try:
@@ -124,6 +123,9 @@ if archived:
     adapted={"overview":{metric:{"first_half":pair.get("all")}
         for metric,pair in live_stats.items()
         if isinstance(pair,dict) and isinstance(pair.get("all"),dict)}}
+    for metric,pair in (archived.get("first_half_stats") or {}).items():
+        if isinstance(pair,dict) and all(pair.get(side) is not None for side in ("home","away")):
+            adapted["overview"][metric]={"first_half":pair}
     for metric,name in (("expected_goals","hx"),("total_shots","shots"),("shots_on_target","sot"),("corner_kicks","corners"),("red_cards","red")):
         for side in ("home","away"):
             v=((adapted["overview"].get(metric) or {}).get("first_half") or {}).get(side)
@@ -133,7 +135,7 @@ if archived:
                 except (ValueError,TypeError): pass
     st.session_state["scanner_stats"]=adapted
     st.session_state["scanner_stats_id"]=mid
-    st.caption("First-half statistics loaded from saved Supabase snapshot.")
+    
     saved_score=archived.get("half_time_score") or {}
     for side,short in (("home","hg"),("away","ag")):
         if saved_score.get(side) is not None and st.session_state.get(f"sc_{short}_{mid}") is None:
@@ -195,7 +197,7 @@ for side,short in (("home","hg"),("away","ag")):
         st.session_state[widget]=verified
 if data:
     found=sum(half_stat(m,side) is not None for m in ("expected_goals","total_shots","shots_on_target","corner_kicks","red_cards") for side in ("home","away"))
-    st.info(f"Stats API responded. {found}/10 first-half stat fields recognised; half-time score and pre-match odds checked separately.")
+    
     if found==0:
         st.warning("No recognised first-half fields in this response. We must inspect its structure before claiming automatic population.")
 else:
@@ -289,7 +291,7 @@ if stored:
     for side,v in zip(("hp","dp","ap"),prices):
         widget=f"sc_{side}_{mid}"
         if st.session_state.get(widget) is None:st.session_state[widget]=v
-    st.caption(f"Pre-match odds prefilled from stored {source} last-seen prices (not live quotes).")
+    
 with st.expander("Edit missing pre-match 1X2 odds",expanded=False):
     st.caption("Only enter genuine pre-kickoff prices; not live or halftime odds.")
     c1,c2,c3=st.columns(3)
@@ -308,33 +310,34 @@ def stored_halftime_odds(match_id):
             .select("bookmaker,markets,observed_at,provenance")
             .eq("match_id",match_id).execute().data or [])
 
-st.subheader("Half-time bookmaker odds")
+
 try:
     ht_books=stored_halftime_odds(mid)
 except Exception as exc:
     ht_books=[]
     st.caption("Half-time odds database unavailable: "+type(exc).__name__)
-if ht_books:
-    display=[]
-    for book in ht_books:
-        market=(book.get("markets") or {}).get("match_odds") or {}
-        prices={}
-        for side in ("home","draw","away"):
-            item=market.get(side) or {}
-            if isinstance(item,dict):
-                prices[side]=item.get("live") or item.get("price") or item.get("current") or item.get("decimal")
-        display.append({"Bookmaker":book.get("bookmaker"),
-                        "Captured (UTC)":str(book.get("observed_at") or "")[:19],
-                        "Home":prices.get("home"),"Draw":prices.get("draw"),
-                        "Away":prices.get("away")})
-    st.dataframe(pd.DataFrame(display),hide_index=True,use_container_width=True)
-    st.caption("Source: dedicated /odds/live endpoint for new captures. Blank prices mean the response format needs inspection; pre-match last_seen is never substituted.")
-    with st.expander("Inspect raw halftime odds response",expanded=False):
-        st.json([{"bookmaker":b.get("bookmaker"),"provenance":b.get("provenance"),"markets":b.get("markets")} for b in ht_books])
-    st.warning("Live endpoint requested, but quote freshness and market mapping are not yet validated. No automatic value claims.")
-else:
-    st.caption("No bookmaker odds captured at halftime for this match yet.")
-
+with st.expander("Bookmaker details",expanded=False):
+    if ht_books:
+        display=[]
+        for book in ht_books:
+            market=(book.get("markets") or {}).get("match_odds") or {}
+            prices={}
+            for side in ("home","draw","away"):
+                item=market.get(side) or {}
+                if isinstance(item,dict):
+                    prices[side]=item.get("live") or item.get("price") or item.get("current") or item.get("decimal")
+            display.append({"Bookmaker":book.get("bookmaker"),
+                            "Captured (UTC)":str(book.get("observed_at") or "")[:19],
+                            "Home":prices.get("home"),"Draw":prices.get("draw"),
+                            "Away":prices.get("away")})
+        st.dataframe(pd.DataFrame(display),hide_index=True,use_container_width=True)
+        st.caption("Source: dedicated /odds/live endpoint for new captures. Blank prices mean the response format needs inspection; pre-match last_seen is never substituted.")
+        with st.expander("Inspect raw halftime odds response",expanded=False):
+            st.json([{"bookmaker":b.get("bookmaker"),"provenance":b.get("provenance"),"markets":b.get("markets")} for b in ht_books])
+        st.warning("Live endpoint requested, but quote freshness and market mapping are not yet validated. No automatic value claims.")
+    else:
+        st.caption("No bookmaker odds captured at halftime for this match yet.")
+    
 required=[hg,ag,hx,ax,hp,dp,ap,*fields.values()]
 if any(v is None for v in required):
     st.warning("Missing verified inputs: "+", ".join(name for name,v in zip(["Home HT goals","Away HT goals","Home xG","Away xG","Home pre-match odds","Draw pre-match odds","Away pre-match odds",*[f"{side} {name}" for name,side in fields]],required) if v is None)+". No fair prices calculated.")
@@ -377,7 +380,7 @@ else:
                  ("Next goal home",o05*hshare),("Next goal away",o05*(1-hshare)),
                  ("No next goal",1-o05),("2H home win",result["home"]),
                  ("2H draw",result["draw"]),("2H away win",result["away"])]
-        st.subheader("Second-half fair odds")
+
         # Only compare identical second-half markets. Never confuse full-match
         # totals or match 1X2 with second-half-specific markets.
         def live_quote(book,market_name):
@@ -430,7 +433,7 @@ else:
                          "Model EV":f"{edge:+.1f}%" if edge is not None else "—",
                          "Flag":"VALUE?" if value else ("—" if edge is None else "No value"),
                          "_highlight":value})
-        view=pd.DataFrame(rows)
+        view=pd.DataFrame(rows)[["Market","Fair odds","HT odds","Model EV","_highlight"]]
         flags=view.pop("_highlight")
         def highlight_value(row):
             styles=[""]*len(row)
@@ -440,14 +443,25 @@ else:
                 styles[fair_col]="background-color:#147d43;color:#ffffff;font-weight:700"
             # Yellow highlights potential value without obscuring green fair odds.
             if flags.iloc[row.name]:
-                for field in ("HT odds","Model EV","Flag"):
+                for field in ("HT odds","Model EV"):
                     styles[row.index.get_loc(field)]="background-color:#fbe122;color:#171717;font-weight:700"
             return styles
-        st.dataframe(view.style.apply(highlight_value,axis=1),
-                     hide_index=True,use_container_width=True,
-                     column_config={"Market":st.column_config.TextColumn(width="medium")})
-        st.caption("Green = model fair odds. Yellow = potential model value (EV at least +2%). Second-half totals use equivalent full-match lines at the archived halftime score when needed. Quote freshness is not independently verified.")
-        st.caption(f"Existing deployed model · trained through {model.get('last_training_date','unknown')} · fair odds exclude margin.")
+        with price_slot:
+            st.markdown(f"**HT {hg}–{ag} · xG {hx:.2f} / {ax:.2f}**")
+            st.subheader("Second-half prices")
+            from html import escape
+            html='<table style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px"><thead><tr><th style="width:40%">Market</th><th>Fair</th><th>Book</th><th>EV</th></tr></thead><tbody>'
+            for row in rows:
+                yellow="background:#fbe122;color:#171717;font-weight:bold" if row["_highlight"] else ""
+                html+='<tr>'
+                for field in ("Market","Fair odds","HT odds","Model EV"):
+                    style="background:#147d43;color:white;font-weight:bold" if field=="Fair odds" else yellow if field in ("HT odds","Model EV") else ""
+                    html+=f'<td style="padding:6px 3px;overflow-wrap:anywhere;{style}">{escape(row[field])}</td>'
+                html+='</tr>'
+            st.markdown(html+'</tbody></table>',unsafe_allow_html=True)
+            st.caption("Green: fair odds. Yellow: model EV ≥2%. Archived quote freshness and exchange commission not verified.")
+            with st.expander("Price sources",expanded=False):
+                st.dataframe(pd.DataFrame(rows)[["Market","Book","HT odds","Model %"]],hide_index=True,use_container_width=True)
     except Exception as exc:
         st.error(f"Pricing unavailable: {type(exc).__name__}: {str(exc)[:130]}")
 st.caption("Scanner v8: exact fixture status, local model loading and expanded verified HT-score lookup; no invented odds or betting-value claims.")
