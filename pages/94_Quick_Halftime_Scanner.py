@@ -202,12 +202,47 @@ if data:
         st.warning("No recognised first-half fields in this response. We must inspect its structure before claiming automatic population.")
 else:
     st.info("Fetch stats when the match reaches halftime. Blank fields mean unverified data.")
-missing_red=[side for side in ("home","away") if half_stat("red_cards",side) is None and st.session_state.get(f"sc_red_{side}_{mid}") is None]
+@st.cache_data(ttl=300,show_spinner=False)
+def verify_reds(api_key,match_id,home_id,away_id,finished):
+    endpoint="timeline" if finished else "live-timeline"
+    response=requests.get(f"{API_BASE}/football/matches/{match_id}/{endpoint}",params={"period":"first_half"},headers={"Authorization":f"Bearer {api_key}"},timeout=15)
+    response.raise_for_status()
+    body=response.json()
+    data=body.get("data") or {}
+    events=data.get("events")
+    if data.get("coverage")!="full" or (body.get("meta") or {}).get("coverage")!="full" or not isinstance(events,list) or not events:
+        return None
+    if not finished and not any(e.get("type")=="period_end" and e.get("period")=="first_half" for e in events):
+        return None
+    if not home_id or not away_id or home_id==away_id:return None
+    teams={home_id:"home",away_id:"away"}
+    counts={"home":0,"away":0}
+    seen=set()
+    for e in events:
+        if e.get("period")!="first_half":continue
+        if e.get("type") not in ("red_card","yellow_red_card"):continue
+        side=teams.get((e.get("team") or {}).get("id"))
+        player=(e.get("player") or {}).get("id")
+        if not side or not player:return None
+        if (side,player) not in seen:
+            counts[side]+=1
+            seen.add((side,player))
+    return counts
+missing_red=[side for side in ("home","away") if half_stat("red_cards",side) is None]
+if archived and missing_red:
+    try:
+        reds=verify_reds(key,mid,(f.get("home_team") or {}).get("id"),(f.get("away_team") or {}).get("id"),str(f.get("status")).lower()=="finished")
+        if reds is not None and all(half_stat("red_cards",side) in (None,reds[side]) for side in ("home","away")):
+            for side in ("home","away"):
+                st.session_state[f"sc_red_{side}_{mid}"]=reds[side]
+            overview["red_cards"]={"first_half":reds}
+            missing_red=[]
+        else:
+            for side in missing_red:st.session_state[f"sc_red_{side}_{mid}"]=None
+    except Exception:
+        for side in missing_red:st.session_state[f"sc_red_{side}_{mid}"]=None
 if missing_red:
-    st.warning("Red-card counts were omitted by the feed. Confirm the actual halftime counts below; do not assume zero.")
-    if st.button("Confirm no first-half red cards",key=f"confirm_no_red_{mid}",use_container_width=True):
-        for side in missing_red:
-            st.session_state[f"sc_red_{side}_{mid}"]=0
+    st.warning("First-half red-card data not yet verified automatically.")
 with st.expander("Edit missing half-time facts",expanded=False):
     st.caption("Enter the confirmed half-time score; current live score is not used as a substitute.")
     a,b=st.columns(2)
